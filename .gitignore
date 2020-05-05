@@ -1,0 +1,9 @@
+.ipynb_checkpoints
+.vscode
+src/
+libs/
+logs/
+/data/
+*__pycache__*
+*.csv
+*.xlsx
