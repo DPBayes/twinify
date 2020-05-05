@@ -95,6 +95,13 @@ def create_guide_dists(feature_params_and_shapes):
                 param("{}_{}_loc_uncons".format(name, parameter), onp.random.randn(*shape)),
                 param("{}_{}_std_uncons".format(name, parameter), np.exp(onp.random.randn(*shape))) ## terrible code!!!
             ), transform)
+			if type(transform)!=dist.transforms.StickBreakingTransform
+			else
+			dist.TransformedDistribution(dist.Normal(
+                # todo(lumip): deal with transforms changing shape #shapeshifters
+                param("{}_{}_loc_uncons".format(name, parameter), onp.random.randn(shape[0], shape[1]-1)),
+                param("{}_{}_std_uncons".format(name, parameter), np.exp(onp.random.randn(shape[0], shape[1]-1))) ## terrible code!!!
+            ), transform)
             for parameter, transform in feature_parameters.items()
         }
         for name, (feature_parameters, shape) in feature_params_and_shapes.items()

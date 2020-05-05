@@ -58,10 +58,10 @@ seeded_model = seed(model, jax.random.PRNGKey(8365))
 
 from covid19.data.preprocess_einstein import df
 
-# profit = train_model_no_dp(
-#     jax.random.PRNGKey(0),
-#     model, automodel.model_args_map, guide, automodel.guide_args_map,
-#     df[list(feature_dists.keys())].to_numpy(),
-#     batch_size=10,
-#     num_epochs=100
-# )
+profit = train_model_no_dp(
+    jax.random.PRNGKey(0),
+    model, automodel.model_args_map, guide, automodel.guide_args_map,
+    df[list(feature_dists.keys())].to_numpy(),
+    batch_size=10,
+    num_epochs=100
+)
