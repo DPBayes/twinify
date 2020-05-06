@@ -40,7 +40,7 @@ covid_test: Bernoulli
 severity: Categorical
 """
 
-feature_dtypes = ['float', 'float', 'bool', 'int', 'int']
+feature_dtypes = ['float', 'bool', 'int']
 #crp: Normal, loc=.5
 
 
@@ -61,7 +61,7 @@ from covid19.data.preprocess_einstein import df
 profit = train_model_no_dp(
     jax.random.PRNGKey(0),
     model, automodel.model_args_map, guide, automodel.guide_args_map,
-    df[list(feature_dists.keys())].to_numpy(),
+    df[list(feature_dists.keys())].dropna().to_numpy(),
     batch_size=10,
     num_epochs=100
 )

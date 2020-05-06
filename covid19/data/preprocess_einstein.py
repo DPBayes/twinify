@@ -11,7 +11,7 @@ df = original_data.copy()
 features = ['Proteina C reativa mg/dL', 'Lactic Dehydrogenase', 'SARS-Cov-2 exam result', 'Patient age quantile']
 admitteds = [feature for feature in df.columns if 'addmited' in feature]
 features += admitteds
-df = df[features].dropna()
+#df = df[features].dropna()
 
 df = df.rename(columns={'Proteina C reativa mg/dL':'crp', 'Lactic Dehydrogenase':'ldh', 'SARS-Cov-2 exam result':'covid_test', 'Patient age quantile':'age'})
 admit_maps = od({name : name.split(' to ')[1].split(' (')[0] for name in admitteds})
