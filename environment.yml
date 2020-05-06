@@ -76,12 +76,10 @@ dependencies:
   - pip:
     - absl-py==0.9.0
     - git+ssh://git@github.com/PROBIC/DP-probabilistic-programming.git@722dcc388a2619bd2a20adf2f6705d14d6560a78#egg=dppp
-    - fastcache==1.1.0
     - fourier-accountant==0.12.0
-    - jax==0.1.57
-    - jaxlib==0.1.37
+    - git+https://github.com/google/jax.git@2512ec6ebebf1b26d2aefbe618b4c147c251d194#egg=jax
+    - jaxlib==0.1.45
     - git+https://github.com/pyro-ppl/numpyro.git@152c096b5fd06dabd0d6decd0aafdaff431bcc9c#egg=numpyro
     - opt-einsum==3.2.1
-    - protobuf==3.11.3
     - tqdm==4.46.0
 
