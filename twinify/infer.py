@@ -70,8 +70,14 @@ def train_model_no_dp(rng, model, model_args_map, guide, guide_args_map, data, b
 
     optimizer = Adam(1e-3)
 
+    if model_args_map is not None:
+        model = make_observed_model(model, model_args_map)
+
+    if guide_args_map is not None:
+        guide = make_observed_model(guide, guide_args_map)
+
     svi = SVI(
-        make_observed_model(model, model_args_map), make_observed_model(guide, guide_args_map),
+        model, guide,
         optimizer, ELBO(),
         num_obs_total=data.shape[0]
     )
