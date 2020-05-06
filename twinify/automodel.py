@@ -47,7 +47,7 @@ def zip_dicts(first_dict, second_dict):
         for key in first_dict
     ])
 
-def make_guide(feature_params_and_shapes):
+def make_guide(feature_params_and_shapes, k):
     """ Given parameter constraints and shapes, sets up and returns the guide function
 
     Parameters:
@@ -62,6 +62,13 @@ def make_guide(feature_params_and_shapes):
                 std = param("{}_{}_std_uncons".format(name, parameter), .1*onp.random.randn(*shape))
                 dist = dists.TransformedDistribution(dists.Normal(loc, np.exp(std)), transform)
                 sample("{}_{}".format(name, parameter), dist)
+
+        pis_loc = param('pis_loc_uncons', .1*onp.random.randn(k - 1))
+        pis_std = param('pis_std_uncons', .1*onp.random.randn(k - 1))
+
+        pis_dist = dists.TransformedDistribution(dists.Normal(pis_loc, np.exp(pis_std)), dists.transforms.StickBreakingTransform())
+        sample("pis", pis_dist)
+
     return guide
 
 ###################### automatic prior #############################

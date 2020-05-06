@@ -64,7 +64,7 @@ feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
 
 guide_param_sites = automodel.extract_parameter_sites(feature_dists_and_shapes)
 # guide_dists = automodel.create_guide_dists(guide_param_sites)
-guide = automodel.make_guide(guide_param_sites)
+guide = automodel.make_guide(guide_param_sites, k)
 seeded_guide = seed(guide, jax.random.PRNGKey(23496))
 
 
