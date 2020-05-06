@@ -80,8 +80,6 @@ dist_lookup = {
     "Poisson": dists.Poisson
 }
 
-}
-
 def parse_model(model_str):
     """
     Parameters:
@@ -109,38 +107,37 @@ def parse_model(model_str):
     return model
 
 ##################### support lookup ########################
-support_lookup = {
-    "Normal": "float",
-    "Bernoulli": "bool",
-    "Categorical": "int",
-    "Poisson": "int"
+
+
+constraint_dtype_lookup = {
+    dists.constraints._Boolean: 'bool',
+    dists.constraints._Real: 'float',
+    dists.constraints._GreaterThan: 'float',
+    dists.constraints._Interval: 'float',
+    dists.constraints._IntegerGreaterThan: 'int',
+    dists.constraints._IntegerInterval: 'int',
+    dists.constraints._Multinomial: 'int',
 }
 
-def parse_support(model_str):
-    """
+def get_support_dtype(dist: dists.Distribution):
+    """ Determines the type of a distribution's support
+
     Parameters:
-        model_str (str)
+        dist (dists.Distribution): numpyro Distribution instance
     Returns:
-        OrderedDict(feature_name -> Distribution)
+        (str) dtype of the given distribution's support
     """
-    support = []
-    for line in model_str.splitlines():
-        # ignore comments (indicated by #)
-        line = line.split('#')[0].strip()
-        if len(line) == 0:
-            continue
+    assert(isinstance(dist, dists.Distribution))
+    try:
+        support_constraint = type(dist.support)
+    except:
+        support_constraint = type(dists.constraints.real)
 
-        parts = line.split(':')
-        if len(parts) == 2:
-            feature_name = parts[0].strip()
-            distribution = parts[1].strip()
+    try:
+        return constraint_dtype_lookup[support_constraint]
+    except KeyError:
+        return ValueError("A distribution with support {} is currently not supported".format(support_constraint))
 
-            if distribution in support_lookup.keys():
-                support.append(support_lookup[distribution])
-        else:
-            # todo: something?
-            pass
-    return support
 
 ##################### prior lookup ########################
 
@@ -162,28 +159,24 @@ def create_model_prior_dists(feature_dists_and_shapes):
     params = {
         name: {
             parameter: prior_dist(*[np.ones(shape) * prior_param for prior_param in prior_params])
-            # parameter: sample(
-            #     "{}_{}".format(name, parameter),
-            #     prior_dist(*[np.ones(*shape) * prior_param for prior_param in prior_params])
-            # )
             for parameter, (prior_dist, prior_params) in prior_lookup[feature_dist].items()
         }
         for name, (feature_dist, shape) in feature_dists_and_shapes.items()
     }
     return params
 
-def make_model(feature_dists_and_shapes, prior_dists, dtypes, k):
+def make_model(feature_dists_and_shapes, prior_dists, k):
     """ Given feature distribution classes and parameter priors, create a model function containing a mixture model
 
     Parameters:
         feature_dists_and_shapes (OrderedDict(feature_name -> (Distribution, shape)))
         prior_dists (dict(feature_name -> dict(parameter -> Distribution))
-        dtypes (list(str)): dtype of data for each feature
         k (int): number of mixture components
     """
     def model(N, num_obs_total=None):
         mixture_dists = []
-        for feature_name, (feature_dist, _) in feature_dists_and_shapes.items():
+        dtypes = []
+        for feature_name, (feature_dist_class, _) in feature_dists_and_shapes.items():
             prior_values = {}
             feature_prior_dists = prior_dists[feature_name]
             for feature_prior_param, feature_prior_dist in feature_prior_dists.items():
@@ -192,7 +185,9 @@ def make_model(feature_dists_and_shapes, prior_dists, dtypes, k):
                     feature_prior_dist
                 )
 
-            mixture_dists.append(feature_dist(**prior_values))
+            feature_dist = feature_dist_class(**prior_values)
+            mixture_dists.append(feature_dist)
+            dtypes.append(get_support_dtype(feature_dist))
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
         with minibatch(N, num_obs_total=num_obs_total):
