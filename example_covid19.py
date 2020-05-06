@@ -37,31 +37,50 @@ crp: Normal
 #ldh: Normal
 covid_test: Bernoulli
 #age: Poisson
-severity: Categorical
+#severity: Categorical # categorical is currently evil
 """
 
 #crp: Normal, loc=.5
 
+onp.random.seed(0)
 
 feature_dists = automodel.parse_model(model_str)
 feature_dtypes = automodel.parse_support(model_str)
 feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
 
+
+# def guide(**kwargs):
+#     covid_test_probs_loc_uncons = param('covid_test_probs_loc_uncons', .1*onp.random.randn(k))
+#     covid_test_probs_std_uncons = param('covid_test_probs_std_uncons', .1*onp.random.randn(k))
+#     sample('covid_test_probs', dist.TransformedDistribution(dist.Normal(covid_test_probs_loc_uncons, np.exp(covid_test_probs_std_uncons)), dist.transforms.SigmoidTransform()))
+
+#     crp_loc_loc_uncons = param('crp_loc_loc_uncons', .1*onp.random.randn(k))
+#     crp_loc_std_uncons = param('crp_loc_std_uncons', .1*onp.random.randn(k))
+#     sample('crp_loc', dist.TransformedDistribution(dist.Normal(crp_loc_loc_uncons, np.exp(crp_loc_std_uncons)), dist.transforms.IdentityTransform()))
+
+#     crp_std_loc_uncons = param('crp_scale_loc_uncons', .1*onp.random.randn(k))
+#     crp_std_std_uncons = param('crp_scale_std_uncons', .1*onp.random.randn(k))
+#     sample('crp_scale', dist.TransformedDistribution(dist.Normal(crp_std_loc_uncons, np.exp(crp_std_std_uncons)), dist.transforms.ExpTransform()))
+
 guide_param_sites = automodel.extract_parameter_sites(feature_dists_and_shapes)
-guide_dists = automodel.create_guide_dists(guide_param_sites)
-guide = automodel.make_guide(guide_dists)
+# guide_dists = automodel.create_guide_dists(guide_param_sites)
+guide = automodel.make_guide(guide_param_sites)
 seeded_guide = seed(guide, jax.random.PRNGKey(23496))
+
 
 prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
 model = automodel.make_model(feature_dists_and_shapes, prior_dists, feature_dtypes, k)
 seeded_model = seed(model, jax.random.PRNGKey(8365))
 
 from covid19.data.preprocess_einstein import df
+train_df = df[list(feature_dists.keys())].dropna()
+# import pandas as pd
+# train_df = pd.DataFrame(onp.stack([onp.random.randn(10000), onp.random.binomial(1, .2, 10000)]).T, columns=['crp', 'covid_test'])
 
 profit = train_model_no_dp(
     jax.random.PRNGKey(0),
     model, automodel.model_args_map, guide, automodel.guide_args_map,
-    df[list(feature_dists.keys())].dropna().to_numpy(),
-    batch_size=10,
-    num_epochs=100
+    train_df.to_numpy(),
+    batch_size=100,
+    num_epochs=1000
 )
