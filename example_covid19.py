@@ -90,8 +90,13 @@ posterior_params = train_model(
     dp_scale=2.0
 )
 
-posterior_samples = guide.sample_posterior(jax.random.PRNGKey(0), posterior_params, sample_shape=(1000,))
+# posterior_samples = guide.sample_posterior(jax.random.PRNGKey(0), posterior_params, sample_shape=(1000,))
+from dppp.modelling import sample_multi_posterior_predictive
+
+posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(0), 1000, model, (1,), guide, (), posterior_params)
 
 pis = np.mean(posterior_samples['pis'], axis=0)
 sev_probs = np.mean(posterior_samples['severity_probs'], axis=0)
 sev_probs_marginal = np.sum(pis * sev_probs.T, axis=1)
+
+syn_data = posterior_samples['x']
