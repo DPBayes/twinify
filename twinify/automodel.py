@@ -157,6 +157,41 @@ def parse_model(model_str):
             pass
     return model
 
+##################### support lookup ########################
+support_lookup = {
+    "Normal": "float",
+    "Bernoulli": "bool",
+    "Categorical": "int",
+    "Poisson": "int"
+}
+
+def parse_support(model_str):
+    """
+    Parameters:
+        model_str (str)
+    Returns:
+        OrderedDict(feature_name -> Distribution)
+    """
+    support = []
+    for line in model_str.splitlines():
+        # ignore comments (indicated by #)
+        line = line.split('#')[0].strip()
+        if len(line) == 0:
+            continue
+
+        parts = line.split(':')
+        if len(parts) == 2:
+            feature_name = parts[0].strip()
+            distribution = parts[1].strip()
+
+            if distribution in support_lookup.keys():
+                support.append(support_lookup[distribution])
+        else:
+            # todo: something?
+            pass
+    return support
+
+##################### prior lookup ########################
 
 prior_lookup = {
     dist.Normal: {'loc': (dist.Normal, (0., 1.)), 'scale': (dist.Gamma, (2., 2.))},
