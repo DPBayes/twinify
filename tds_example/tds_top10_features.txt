@@ -1,0 +1,10 @@
+Rhinovirus/Enterovirus
+Leukocytes
+Inf A H1N1 2009
+Eosinophils
+Platelets
+Monocytes
+Patient addmited to regular ward (1=yes, 0=no)
+Red blood Cells
+Respiratory Syncytial Virus
+Patient age quantile
