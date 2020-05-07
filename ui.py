@@ -4,6 +4,7 @@ from dppp.modelling import sample_multi_posterior_predictive, make_observed_mode
 from numpyro.handlers import seed
 from numpyro.contrib.autoguide import AutoDiagonalNormal
 
+import fourier_accountant
 
 from twinify.infer import train_model, train_model_no_dp
 import twinify.automodel as automodel
@@ -44,6 +45,30 @@ def main():
     # pick features from data according to model file
     train_df = df[list(feature_dists.keys())].dropna()
     print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+
+    # compute DP values
+    target_delta = 1. / train_df.shape[0]
+    num_compositions = int(args.num_epochs / args.sampling_ratio)
+    L = 20.
+    try:
+        epsilon = fourier_accountant.get_epsilon_R(
+            target_delta, args.dp_sigma, args.sampling_ratio, num_compositions, L=L
+        )
+        print("With the chosen parameters you obtain a privacy epsilon of {:.3f} (for delta {:.2e}).".format(epsilon, target_delta))
+    except ValueError:
+        epsilon = np.inf
+        print("With the chosen parameters the privacy epsilon exceeds {} (for delta {:.2e}).".format(L, target_delta))
+
+    if (epsilon > 2.):
+        print("!!! THIS IS BAD !!!")
+        print("NOTE: As a rule of thumb, epsilon values should not exceed 2!")
+        print("      You should consider increasing the privacy noise (dp_sigma parameter).")
+        response = input("Do you want to proceed DESPITE NOT HAVING ADEQUATE PRIVACY GUARANTEES? (yes, no) ")
+        if response.lower() != "yes":
+            print("Terminating")
+            exit(1)
+        print("Continuing (you have been warned)...")
+
 
     # map features to appropriate values
     feature_maps = {}
@@ -90,7 +115,6 @@ def main():
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
     # TODO
-    # report DP cost
     # illustrate
 
 if __name__ == "__main__":
