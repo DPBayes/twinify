@@ -82,7 +82,7 @@ def main():
 
 	# save results
 	syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
-	for name, forward_map in maps.items():
+	for name, forward_map in feature_maps.items():
 		inverse_map = {value: key for key, value in forward_map.items()}
 		syn_df[name] = syn_df[name].map(inverse_map)
 	syn_df.to_csv("{}.csv".format(args.output_path))
