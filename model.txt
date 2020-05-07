@@ -1,0 +1,5 @@
+crp: Normal
+#ldh: Normal
+covid_test: Bernoulli
+#age: Poisson
+severity: Categorical

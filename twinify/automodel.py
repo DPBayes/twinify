@@ -80,7 +80,7 @@ dist_lookup = {
     "Poisson": dists.Poisson
 }
 
-def parse_model(model_str):
+def parse_model(model_str, return_str_dict = False):
     """
     Parameters:
         model_str (str)
@@ -88,6 +88,7 @@ def parse_model(model_str):
         OrderedDict(feature_name -> Distribution)
     """
     model = OrderedDict()
+    model_str_dict = OrderedDict()
     for line in model_str.splitlines():
         # ignore comments (indicated by #)
         line = line.split('#')[0].strip()
@@ -101,9 +102,11 @@ def parse_model(model_str):
 
             if distribution in dist_lookup.keys():
                 model[feature_name] = dist_lookup[distribution]
+                model_str_dict[feature_name] = distribution
         else:
             # todo: something?
             pass
+    if return_str_dict : return model, model_str_dict
     return model
 
 ##################### support lookup ########################
