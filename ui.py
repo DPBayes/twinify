@@ -15,7 +15,7 @@ import pandas as pd
 import jax, argparse, pickle
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
-		fromfile_prefix_chars="%")
+        fromfile_prefix_chars="%")
 parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
@@ -29,71 +29,71 @@ parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of s
 args = parser.parse_args()
 
 def main():
-	onp.random.seed(args.seed)
+    onp.random.seed(args.seed)
 
-	k = args.k
-	# read data
-	df = pd.read_csv(args.data_path)
+    k = args.k
+    # read data
+    df = pd.read_csv(args.data_path)
 
-	# read model file
-	model_handle = open(args.model_path, 'r')
-	model_str = "".join(model_handle.readlines())
-	model_handle.close()
-	feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
+    # read model file
+    model_handle = open(args.model_path, 'r')
+    model_str = "".join(model_handle.readlines())
+    model_handle.close()
+    feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
 
-	# pick features from data according to model file
-	train_df = df[list(feature_dists.keys())].dropna()
-	print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+    # pick features from data according to model file
+    train_df = df[list(feature_dists.keys())].dropna()
+    print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
 
-	# map features to appropriate values
-	feature_maps = {}
-	for name, feature_dist in feature_str_dict.items():
-		if feature_dist in ["Categorical", "Bernoulli"]:
-			feature_maps[name] = {val : iterator for iterator, val in enumerate(onp.unique(train_df[name]))}
-			train_df[name] = train_df[name].map(feature_maps[name])
+    # map features to appropriate values
+    feature_maps = {}
+    for name, feature_dist in feature_str_dict.items():
+        if feature_dist in ["Categorical", "Bernoulli"]:
+            feature_maps[name] = {val : iterator for iterator, val in enumerate(onp.unique(train_df[name]))}
+            train_df[name] = train_df[name].map(feature_maps[name])
 
-	# TODO normalize?
+    # TODO normalize?
 
-	# shape look-up
-	shapes = {name : (k,) if dist!="Categorical" else (k, len(onp.unique(df[name].dropna()))) \
-			for name, dist in feature_str_dict.items()}
-	feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
+    # shape look-up
+    shapes = {name : (k,) if dist!="Categorical" else (k, len(onp.unique(df[name].dropna()))) \
+            for name, dist in feature_str_dict.items()}
+    feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
 
-	# build model
-	prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
-	model = automodel.make_model(feature_dists_and_shapes, prior_dists, k)
+    # build model
+    prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
+    model = automodel.make_model(feature_dists_and_shapes, prior_dists, k)
 
-	# build variational guide for optimization
-	guide = AutoDiagonalNormal(make_observed_model(model, automodel.model_args_map))
+    # build variational guide for optimization
+    guide = AutoDiagonalNormal(make_observed_model(model, automodel.model_args_map))
 
-	# learn posterior distributions
-	posterior_params = train_model(
-		jax.random.PRNGKey(args.seed),
-		model, automodel.model_args_map, guide, None,
-		train_df.to_numpy(),
-		batch_size=int(args.sampling_ratio*len(train_df)),
-		num_epochs=args.num_epochs,
-		dp_scale=args.dp_sigma
-	)
+    # learn posterior distributions
+    posterior_params = train_model(
+        jax.random.PRNGKey(args.seed),
+        model, automodel.model_args_map, guide, None,
+        train_df.to_numpy(),
+        batch_size=int(args.sampling_ratio*len(train_df)),
+        num_epochs=args.num_epochs,
+        dp_scale=args.dp_sigma
+    )
 
-	# sample synthetic data from posterior predictive distribution
-	posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed + 1),\
-			args.num_synthetic, model, (1,), guide, (), posterior_params)
-	syn_data = posterior_samples['x']
+    # sample synthetic data from posterior predictive distribution
+    posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed + 1),\
+            args.num_synthetic, model, (1,), guide, (), posterior_params)
+    syn_data = posterior_samples['x']
 
-	# save results
-	syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
-	for name, forward_map in feature_maps.items():
-		inverse_map = {value: key for key, value in forward_map.items()}
-		syn_df[name] = syn_df[name].map(inverse_map)
-	syn_df.to_csv("{}.csv".format(args.output_path))
-	pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
+    # save results
+    syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
+    for name, forward_map in feature_maps.items():
+        inverse_map = {value: key for key, value in forward_map.items()}
+        syn_df[name] = syn_df[name].map(inverse_map)
+    syn_df.to_csv("{}.csv".format(args.output_path))
+    pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
-	# TODO
-	# report DP cost
-	# illustrate
+    # TODO
+    # report DP cost
+    # illustrate
 
 if __name__ == "__main__":
-		main()
+        main()
 
 
