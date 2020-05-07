@@ -43,6 +43,7 @@ def main():
 
 	# pick features from data according to model file
 	train_df = df[list(feature_dists.keys())].dropna()
+	print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
 
 	# map features to appropriate values
 	feature_maps = {}
