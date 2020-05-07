@@ -13,6 +13,72 @@ from .mixture_model import MixtureModel
 
 import numpy as onp
 
+from typing import Type, Dict, Optional
+
+
+class Distribution:
+
+    def __init__(self, name: str, numpyro_class: Type[dists.Distribution]) -> None:
+        self._name = name
+        self._numpyro_class = numpyro_class
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def numpyro_class(self) -> Type[dists.Distribution]:
+        return self._numpyro_class
+
+    @property
+    def parameter_transforms(self) -> Dict[str, dists.transforms.Transform]:
+        param_transforms = {
+            param: dists.transforms.biject_to(constraint)
+            for param, constraint in self._numpyro_class.__dict__['arg_constraints'].items()
+        }
+        return param_transforms
+
+    def instantiate(self, parameters: Optional[Dict[str, np.array]] = None) -> dists.Distribution:
+
+        if parameters is None:
+            parameters = self._make_zero_parameters()
+        return self._numpyro_class(**parameters)
+
+    def __call__(self, **parameters: Dict[str, np.array]) -> dists.Distribution:
+        return self.instantiate(parameters)
+
+    def _make_zero_parameters(self):
+        zero_params = {
+            param: transform(np.zeros(1))
+            for param, transform in self.get_parameter_transforms()
+        }
+        return zero_params
+
+    @staticmethod
+    def get_support_dtype(dist: dists.Distribution) -> str:
+        """ Determines the type of a distribution's support
+
+        Parameters:
+            dist (dists.Distribution): numpyro Distribution instance
+        Returns:
+            (str) dtype of the given distribution's support
+        """
+        assert(isinstance(dist, dists.Distribution))
+        try:
+            support_constraint = type(dist.support)
+        except:
+            support_constraint = type(dists.constraints.real)
+
+        try:
+            return constraint_dtype_lookup[support_constraint]
+        except KeyError:
+            return ValueError("A distribution with support {} is currently \
+                not supported".format(support_constraint))
+
+    @property
+    def support_dtype(self) -> str:
+        return self.get_support_dtype(self.instantiate())
+
 ##############################################################################################
 #################### feature distribution automatization. WIP ################################
 
@@ -24,15 +90,8 @@ def extract_parameter_sites(feature_dists_and_shapes):
     Returns:
         OrderedDict(feature_name -> dict(parameter -> Transform))
     """
-    def create_parameter_sites_for_feature(dst: dists.Distribution):
-        params = {
-            param: dists.transforms.biject_to(constraint)
-            for param, constraint in dst.__dict__['arg_constraints'].items()
-        }
-        return params
-
     params = {
-        name: (create_parameter_sites_for_feature(dist), shape)
+        name: (Distribution('', dist).parameter_transforms, shape)
         for name, (dist, shape) in feature_dists_and_shapes.items()
     }
     return params
@@ -122,26 +181,6 @@ constraint_dtype_lookup = {
     dists.constraints._Multinomial: 'int',
 }
 
-def get_support_dtype(dist: dists.Distribution):
-    """ Determines the type of a distribution's support
-
-    Parameters:
-        dist (dists.Distribution): numpyro Distribution instance
-    Returns:
-        (str) dtype of the given distribution's support
-    """
-    assert(isinstance(dist, dists.Distribution))
-    try:
-        support_constraint = type(dist.support)
-    except:
-        support_constraint = type(dists.constraints.real)
-
-    try:
-        return constraint_dtype_lookup[support_constraint]
-    except KeyError:
-        return ValueError("A distribution with support {} is currently not supported".format(support_constraint))
-
-
 ##################### prior lookup ########################
 
 prior_lookup = {
@@ -190,7 +229,7 @@ def make_model(feature_dists_and_shapes, prior_dists, k):
 
             feature_dist = feature_dist_class(**prior_values)
             mixture_dists.append(feature_dist)
-            dtypes.append(get_support_dtype(feature_dist))
+            dtypes.append(Distribution.get_support_dtype(feature_dist))
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
         with minibatch(N, num_obs_total=num_obs_total):
