@@ -1,4 +1,5 @@
 import jax.numpy as np
+from jax.config import config
 
 from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
 from numpyro.handlers import seed
@@ -14,6 +15,7 @@ import numpy as onp
 import pandas as pd
 
 import jax, argparse, pickle
+config.update("jax_enable_x64", True)
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
