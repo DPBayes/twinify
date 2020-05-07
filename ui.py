@@ -41,6 +41,18 @@ def main():
 	model_handle.close()
 	feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
 
+	# pick features from data according to model file
+	train_df = df[list(feature_dists.keys())].dropna()
+
+	# map features to appropriate values
+	feature_maps = {}
+	for name, feature_dist in feature_str_dict.items():
+		if feature_dist in ["Categorical", "Bernoulli"]:
+			feature_maps[name] = {val : iterator for iterator, val in enumerate(onp.unique(train_df[name]))}
+			train_df[name] = train_df[name].map(feature_maps[name])
+
+	# TODO normalize?
+
 	# shape look-up
 	shapes = {name : (k,) if dist!="Categorical" else (k, len(onp.unique(df[name].dropna()))) \
 			for name, dist in feature_str_dict.items()}
@@ -52,9 +64,6 @@ def main():
 
 	# build variational guide for optimization
 	guide = AutoDiagonalNormal(make_observed_model(model, automodel.model_args_map))
-
-	# pick features from data according to model file
-	train_df = df[list(feature_dists.keys())].dropna()
 
 	# learn posterior distributions
 	posterior_params = train_model(
@@ -73,6 +82,9 @@ def main():
 
 	# save results
 	syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
+	for name, forward_map in maps.items():
+		inverse_map = {value: key for key, value in forward_map.items()}
+		syn_df[name] = syn_df[name].map(inverse_map)
 	syn_df.to_csv("{}.csv".format(args.output_path))
 	pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
