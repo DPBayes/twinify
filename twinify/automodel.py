@@ -13,9 +13,18 @@ from .mixture_model import MixtureModel
 
 import numpy as onp
 
-from typing import Type, Dict, Optional
+from typing import Type, Dict, Optional, Union
 
 
+constraint_dtype_lookup = {
+    dists.constraints._Boolean: 'bool',
+    dists.constraints._Real: 'float',
+    dists.constraints._GreaterThan: 'float',
+    dists.constraints._Interval: 'float',
+    dists.constraints._IntegerGreaterThan: 'int',
+    dists.constraints._IntegerInterval: 'int',
+    dists.constraints._Multinomial: 'int',
+}
 class Distribution:
 
     def __init__(self, name: str, numpyro_class: Type[dists.Distribution]) -> None:
@@ -50,12 +59,12 @@ class Distribution:
     def _make_zero_parameters(self):
         zero_params = {
             param: transform(np.zeros(1))
-            for param, transform in self.get_parameter_transforms()
+            for param, transform in self.parameter_transforms.items()
         }
         return zero_params
 
     @staticmethod
-    def get_support_dtype(dist: dists.Distribution) -> str:
+    def get_support_dtype(dist: Union[Type[dists.Distribution], dists.Distribution]) -> str:
         """ Determines the type of a distribution's support
 
         Parameters:
@@ -63,10 +72,12 @@ class Distribution:
         Returns:
             (str) dtype of the given distribution's support
         """
-        assert(isinstance(dist, dists.Distribution))
         try:
+            if not isinstance(dist.support, dists.constraints.Constraint):
+                raise ValueError("Support of distribution of type {} cannot \
+                    be derived from non-instantiated class".format(dist))
             support_constraint = type(dist.support)
-        except:
+        except AttributeError:
             support_constraint = type(dists.constraints.real)
 
         try:
@@ -77,7 +88,33 @@ class Distribution:
 
     @property
     def support_dtype(self) -> str:
-        return self.get_support_dtype(self.instantiate())
+        if self.has_data_dependent_shape:
+            return self.get_support_dtype(self.instantiate())
+        else:
+            return self.get_support_dtype(self.numpyro_class)
+
+    @property
+    def has_data_dependent_shape(self) -> bool:
+        try:
+            return not isinstance(self.numpyro_class.support, dists.constraints.Constraint)
+        except AttributeError:
+            return True
+
+
+dist_lookup = {
+    "normal": Distribution("Normal", dists.Normal),
+    "bernoulli": Distribution("Bernoulli", dists.BernoulliProbs),
+    "categorical": Distribution("Categorical", dists.CategoricalProbs),
+    "poisson": Distribution("Poisson", dists.Poisson)
+}
+
+
+def make_distribution(token: str) -> Distribution:
+    try:
+        return dist_lookup[token.lower()]
+    except KeyError:
+        raise ValueError("{} distributions are currently not supported".format(token))
+
 
 ##############################################################################################
 #################### feature distribution automatization. WIP ################################
@@ -91,7 +128,7 @@ def extract_parameter_sites(feature_dists_and_shapes):
         OrderedDict(feature_name -> dict(parameter -> Transform))
     """
     params = {
-        name: (Distribution('', dist).parameter_transforms, shape)
+        name: (dist.parameter_transforms, shape)
         for name, (dist, shape) in feature_dists_and_shapes.items()
     }
     return params
@@ -132,12 +169,6 @@ def make_guide(feature_params_and_shapes, k):
 
 ###################### automatic prior #############################
 
-dist_lookup = {
-    "Normal": dists.Normal,
-    "Bernoulli": dists.BernoulliProbs,
-    "Categorical": dists.CategoricalProbs,
-    "Poisson": dists.Poisson
-}
 
 def parse_model(model_str, return_str_dict = False):
     """
@@ -157,29 +188,19 @@ def parse_model(model_str, return_str_dict = False):
         parts = line.split(':')
         if len(parts) == 2:
             feature_name = parts[0].strip()
-            distribution = parts[1].strip()
+            distribution_name = parts[1].strip()
 
-            if distribution in dist_lookup.keys():
-                model[feature_name] = dist_lookup[distribution]
-                model_str_dict[feature_name] = distribution
+            dist = make_distribution(distribution_name)
+            model[feature_name] = dist
+            model_str_dict[feature_name] = dist.name
+
         else:
             # todo: something?
             pass
-    if return_str_dict : return model, model_str_dict
+    if return_str_dict: return model, model_str_dict
     return model
 
 ##################### support lookup ########################
-
-
-constraint_dtype_lookup = {
-    dists.constraints._Boolean: 'bool',
-    dists.constraints._Real: 'float',
-    dists.constraints._GreaterThan: 'float',
-    dists.constraints._Interval: 'float',
-    dists.constraints._IntegerGreaterThan: 'int',
-    dists.constraints._IntegerInterval: 'int',
-    dists.constraints._Multinomial: 'int',
-}
 
 ##################### prior lookup ########################
 
@@ -201,7 +222,7 @@ def create_model_prior_dists(feature_dists_and_shapes):
     params = {
         name: {
             parameter: prior_dist(*[np.ones(shape) * prior_param for prior_param in prior_params])
-            for parameter, (prior_dist, prior_params) in prior_lookup[feature_dist].items()
+            for parameter, (prior_dist, prior_params) in prior_lookup[feature_dist.numpyro_class].items()
         }
         for name, (feature_dist, shape) in feature_dists_and_shapes.items()
     }
@@ -229,7 +250,7 @@ def make_model(feature_dists_and_shapes, prior_dists, k):
 
             feature_dist = feature_dist_class(**prior_values)
             mixture_dists.append(feature_dist)
-            dtypes.append(Distribution.get_support_dtype(feature_dist))
+            dtypes.append(feature_dist_class.support_dtype)
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
         with minibatch(N, num_obs_total=num_obs_total):
