@@ -49,6 +49,9 @@ def main():
         model_args_map = model_module.model_args_map
         features = model_module.features
         train_df = df[features].dropna()
+        if hasattr(model_module, "feature_maps"):
+            feature_maps = model_module.feature_maps
+        else: feature_maps = {}
 
     except:
         print("Parsing model from txt file")

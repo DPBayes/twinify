@@ -15,7 +15,7 @@ from dppp.minibatch import minibatch
 import jax.numpy as np
 
 #features = ["Rhinovirus/Enterovirus", "Leukocytes"]
-features = ["Leukocytes"]
+features = ["Eosinophils"]
 feature_dtypes = ["float"]
 k = 10
 
@@ -23,7 +23,7 @@ def model(N, num_obs_total=None):
     pis = sample('pis', dist.Dirichlet(np.ones(k)))
 
     leuko_mus = sample('Leukocytes_mus', dist.Normal(np.zeros((k,)), np.ones((k,))))
-    leuko_sig = sample('Leukocytes_sig', dist.LogNormal(np.zeros((k,)), np.ones((k,))))
+    leuko_sig = sample('Leukocytes_sig', dist.Gamma(2.*np.ones((k,)), 2.*np.ones((k,))))
     leuko_dist = dist.Normal(leuko_mus, leuko_sig)
 
     #rhino_test_logit = sample('Rhinovirus/Enterovirus_logit', dist.Normal(np.zeros((k,)), np.ones(k,)))
