@@ -1,5 +1,7 @@
-import jax.numpy as np
 from jax.config import config
+config.update("jax_enable_x64", True)
+
+import jax.numpy as np
 
 from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
 from numpyro.handlers import seed
@@ -15,7 +17,7 @@ import numpy as onp
 import pandas as pd
 
 import jax, argparse, pickle
-config.update("jax_enable_x64", True)
+
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
@@ -42,10 +44,11 @@ def main():
     model_handle = open(args.model_path, 'r')
     model_str = "".join(model_handle.readlines())
     model_handle.close()
-    feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
+    features = automodel.parse_model(model_str)
+    feature_names = [feature.name for feature in features]
 
     # pick features from data according to model file
-    train_df = df[list(feature_dists.keys())].dropna()
+    train_df = df[feature_names].dropna()
     print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
 
     # compute DP values
@@ -71,24 +74,15 @@ def main():
             exit(1)
         print("Continuing (you have been warned)...")
 
-
-    # map features to appropriate values
-    feature_maps = {}
-    for name, feature_dist in feature_str_dict.items():
-        if feature_dist in ["Categorical", "Bernoulli"]:
-            feature_maps[name] = {val : iterator for iterator, val in enumerate(onp.unique(train_df[name]))}
-            train_df[name] = train_df[name].map(feature_maps[name])
+    # data preprocessing: determines number of categories for Categorical
+    #   distribution and maps categorical values in the data to ints
+    for feature in features:
+        train_df = feature.preprocess_data(train_df)
 
     # TODO normalize?
 
-    # shape look-up
-    shapes = {name : (k,) if dist!="Categorical" else (k, len(onp.unique(df[name].dropna()))) \
-            for name, dist in feature_str_dict.items()}
-    feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
-
     # build model
-    prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
-    model = automodel.make_model(feature_dists_and_shapes, prior_dists, k)
+    model = automodel.make_model(features, k)
 
     # build variational guide for optimization
     guide = AutoDiagonalNormal(make_observed_model(model, automodel.model_args_map))
@@ -110,9 +104,12 @@ def main():
 
     # save results
     syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
-    for name, forward_map in feature_maps.items():
-        inverse_map = {value: key for key, value in forward_map.items()}
-        syn_df[name] = syn_df[name].map(inverse_map)
+
+    # postprocess: if preprocessing involved data mapping, it is mapped back here
+    #   so that the synthetic twin looks like the original data
+    for feature in features:
+        syn_df = feature.postprocess_data(syn_df)
+
     syn_df.to_csv("{}.csv".format(args.output_path))
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
