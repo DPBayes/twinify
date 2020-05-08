@@ -14,6 +14,8 @@ import numpy as onp
 
 import pandas as pd
 
+import importlib.util
+
 import jax, argparse, pickle
 config.update("jax_enable_x64", True)
 
@@ -30,23 +32,58 @@ parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="su
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
 
 args = parser.parse_args()
+print(args)
 
 def main():
     onp.random.seed(args.seed)
 
-    k = args.k
     # read data
     df = pd.read_csv(args.data_path)
+    
+    # check whether we parse model from txt or whether we have a numpyro module
+    try:
+        spec = importlib.util.spec_from_file_location("model_module", args.model_path)
+        model_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(model_module)
+        model = model_module.model
+        model_args_map = model_module.model_args_map
+        features = model_module.features
+        train_df = df[features].dropna()
 
-    # read model file
-    model_handle = open(args.model_path, 'r')
-    model_str = "".join(model_handle.readlines())
-    model_handle.close()
-    feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
+    except:
+        print("Parsing model from txt file")
+        k = args.k
+        # read model file
+        model_handle = open(args.model_path, 'r')
+        model_str = "".join(model_handle.readlines())
+        model_handle.close()
+        feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
 
-    # pick features from data according to model file
-    train_df = df[list(feature_dists.keys())].dropna()
-    print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+        # pick features from data according to model file
+        train_df = df[list(feature_dists.keys())].dropna()
+        # TODO normalize?
+        print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+
+        # map features to appropriate values
+        feature_maps = {}
+        for name, feature_dist in feature_str_dict.items():
+            if feature_dist in ["Categorical", "Bernoulli"]:
+                feature_maps[name] = {val : iterator for iterator, val in enumerate(onp.unique(train_df[name]))}
+                train_df[name] = train_df[name].map(feature_maps[name])
+
+
+        # shape look-up
+        shapes = {name : (k,) if dist!="Categorical" else (k, len(onp.unique(df[name].dropna()))) \
+                for name, dist in feature_str_dict.items()}
+        feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
+
+        # build model
+        prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
+        model = automodel.make_model(feature_dists_and_shapes, prior_dists, k)
+        model_args_map = automodel.model_args_map
+
+    # build variational guide for optimization
+    guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
 
     # compute DP values
     target_delta = 1. / train_df.shape[0]
@@ -72,26 +109,6 @@ def main():
         print("Continuing (you have been warned)...")
 
 
-    # map features to appropriate values
-    feature_maps = {}
-    for name, feature_dist in feature_str_dict.items():
-        if feature_dist in ["Categorical", "Bernoulli"]:
-            feature_maps[name] = {val : iterator for iterator, val in enumerate(onp.unique(train_df[name]))}
-            train_df[name] = train_df[name].map(feature_maps[name])
-
-    # TODO normalize?
-
-    # shape look-up
-    shapes = {name : (k,) if dist!="Categorical" else (k, len(onp.unique(df[name].dropna()))) \
-            for name, dist in feature_str_dict.items()}
-    feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
-
-    # build model
-    prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
-    model = automodel.make_model(feature_dists_and_shapes, prior_dists, k)
-
-    # build variational guide for optimization
-    guide = AutoDiagonalNormal(make_observed_model(model, automodel.model_args_map))
 
     # learn posterior distributions
     posterior_params = train_model(
