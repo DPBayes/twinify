@@ -52,6 +52,8 @@ def main():
         if hasattr(model_module, "feature_maps"):
             feature_maps = model_module.feature_maps
         else: feature_maps = {}
+        for name, feature_map in feature_maps.keys():
+            train_df[name] = train_df[name].map(feature_maps[name])
 
     except:
         print("Parsing model from txt file")
