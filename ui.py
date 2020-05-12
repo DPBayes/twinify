@@ -26,7 +26,6 @@ parser = argparse.ArgumentParser(description='Script for creating synthetic twin
 parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
-parser.add_argument("--dp_sigma", default=1., type=float, help="sigma value for noise in DP SVI")
 parser.add_argument("--epsilon", default=1., type=float, help="target privacy parameter")
 parser.add_argument("--seed", default=0, type=int, help="PRNG seed used in model fitting")
 parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
