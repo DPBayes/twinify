@@ -29,11 +29,11 @@ from numpyro.primitives import sample, param, deterministic
 from dppp.minibatch import minibatch
 import jax.numpy as np
 
-features = ["Leukocytes", "Eosinophils", "Rhinovirus/Enterovirus"]
+features = ["Leukocytes", "Eosinophils", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result"]
 #features = ["Leukocytes", "Rhinovirus/Enterovirus"]
 #features = ["Leukocytes", "Eosinophils"]
 #features = ["Leukocytes"]
-feature_dtypes = ["float", "float", "float"]
+feature_dtypes = ["float", "float", "float", "float"]
 #feature_dtypes = ["float", "float"]
 #feature_dtypes = ["float"]
 
@@ -62,7 +62,7 @@ class NAModel(dist.Distribution):
 		vals = self._base_dist.sample(vals_rng_key, sample_shape=sample_shape)
 		return vals*(1.-z)+999.*z, z
 
-k = 7
+k = 100
 def model(N, num_obs_total=None):
 	pis = sample('pis', dist.Dirichlet(np.ones(k)))
 
@@ -85,7 +85,10 @@ def model(N, num_obs_total=None):
 	#rhino_test_dist = dist.Bernoulli(logits=rhino_test_logit)
 	rhino_test_dist = NAModel(dist.Bernoulli(logits=rhino_test_logit), rhino_na_prob)
 
-	dists = [Leuko_dist, Eosi_dist, rhino_test_dist]
+	covid_test_logit = sample("covid_test_logit", dist.Normal(np.zeros((k,)), np.ones(k,)))
+	covid_test_dist = dist.Bernoulli(logits=covid_test_logit)
+
+	dists = [Leuko_dist, Eosi_dist, rhino_test_dist, covid_test_dist]
 	#dists = [Leuko_dist, rhino_test_dist]
 	#dists = [rhino_test_dist]
 	with minibatch(N, num_obs_total):
@@ -112,7 +115,7 @@ posterior_params = train_model_no_dp(
 	model, automodel.model_args_map, guide, None,
 	train_df.to_numpy(),
 	batch_size=100,
-	num_epochs=100
+	num_epochs=1000
 )
 
 posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(1),\
