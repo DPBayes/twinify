@@ -2,6 +2,8 @@ import jax.numpy as np
 from jax.config import config
 
 from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
+from dppp.minibatch import q_to_batch_size, batch_size_to_q
+from dppp.dputil import approximate_sigma_remove_relation
 from numpyro.handlers import seed
 from numpyro.contrib.autoguide import AutoDiagonalNormal
 
@@ -24,7 +26,7 @@ parser = argparse.ArgumentParser(description='Script for creating synthetic twin
 parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
-parser.add_argument("--dp_sigma", default=1., type=float, help="sigma value for noise in DP SVI")
+parser.add_argument("--epsilon", default=1., type=float, help="target privacy parameter")
 parser.add_argument("--seed", default=0, type=int, help="PRNG seed used in model fitting")
 parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
@@ -39,7 +41,7 @@ def main():
 
     # read data
     df = pd.read_csv(args.data_path)
-    
+
     # check whether we parse model from txt or whether we have a numpyro module
     try:
         spec = importlib.util.spec_from_file_location("model_module", args.model_path)
@@ -67,7 +69,6 @@ def main():
         # pick features from data according to model file
         train_df = df[list(feature_dists.keys())].dropna()
         # TODO normalize?
-        print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
 
         # map features to appropriate values
         feature_maps = {}
@@ -90,29 +91,22 @@ def main():
     # build variational guide for optimization
     guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
 
+    # pick features from data according to model file
+    num_data = train_df.shape[0]
+    print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+
     # compute DP values
-    target_delta = 1. / train_df.shape[0]
+    target_delta = 1. / num_data
     num_compositions = int(args.num_epochs / args.sampling_ratio)
-    L = 20.
-    try:
-        epsilon = fourier_accountant.get_epsilon_R(
-            target_delta, args.dp_sigma, args.sampling_ratio, num_compositions, L=L
-        )
-        print("With the chosen parameters you obtain a privacy epsilon of {:.3f} (for delta {:.2e}).".format(epsilon, target_delta))
-    except ValueError:
-        epsilon = np.inf
-        print("With the chosen parameters the privacy epsilon exceeds {} (for delta {:.2e}).".format(L, target_delta))
+    dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
+        args.epsilon, target_delta, args.sampling_ratio, num_compositions
+    )
+    batch_size = q_to_batch_size(args.sampling_ratio, num_data)
+    sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
+    print("Will apply noise with variance {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+        "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
 
-    if (epsilon > 2.):
-        print("!!! THIS IS BAD !!!")
-        print("NOTE: As a rule of thumb, epsilon values should not exceed 2!")
-        print("      You should consider increasing the privacy noise (dp_sigma parameter).")
-        response = input("Do you want to proceed DESPITE NOT HAVING ADEQUATE PRIVACY GUARANTEES? (yes, no) ")
-        if response.lower() != "yes":
-            print("Terminating")
-            exit(1)
-        print("Continuing (you have been warned)...")
-
+    # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
 
     # learn posterior distributions
@@ -122,7 +116,7 @@ def main():
         train_df.to_numpy(),
         batch_size=int(args.sampling_ratio*len(train_df)),
         num_epochs=args.num_epochs,
-        dp_scale=args.dp_sigma
+        dp_scale=dp_sigma
     )
 
     # sample synthetic data from posterior predictive distribution
