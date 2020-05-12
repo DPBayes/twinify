@@ -2,6 +2,7 @@ import jax.numpy as np
 from jax.config import config
 
 from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
+from dppp.minibatch import q_to_batch_size, batch_size_to_q
 from dppp.dputil import approximate_sigma_remove_relation
 from numpyro.handlers import seed
 from numpyro.contrib.autoguide import AutoDiagonalNormal
@@ -48,19 +49,21 @@ def main():
 
     # pick features from data according to model file
     train_df = df[list(feature_dists.keys())].dropna()
+    num_data = train_df.shape[0]
     print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
 
     # compute DP values
-    target_delta = 1. / train_df.shape[0]
+    target_delta = 1. / num_data
     num_compositions = int(args.num_epochs / args.sampling_ratio)
     dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
         args.epsilon, target_delta, args.sampling_ratio, num_compositions
     )
-    print("Will apply noise with variance {:.2f} to achieve privacy epsilon "\
-        "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, epsilon, target_delta))
+    batch_size = q_to_batch_size(args.sampling_ratio, num_data)
+    sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
+    print("Will apply noise with variance {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+        "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
 
-    # TODO: instead of yelling for bad epsilon values, we could now warn the
-    #   user if the noise is very high compared to clipping threshod (C=1.)
+    # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
     # map features to appropriate values
     feature_maps = {}
