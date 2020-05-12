@@ -3,7 +3,7 @@ import jax
 
 from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
 from numpyro.handlers import seed
-from numpyro.contrib.autoguide import AutoDiagonalNormal
+from numpyro.contrib.autoguide import AutoDiagonalNormal, AutoContinuousELBO
 
 
 from twinify.infer import train_model, train_model_no_dp
@@ -55,6 +55,7 @@ guide = AutoDiagonalNormal(make_observed_model(model, automodel.model_args_map))
 posterior_params = train_model(
     jax.random.PRNGKey(0),
     model, automodel.model_args_map, guide, None,
+    AutoContinuousELBO(),
     train_df.to_numpy(),
     batch_size=100,
     num_epochs=1000,

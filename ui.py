@@ -3,7 +3,7 @@ from jax.config import config
 
 from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
 from numpyro.handlers import seed
-from numpyro.contrib.autoguide import AutoDiagonalNormal
+from numpyro.contrib.autoguide import AutoDiagonalNormal, AutoContinuousELBO
 
 import fourier_accountant
 
@@ -97,6 +97,7 @@ def main():
     posterior_params = train_model(
         jax.random.PRNGKey(args.seed),
         model, automodel.model_args_map, guide, None,
+        AutoContinuousELBO(),
         train_df.to_numpy(),
         batch_size=int(args.sampling_ratio*len(train_df)),
         num_epochs=args.num_epochs,

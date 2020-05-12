@@ -51,13 +51,13 @@ def _train_model(rng, svi, data, batch_size, num_epochs):
 
     return svi.get_params(svi_state)
 
-def train_model(rng, model, model_args_map, guide, guide_args_map, data, batch_size, dp_scale, num_epochs):
+def train_model(rng, model, model_args_map, guide, guide_args_map, elbo, data, batch_size, dp_scale, num_epochs):
     """ trains a given model using DPSVI and the globally defined parameters and data """
 
     optimizer = Adam(1e-3)
 
     svi = DPSVI(
-        model, guide, optimizer, ELBO(),
+        model, guide, optimizer, elbo,
         num_obs_total=data.shape[0], clipping_threshold=1.,
         dp_scale=dp_scale,
         map_model_args_fn=model_args_map, map_guide_args_fn=guide_args_map
@@ -65,7 +65,7 @@ def train_model(rng, model, model_args_map, guide, guide_args_map, data, batch_s
 
     return _train_model(rng, svi, data, batch_size, num_epochs)
 
-def train_model_no_dp(rng, model, model_args_map, guide, guide_args_map, data, batch_size, num_epochs):
+def train_model_no_dp(rng, model, model_args_map, guide, guide_args_map, elbo, data, batch_size, num_epochs):
     """ trains a given model using SVI (no DP!) and the globally defined parameters and data """
 
     optimizer = Adam(1e-3)
@@ -78,7 +78,7 @@ def train_model_no_dp(rng, model, model_args_map, guide, guide_args_map, data, b
 
     svi = SVI(
         model, guide,
-        optimizer, ELBO(),
+        optimizer, elbo,
         num_obs_total=data.shape[0]
     )
 
