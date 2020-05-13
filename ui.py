@@ -126,14 +126,23 @@ def main():
 
     # save results
     syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
+    encoded_syn_df = syn_df.copy()
     for name, forward_map in feature_maps.items():
         inverse_map = {value: key for key, value in forward_map.items()}
-        syn_df[name] = syn_df[name].map(inverse_map)
-    syn_df.to_csv("{}.csv".format(args.output_path))
+        encoded_syn_df[name] = syn_df[name].map(inverse_map)
+    encoded_syn_df.to_csv("{}.csv".format(args.output_path))
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
     # TODO
     # illustrate
+    from illustrate import violin, covariance_heatmap
+    import matplotlib.pyplot as plt
+    # Marginal violins
+    violin_fig = violin(syn_df, train_df)
+    plt.show()
+    # Covariance matrices
+    cov_fig = covariance_heatmap(syn_df, train_df)
+    plt.show()
 
 if __name__ == "__main__":
         main()
