@@ -9,6 +9,9 @@ top10_features_handle = open("tds_top10_features.txt", "r")
 top10_features = top10_features_handle.readlines()
 top10_features_handle.close()
 
+outcome_var = "SARS-Cov-2 exam result"
+top10_features.append(outcome_var)
+
 top10_features = [elem.replace("\n", "") for elem in top10_features]
 
 tds_top10 = tds_data[top10_features]
