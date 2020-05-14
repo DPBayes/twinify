@@ -32,6 +32,7 @@ parser.add_argument("--k", default=5, type=int, help="mixture components in fit"
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="subsampling ratio for DP-SGD")
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
+parser.add_argument("--drop_na", default=1, type=int, help="remove missing values from data (yes=1)")
 
 args = parser.parse_args()
 print(args)
@@ -50,11 +51,16 @@ def main():
         model = model_module.model
         model_args_map = model_module.model_args_map
         features = model_module.features
-        train_df = df[features].dropna()
+        train_df = df[features]
+        if args.drop_na:
+            train_df = train_df.dropna()
         if hasattr(model_module, "feature_maps"):
             feature_maps = model_module.feature_maps
-        else: feature_maps = {}
-        for name, feature_map in feature_maps.keys():
+        else: 
+            feature_maps = {name : {value : iterator for iterator, value in \
+                enumerate(onp.unique(train_df[name].dropna()))} \
+                for name in train_df.columns if train_df[name].dtype=='O'}
+        for name in feature_maps.keys():
             train_df[name] = train_df[name].map(feature_maps[name])
 
     except:
@@ -67,7 +73,9 @@ def main():
         feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
 
         # pick features from data according to model file
-        train_df = df[list(feature_dists.keys())].dropna()
+        train_df = df[list(feature_dists.keys())]
+        if args.drop_na:
+            train_df = train_df.dropna()
         # TODO normalize?
 
         # map features to appropriate values
@@ -109,14 +117,27 @@ def main():
     # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
 
+    ## learn posterior distributions
+    #Posterior_params = train_model(
+    #    jax.random.PRNGKey(args.seed),
+    #    model, automodel.model_args_map, guide, None,
+    #    train_df.to_numpy(),
+    #    batch_size=int(args.sampling_ratio*len(train_df)),
+    #    num_epochs=args.num_epochs,
+    #    dp_scale=dp_sigma
+    #)
     # learn posterior distributions
-    posterior_params = train_model(
+    print("OI! DP IS NOT ON")
+    print("OI! DP IS NOT ON")
+    print("OI! DP IS NOT ON")
+    print("OI! DP IS NOT ON")
+    print("OI! DP IS NOT ON")
+    posterior_params = train_model_no_dp(
         jax.random.PRNGKey(args.seed),
         model, automodel.model_args_map, guide, None,
         train_df.to_numpy(),
         batch_size=int(args.sampling_ratio*len(train_df)),
-        num_epochs=args.num_epochs,
-        dp_scale=dp_sigma
+        num_epochs=args.num_epochs
     )
 
     # sample synthetic data from posterior predictive distribution
