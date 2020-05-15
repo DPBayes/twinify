@@ -12,13 +12,6 @@ import twinify.automodel as automodel
 import numpy as onp
 
 k = 7
-shapes = {
-    'crp': (k,),
-    'ldh': (k,),
-    'covid_test': (k,),
-    'age': (k,),
-    'severity': (k, 4)
-}
 
 model_str = """
 crp: Normal
@@ -32,20 +25,17 @@ severity: Categorical
 
 onp.random.seed(0)
 
-feature_dists = automodel.parse_model(model_str)
-feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
-
-guide_param_sites = automodel.extract_parameter_sites(feature_dists_and_shapes)
-guide = automodel.make_guide(guide_param_sites, k)
-seeded_guide = seed(guide, jax.random.PRNGKey(23496))
-
-
-prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
-model = automodel.make_model(feature_dists_and_shapes, prior_dists, k)
-seeded_model = seed(model, jax.random.PRNGKey(8365))
+features = automodel.parse_model(model_str)
+feature_names = [feature.name for feature in features]
 
 from covid19.data.preprocess_einstein import df
-train_df = df[list(feature_dists.keys())].dropna()
+train_df = df[feature_names].dropna()
+
+for feature in features:
+    train_df[feature.name] = feature.preprocess_data(train_df[feature.name])
+
+model = automodel.make_model(features, k)
+seeded_model = seed(model, jax.random.PRNGKey(8365))
 
 guide = AutoDiagonalNormal(make_observed_model(model, automodel.model_args_map))
 
