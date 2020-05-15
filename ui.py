@@ -67,7 +67,7 @@ def main():
         feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
 
         # pick features from data according to model file
-        train_df = df[list(feature_dists.keys())]#.dropna()
+        train_df = df[list(feature_dists.keys())].dropna()
         # TODO normalize?
 
         # map features to appropriate values
