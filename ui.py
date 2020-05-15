@@ -38,6 +38,9 @@ parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of s
 args = parser.parse_args()
 print(args)
 
+class ParsingError(Exception):
+    pass
+
 def main():
     onp.random.seed(args.seed)
 
@@ -46,9 +49,12 @@ def main():
 
     # check whether we parse model from txt or whether we have a numpyro module
     try:
-        spec = importlib.util.spec_from_file_location("model_module", args.model_path)
-        model_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(model_module)
+        try:
+            spec = importlib.util.spec_from_file_location("model_module", args.model_path)
+            model_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(model_module)
+        except Exception as e:
+            raise ParsingError from e
 
         model = model_module.model
         model_args_map = model_module.model_args_map
@@ -63,8 +69,8 @@ def main():
         for feature in features:
             train_df = feature.preprocess_data(train_df)
 
-    except:
-        print("Parsing model from txt file")
+    except ParsingError:
+        print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
         k = args.k
         # read model file
         model_handle = open(args.model_path, 'r')
@@ -86,6 +92,12 @@ def main():
         # build model
         model = automodel.make_model(features, k)
         model_args_map = automodel.model_args_map
+    except Exception as e:
+        print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
+        print("Here's the technical error description:")
+        print(e)
+        print("Aborting...")
+        exit(3)
 
     # build variational guide for optimization
     guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
