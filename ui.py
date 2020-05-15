@@ -49,15 +49,19 @@ def main():
         spec = importlib.util.spec_from_file_location("model_module", args.model_path)
         model_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(model_module)
+
         model = model_module.model
         model_args_map = model_module.model_args_map
-        features = model_module.features
-        train_df = df[features].dropna()
-        if hasattr(model_module, "feature_maps"):
-            feature_maps = model_module.feature_maps
-        else: feature_maps = {}
-        for name, feature_map in feature_maps.keys():
-            train_df[name] = train_df[name].map(feature_maps[name])
+        feature_names = model_module.features
+
+        features = automodel.parse_model_fn(model, feature_names)
+
+        train_df = df[feature_names].dropna()
+
+        # data preprocessing: determines number of categories for Categorical
+        #   distribution and maps categorical values in the data to ints
+        for feature in features:
+            train_df = feature.preprocess_data(train_df)
 
     except:
         print("Parsing model from txt file")

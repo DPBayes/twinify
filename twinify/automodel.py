@@ -35,12 +35,24 @@ class Distribution:
         automated model building
     """
 
-    def __init__(self, name: str, numpyro_class: Type[dists.Distribution], is_categorical: bool = False) -> None:
+    def __init__(self, name: str, numpyro_class: Type[dists.Distribution]) -> None:
         self._name = name
         self._numpyro_class = numpyro_class
-        self._is_categorical = is_categorical
-        if (self.is_categorical and not self.is_discrete):
-            raise ValueError("A continuos distribution cannot be categorical")
+        self._is_categorical = numpyro_class in categorical_dist_lookup
+        assert (not self.is_categorical or self.is_discrete), \
+                "A continuos distribution cannot be categorical"
+
+    @staticmethod
+    def from_distribution_instance(dist: dists.Distribution) -> 'Distribution':
+        dist_class = type(dist)
+        assert(issubclass(dist_class, dists.Distribution))
+
+        try:
+            name = dist_class.__name__
+        except:
+            name = ''
+
+        return Distribution(name, dist_class)
 
     @property
     def name(self) -> str:
@@ -131,6 +143,14 @@ class ModelFeature:
         self._shape = None
         self._value_map = None
 
+    @staticmethod
+    def from_distribution_instance(feature_name: str, dist: dists.Distribution) -> 'ModelFeature':
+        meta_dist = Distribution.from_distribution_instance(dist)
+        shape = dist.batch_shape
+        feature = ModelFeature(feature_name, meta_dist)
+        feature.shape = shape
+        return feature
+
     @property
     def name(self) -> str:
         """ Feature name """
@@ -216,10 +236,17 @@ class ModelFeature:
 ################################# model parsing ################################
 
 
+categorical_dist_lookup = {
+    dists.BernoulliProbs, dists.BernoulliLogits,
+    dists.CategoricalProbs, dists.CategoricalLogits,
+    dists.MultinomialProbs, dists.MultinomialLogits,
+    dists.OrderedLogistic
+}
+
 dist_lookup = {
     "normal": Distribution("Normal", dists.Normal),
-    "bernoulli": Distribution("Bernoulli", dists.BernoulliProbs, is_categorical=True),
-    "categorical": Distribution("Categorical", dists.CategoricalProbs, is_categorical=True),
+    "bernoulli": Distribution("Bernoulli", dists.BernoulliProbs),
+    "categorical": Distribution("Categorical", dists.CategoricalProbs),
     "poisson": Distribution("Poisson", dists.Poisson)
 }
 
@@ -257,6 +284,19 @@ def parse_model(model_str: str) -> List[ModelFeature]:
             # todo: something?
             pass
     return features
+
+def extract_features_from_mixture_model(mixture: MixtureModel, feature_names: List[str]) -> List[ModelFeature]:
+    features = [ModelFeature.from_distribution_instance(name, dist)
+                for name, dist in zip(feature_names, mixture.dists)]
+    return features
+
+
+def parse_model_fn(model: Callable, feature_names: List[str]) -> List[ModelFeature]:
+    model_trace = trace(seed(model, rng_seed=0)).get_trace(1)
+    assert('x' in model_trace)
+    mixture_model = model_trace['x']['fn']
+    return extract_features_from_mixture_model(mixture_model, feature_names)
+
 
 ##################### prior lookup ########################
 
