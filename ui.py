@@ -11,7 +11,7 @@ from numpyro.contrib.autoguide import AutoDiagonalNormal
 
 import fourier_accountant
 
-from twinify.infer import train_model, train_model_no_dp
+from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
 
 import numpy as onp
@@ -120,14 +120,23 @@ def main():
     # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
     # learn posterior distributions
-    posterior_params = train_model(
-        jax.random.PRNGKey(args.seed),
-        model, automodel.model_args_map, guide, None,
-        train_df.to_numpy(),
-        batch_size=int(args.sampling_ratio*len(train_df)),
-        num_epochs=args.num_epochs,
-        dp_scale=dp_sigma
-    )
+    try:
+        posterior_params = train_model(
+            jax.random.PRNGKey(args.seed),
+            model, automodel.model_args_map, guide, None,
+            train_df.to_numpy(),
+            batch_size=int(args.sampling_ratio*len(train_df)),
+            num_epochs=args.num_epochs,
+            dp_scale=dp_sigma
+        )
+    except (InferenceException, FloatingPointError):
+        print("################################## ERROR ##################################")
+        print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
+        print("This means the model has major difficulties in capturing the data and is")
+        print("likely to happen when the dataset is very small and/or sparse.")
+        print("Try adapting (simplifying) the model.")
+        print("Aborting...")
+        exit(2)
 
     # sample synthetic data from posterior predictive distribution
     posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed + 1),\
