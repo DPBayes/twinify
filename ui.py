@@ -1,5 +1,7 @@
-import jax.numpy as np
 from jax.config import config
+config.update("jax_enable_x64", True)
+
+import jax.numpy as np
 
 from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
 from dppp.minibatch import q_to_batch_size, batch_size_to_q
@@ -9,7 +11,7 @@ from numpyro.contrib.autoguide import AutoDiagonalNormal
 
 import fourier_accountant
 
-from twinify.infer import train_model, train_model_no_dp
+from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
 
 import numpy as onp
@@ -19,7 +21,7 @@ import pandas as pd
 import importlib.util
 
 import jax, argparse, pickle
-config.update("jax_enable_x64", True)
+
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
@@ -37,6 +39,9 @@ parser.add_argument("--drop_na", default=1, type=int, help="remove missing value
 args = parser.parse_args()
 print(args)
 
+class ParsingError(Exception):
+    pass
+
 def main():
     onp.random.seed(args.seed)
 
@@ -45,56 +50,59 @@ def main():
 
     # check whether we parse model from txt or whether we have a numpyro module
     try:
-        spec = importlib.util.spec_from_file_location("model_module", args.model_path)
-        model_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(model_module)
+        try:
+            spec = importlib.util.spec_from_file_location("model_module", args.model_path)
+            model_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(model_module)
+        except Exception as e:
+            raise ParsingError from e
+
         model = model_module.model
         model_args_map = model_module.model_args_map
-        features = model_module.features
-        train_df = df[features]
+        feature_names = model_module.features
+
+        features = automodel.parse_model_fn(model, feature_names)
+
+        train_df = df[feature_names]
         if args.drop_na:
             train_df = train_df.dropna()
-        if hasattr(model_module, "feature_maps"):
-            feature_maps = model_module.feature_maps
-        else: 
-            feature_maps = {name : {value : iterator for iterator, value in \
-                enumerate(onp.unique(train_df[name].dropna()))} \
-                for name in train_df.columns if train_df[name].dtype=='O'}
-        for name in feature_maps.keys():
-            train_df[name] = train_df[name].map(feature_maps[name])
 
-    except:
-        print("Parsing model from txt file")
+        # data preprocessing: determines number of categories for Categorical
+        #   distribution and maps categorical values in the data to ints
+        for feature in features:
+            train_df = feature.preprocess_data(train_df)
+
+    except ParsingError:
+        print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
         k = args.k
         # read model file
         model_handle = open(args.model_path, 'r')
         model_str = "".join(model_handle.readlines())
         model_handle.close()
-        feature_dists, feature_str_dict = automodel.parse_model(model_str, return_str_dict=True)
+        features = automodel.parse_model(model_str)
+        feature_names = [feature.name for feature in features]
 
         # pick features from data according to model file
-        train_df = df[list(feature_dists.keys())]
+        train_df = df[feature_names]
         if args.drop_na:
             train_df = train_df.dropna()
+
         # TODO normalize?
 
-        # map features to appropriate values
-        feature_maps = {}
-        for name, feature_dist in feature_str_dict.items():
-            if feature_dist in ["Categorical", "Bernoulli"]:
-                feature_maps[name] = {val : iterator for iterator, val in enumerate(onp.unique(train_df[name]))}
-                train_df[name] = train_df[name].map(feature_maps[name])
-
-
-        # shape look-up
-        shapes = {name : (k,) if dist!="Categorical" else (k, len(onp.unique(df[name].dropna()))) \
-                for name, dist in feature_str_dict.items()}
-        feature_dists_and_shapes = automodel.zip_dicts(feature_dists, shapes)
+        # data preprocessing: determines number of categories for Categorical
+        #   distribution and maps categorical values in the data to ints
+        for feature in features:
+            train_df = feature.preprocess_data(train_df)
 
         # build model
-        prior_dists = automodel.create_model_prior_dists(feature_dists_and_shapes)
-        model = automodel.make_model(feature_dists_and_shapes, prior_dists, k)
+        model = automodel.make_model(features, k)
         model_args_map = automodel.model_args_map
+    except Exception as e:
+        print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
+        print("Here's the technical error description:")
+        print(e)
+        print("Aborting...")
+        exit(3)
 
     # build variational guide for optimization
     guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
@@ -116,29 +124,37 @@ def main():
 
     # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
-
-    ## learn posterior distributions
-    posterior_params = train_model(
-        jax.random.PRNGKey(args.seed),
-        model, automodel.model_args_map, guide, None,
-        train_df.to_numpy(),
-        batch_size=int(args.sampling_ratio*len(train_df)),
-        num_epochs=args.num_epochs,
-        dp_scale=dp_sigma
-    )
     # learn posterior distributions
-    #print("OI! DP IS NOT ON")
-    #print("OI! DP IS NOT ON")
-    #print("OI! DP IS NOT ON")
-    #print("OI! DP IS NOT ON")
-    #print("OI! DP IS NOT ON")
-    #posterior_params = train_model_no_dp(
-    #    jax.random.PRNGKey(args.seed),
-    #    model, automodel.model_args_map, guide, None,
-    #    train_df.to_numpy(),
-    #    batch_size=int(args.sampling_ratio*len(train_df)),
-    #    num_epochs=args.num_epochs
-    #)
+    try:
+        #Posterior_params = train_model(
+        #    jax.random.PRNGKey(args.seed),
+        #    model, automodel.model_args_map, guide, None,
+        #    train_df.to_numpy(),
+        #    batch_size=int(args.sampling_ratio*len(train_df)),
+        #    num_epochs=args.num_epochs,
+        #    dp_scale=dp_sigma
+        #)
+        # learn posterior distributions
+        print("OI! DP IS NOT ON")
+        print("OI! DP IS NOT ON")
+        print("OI! DP IS NOT ON")
+        print("OI! DP IS NOT ON")
+        print("OI! DP IS NOT ON")
+        posterior_params = train_model_no_dp(
+            jax.random.PRNGKey(args.seed),
+            model, automodel.model_args_map, guide, None,
+            train_df.to_numpy(),
+            batch_size=int(args.sampling_ratio*len(train_df)),
+            num_epochs=args.num_epochs
+        )
+    except (InferenceException, FloatingPointError):
+        print("################################## ERROR ##################################")
+        print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
+        print("This means the model has major difficulties in capturing the data and is")
+        print("likely to happen when the dataset is very small and/or sparse.")
+        print("Try adapting (simplifying) the model.")
+        print("Aborting...")
+        exit(2)
 
     # sample synthetic data from posterior predictive distribution
     posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed + 1),\
@@ -147,9 +163,12 @@ def main():
 
     # save results
     syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
-    for name, forward_map in feature_maps.items():
-        inverse_map = {value: key for key, value in forward_map.items()}
-        syn_df[name] = syn_df[name].map(inverse_map)
+
+    # postprocess: if preprocessing involved data mapping, it is mapped back here
+    #   so that the synthetic twin looks like the original data
+    for feature in features:
+        syn_df = feature.postprocess_data(syn_df)
+
     syn_df.to_csv("{}.csv".format(args.output_path))
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
