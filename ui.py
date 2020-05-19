@@ -21,6 +21,7 @@ import pandas as pd
 import importlib.util
 
 import jax, argparse, pickle
+import secrets
 
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
@@ -29,21 +30,23 @@ parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
 parser.add_argument("--epsilon", default=1., type=float, help="target privacy parameter")
-parser.add_argument("--seed", default=0, type=int, help="PRNG seed used in model fitting")
+parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a unique value.")
 parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="subsampling ratio for DP-SGD")
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
 
-args = parser.parse_args()
-print(args)
+def initialize_rngs(seed):
+    if seed is None:
+        seed = secrets.randbelow(2**32)
+    print("RNG seed: {}".format(seed))
+    master_rng = jax.random.PRNGKey(seed)
+    return jax.random.split(master_rng, 2)
 
 class ParsingError(Exception):
     pass
 
-def main():
-    onp.random.seed(args.seed)
-
+def main(args):
     # read data
     df = pd.read_csv(args.data_path)
 
@@ -119,10 +122,12 @@ def main():
 
     # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
+    inference_rng, sampling_rng = initialize_rngs(args.seed)
+
     # learn posterior distributions
     try:
         posterior_params = train_model(
-            jax.random.PRNGKey(args.seed),
+            inference_rng,
             model, automodel.model_args_map, guide, None,
             train_df.to_numpy(),
             batch_size=int(args.sampling_ratio*len(train_df)),
@@ -139,7 +144,7 @@ def main():
         exit(2)
 
     # sample synthetic data from posterior predictive distribution
-    posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed + 1),\
+    posterior_samples = sample_multi_posterior_predictive(sampling_rng,
             args.num_synthetic, model, (1,), guide, (), posterior_params)
     syn_data = posterior_samples['x']
 
@@ -158,6 +163,10 @@ def main():
     # illustrate
 
 if __name__ == "__main__":
-        main()
+
+    args = parser.parse_args()
+    print(args)
+
+    main(args)
 
 
