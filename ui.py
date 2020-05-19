@@ -177,8 +177,14 @@ def main():
 
 	# postprocess: if preprocessing involved data mapping, it is mapped back here
 	#	so that the synthetic twin looks like the original data
-	for feature in features:
-		syn_df = feature.postprocess_data(syn_df)
+	if args.preprocess:
+		for feature in features:
+			syn_df = feature.postprocess_data(syn_df)
+
+	else:
+		for name, forward_map in feature_maps.items():
+			inverse_map = {value: key for key, value in forward_map.items()}
+			syn_df[name] = syn_df[name].map(inverse_map)
 
 	syn_df.to_csv("{}.csv".format(args.output_path))
 	pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
