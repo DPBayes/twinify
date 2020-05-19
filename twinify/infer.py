@@ -9,6 +9,9 @@ from dppp.svi import DPSVI
 from dppp.modelling import make_observed_model
 from dppp.minibatch import minibatch, subsample_batchify_data
 
+class InferenceException(Exception):
+    pass
+
 def _train_model(rng, svi, data, batch_size, num_epochs):
     rng, svi_rng, init_batch_rng = jax.random.split(rng, 3)
 
@@ -46,6 +49,8 @@ def _train_model(rng, svi, data, batch_size, num_epochs):
         num_batches, batchify_state = init_batching(batchify_rng)
 
         svi_state, loss = train_epoch(num_batches, svi_state, batchify_state)
+        if np.isnan(loss):
+            raise InferenceException
         loss /= data.shape[0]
         print("epoch {}: loss {}".format(i, loss))
 
