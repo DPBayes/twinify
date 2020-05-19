@@ -53,7 +53,7 @@ class NAModel(dist.Distribution):
 		vals = self._base_dist.sample(vals_rng_key, sample_shape=sample_shape)
 		return vals*(1.-z)+999.*z, z
 
-k = 2
+k = 20
 features = ["Leukocytes", "Eosinophils", "Platelets", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result"]
 
 def model(N, num_obs_total=None):
