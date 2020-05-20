@@ -19,6 +19,7 @@ import numpy as onp
 import pandas as pd
 
 import importlib.util
+import traceback
 
 import jax, argparse, pickle
 import secrets
@@ -99,6 +100,7 @@ def main(args):
         print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
         print("Here's the technical error description:")
         print(e)
+        traceback.print_tb(e.__traceback__)
         print("Aborting...")
         exit(3)
 

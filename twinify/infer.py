@@ -9,6 +9,8 @@ from dppp.svi import DPSVI
 from dppp.modelling import make_observed_model
 from dppp.minibatch import minibatch, subsample_batchify_data
 
+from numpyro.infer.svi import SVIState
+
 class InferenceException(Exception):
     pass
 
@@ -20,6 +22,14 @@ def _train_model(rng, svi, data, batch_size, num_epochs):
 
     batch = get_batch(0, batchify_state)
     svi_state = svi.init(svi_rng, *batch)
+
+    ##### hotfix to prevent double jit compilation #####
+    ###### remove this once fixed in numpyro/jax #######
+    optim_state = svi_state.optim_state
+    optim_state = (np.array(svi_state.optim_state[0]), *(optim_state[1:]))
+    svi_state = SVIState(optim_state, svi_state.rng_key)
+    ####################################################
+
 
     def loop_it(start, stop, fn, init_val, do_jit=True):
         if do_jit:
