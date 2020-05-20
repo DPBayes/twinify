@@ -79,7 +79,7 @@ def main():
 			else: 
 				feature_maps = {name : {value : iterator for iterator, value in \
 					enumerate(onp.unique(train_df[name].dropna()))} \
-					for name in train_df.columns if train_df[name].dtype=='O'}
+					for name in train_df.columns if (train_df[name].dtype=='O' or train_df[name].dtype=='int')}
 			for name in feature_maps.keys():
 				train_df[name] = train_df[name].map(feature_maps[name])
 
@@ -111,7 +111,7 @@ def main():
 	except Exception as e:
 		print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
 		print("Here's the technical error description:")
-		print(e)
+		print(e.trace)
 		print("Aborting...")
 		exit(3)
 

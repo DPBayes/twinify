@@ -42,8 +42,8 @@ class NAModel(dist.Distribution):
 		vals = self._base_dist.sample(vals_rng_key, sample_shape=sample_shape)
 		return vals*(1.-z)+999.*z, z
 
-k = 50
-features = ["Leukocytes", "Eosinophils", "Platelets", "Monocytes", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result", "Patient addmited to regular ward (1=yes, 0=no)", "Red blood Cells", "Respiratory Syncytial Virus"]#, "Patient age quantile"]
+k = 100
+features = ["Leukocytes", "Eosinophils", "Platelets", "Monocytes", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result", "Patient addmited to regular ward (1=yes, 0=no)", "Red blood Cells", "Respiratory Syncytial Virus", "Patient age quantile"]
 
 def model(N, num_obs_total=None):
 	pis = sample('pis', dist.Dirichlet(np.ones(k)))
@@ -93,12 +93,13 @@ def model(N, num_obs_total=None):
 	rsv_test_logit = sample('RSVvirus/Enterovirus_logit', dist.Normal(np.zeros((k,)), np.ones(k,)))
 	dists.append(NAModel(dist.Bernoulli(logits=rsv_test_logit), rsv_na_prob))
 
-	#age_logits = sample('Age_logit', dist.Normal(np.zeros((k,20)), np.ones(k,20)))
-	#dists.append(dist.Categorical(logits=age_logits))
+	age_logits = sample('Age_logit', dist.Normal(np.zeros((k,20)), np.ones((k,20))))
+	dists.append(dist.Categorical(logits=age_logits))
 
 	#feature_dtypes = ["float", "float", "float", "int", "int", "int"]
 	#feature_dtypes = ["float", "float", "float", "float"]
 	feature_dtypes = ["float"]*len(dists)
+	feature_dtypes[-1] = "int"
 	with minibatch(N, num_obs_total):
 		 x = sample('x', MixtureModel(dists, feature_dtypes, pis), sample_shape=(N,))
 
