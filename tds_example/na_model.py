@@ -11,17 +11,6 @@ import twinify.automodel as automodel
 
 import numpy as onp
 
-
-"""
-Rhinovirus/Enterovirus: Bernoulli
-Leukocytes: Normal
-#Inf A H1N1 2009: Bernoulli
-Eosinophils: Normal
-#Platelets: Normal
-#Patient addmited to regular ward (1=yes, 0=no): Bernoulli
-#Respiratory Syncytial Virus: Bernoulli
-"""
-
 from twinify.mixture_model import MixtureModel
 import numpyro.distributions as dist
 from numpyro.primitives import sample, param, deterministic
@@ -53,8 +42,8 @@ class NAModel(dist.Distribution):
 		vals = self._base_dist.sample(vals_rng_key, sample_shape=sample_shape)
 		return vals*(1.-z)+999.*z, z
 
-k = 20
-features = ["Leukocytes", "Eosinophils", "Platelets", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result"]
+k = 50
+features = ["Leukocytes", "Eosinophils", "Platelets", "Monocytes", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result", "Patient addmited to regular ward (1=yes, 0=no)", "Red blood Cells", "Respiratory Syncytial Virus"]#, "Patient age quantile"]
 
 def model(N, num_obs_total=None):
 	pis = sample('pis', dist.Dirichlet(np.ones(k)))
@@ -75,6 +64,11 @@ def model(N, num_obs_total=None):
 	Plate_sig = sample('Platelets_sig', dist.Gamma(2.*np.ones(k), 2.*np.ones(k)))
 	dists.append(NAModel(dist.Normal(Plate_mus, Plate_sig), Plate_na_prob))
 
+	Mono_na_prob = sample('Mono_na_prob', dist.Beta(2.*np.ones(k), 2.*np.ones(k)))
+	Mono_mus = sample('Monocytes_mus', dist.Normal(0.*np.ones(k), 1.*np.ones(k)))
+	Mono_sig = sample('Monocytes_sig', dist.Gamma(2.*np.ones(k), 2.*np.ones(k)))
+	dists.append(NAModel(dist.Normal(Mono_mus, Mono_sig), Mono_na_prob))
+
 	h1n1_na_prob = sample('H1N1_na_prob', dist.Beta(2.*np.ones(k), 2.*np.ones(k)))
 	h1n1_test_logit = sample('Inf A H1N1 2009', dist.Normal(np.zeros((k,)), np.ones(k,)))
 	dists.append(NAModel(dist.Bernoulli(logits=h1n1_test_logit), h1n1_na_prob))
@@ -85,6 +79,22 @@ def model(N, num_obs_total=None):
 
 	covid_test_logit = sample("covid_test_logit", dist.Normal(np.zeros((k,)), np.ones(k,)))
 	dists.append(dist.Bernoulli(logits=covid_test_logit))
+
+	ward_na_prob = sample('Ward_na_prob', dist.Beta(2.*np.ones(k), 2.*np.ones(k)))
+	ward_test_logit = sample('Wardvirus/Enterovirus_logit', dist.Normal(np.zeros((k,)), np.ones(k,)))
+	dists.append(NAModel(dist.Bernoulli(logits=ward_test_logit), ward_na_prob))
+
+	Red_na_prob = sample('Red_na_prob', dist.Beta(2.*np.ones(k), 2.*np.ones(k)))
+	Red_mus = sample('RedBlood_mus', dist.Normal(0.*np.ones(k), 1.*np.ones(k)))
+	Red_sig = sample('RedBlood_sig', dist.Gamma(2.*np.ones(k), 2.*np.ones(k)))
+	dists.append(NAModel(dist.Normal(Red_mus, Red_sig), Red_na_prob))
+
+	rsv_na_prob = sample('RSV_na_prob', dist.Beta(2.*np.ones(k), 2.*np.ones(k)))
+	rsv_test_logit = sample('RSVvirus/Enterovirus_logit', dist.Normal(np.zeros((k,)), np.ones(k,)))
+	dists.append(NAModel(dist.Bernoulli(logits=rsv_test_logit), rsv_na_prob))
+
+	#age_logits = sample('Age_logit', dist.Normal(np.zeros((k,20)), np.ones(k,20)))
+	#dists.append(dist.Categorical(logits=age_logits))
 
 	#feature_dtypes = ["float", "float", "float", "int", "int", "int"]
 	#feature_dtypes = ["float", "float", "float", "float"]

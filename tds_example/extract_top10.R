@@ -66,6 +66,7 @@ gbm.model = gbm(myformula, data = train,
                 bag.fraction = BAG.FRACTION,
                 verbose=FALSE)
 
+## extract top 10 features
 model.summary<-summary(gbm.model, cBars=10)
 top_names = as.vector(model.summary[1:10,]$var)
 print(model.summary[1:10,])
@@ -77,3 +78,13 @@ for (i in 1:10){
 }
 print(new_names)
 write(as.vector(new_names), "tds_top10_features.txt")
+
+## extract all features
+all_names = as.vector(model.summary$var)
+all_new_names <- rep(NA, length(all_names))
+for (i in 1:length(all_names)){
+  name <- names(original_data)[make.names(names(original_data))==all_names[i]]
+  all_new_names[i] <- name
+}
+print(all_new_names)
+write(as.vector(all_new_names), "tds_all_features.txt")
