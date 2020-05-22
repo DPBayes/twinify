@@ -109,7 +109,7 @@ dependencies:
     - bleach==3.1.0
     - fastcache==1.1.0
     - fourier-accountant==0.12.0
-    - -e git+git@github.com:PROBIC/DP-probabilistic-programming.git@474226956819d52495f1fac337d02964aebfe03f#egg=dppp
+    - git+ssh://git@github.com:/PROBIC/DP-probabilistic-programming.git@f57c667932e3b86ce97d57ef42771c10aa552cf8#egg=dppp
     - jax==0.1.57
     - jaxlib==0.1.37
     - numpyro==0.2.4
