@@ -94,8 +94,8 @@ def model(N, num_obs_total=None):
 	rsv_test_logit = sample('RSVvirus/Enterovirus_logit', dist.Normal(np.zeros((k,)), np.ones(k,)))
 	dists.append(NAModel(dist.Bernoulli(logits=rsv_test_logit), rsv_na_prob))
 
-	#age_logits = sample('Age_logit', dist.Normal(np.zeros((k,20)), np.ones((k,20))))
-	#dists.append(dist.Categorical(logits=age_logits))
+	age_logits = sample('Age_logit', dist.Normal(np.zeros((k,20)), np.ones((k,20))))
+	dists.append(dist.Categorical(logits=age_logits))
 	#age_rate = sample('Age_rate', dist.Exponential(np.ones(k)))
 	#dists.append(dist.Poisson(rate=age_rate))
 	#dists.append(dist.BetaBinomial(np.ones(k), np.ones(k), 19))
@@ -103,7 +103,7 @@ def model(N, num_obs_total=None):
 	#feature_dtypes = ["float", "float", "float", "int", "int", "int"]
 	#feature_dtypes = ["float", "float", "float", "float"]
 	feature_dtypes = ["float"]*len(dists)
-	#feature_dtypes[-1] = "int"
+	feature_dtypes[-1] = "int"
 	with minibatch(N, num_obs_total):
 		 x = sample('x', MixtureModel(dists, feature_dtypes, pis), sample_shape=(N,))
 
