@@ -80,6 +80,7 @@ def main():
 				feature_maps = {name : {value : iterator for iterator, value in \
 					enumerate(onp.unique(train_df[name].dropna()))} \
 					for name in train_df.columns if (train_df[name].dtype=='O' or train_df[name].dtype=='int')}
+					#for name in train_df.columns if train_df[name].dtype=='O'}
 			for name in feature_maps.keys():
 				train_df[name] = train_df[name].map(feature_maps[name])
 
