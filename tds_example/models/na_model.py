@@ -43,8 +43,7 @@ class NAModel(dist.Distribution):
 		return vals*(1.-z)+999.*z, z
 
 k = 50
-#features = ["Leukocytes", "Eosinophils", "Platelets", "Monocytes", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result", "Patient addmited to regular ward (1=yes, 0=no)", "Red blood Cells", "Respiratory Syncytial Virus", "Patient age quantile"]
-features = ["Leukocytes", "Eosinophils", "Platelets", "Monocytes", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result", "Patient addmited to regular ward (1=yes, 0=no)", "Red blood Cells", "Respiratory Syncytial Virus"]
+features = ["Leukocytes", "Eosinophils", "Platelets", "Monocytes", "Inf A H1N1 2009", "Rhinovirus/Enterovirus", "SARS-Cov-2 exam result", "Patient addmited to regular ward (1=yes, 0=no)", "Red blood Cells", "Respiratory Syncytial Virus", "Patient age quantile"]
 
 def model(N, num_obs_total=None):
 	pis = sample('pis', dist.Dirichlet(np.ones(k)))
