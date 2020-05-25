@@ -36,6 +36,7 @@ parser.add_argument("--k", default=5, type=int, help="mixture components in fit"
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="subsampling ratio for DP-SGD")
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
+parser.add_argument("--drop_na", default=0, type=int, help="remove missing values from data (yes=1)")
 
 def initialize_rngs(seed):
     if seed is None:
@@ -66,7 +67,9 @@ def main(args):
 
         features = automodel.parse_model_fn(model, feature_names)
 
-        train_df = df[feature_names].dropna()
+        train_df = df[feature_names]
+        if args.drop_na:
+            train_df = train_df.dropna()
 
         # data preprocessing: determines number of categories for Categorical
         #   distribution and maps categorical values in the data to ints
@@ -84,7 +87,15 @@ def main(args):
         feature_names = [feature.name for feature in features]
 
         # pick features from data according to model file
-        train_df = df[feature_names].dropna()
+        train_df = df[feature_names]
+        if args.drop_na:
+            train_df = train_df.dropna()
+
+        # NOTE add missing values to features
+        for feature in features:
+            if onp.any(train_df[feature.name].isna()):
+                feature._missing_values = True
+
 
         # TODO normalize?
 
@@ -109,7 +120,10 @@ def main(args):
 
     # pick features from data according to model file
     num_data = train_df.shape[0]
-    print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+    if args.drop_na:
+        print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+    else:
+        print("The data has {} entries with {} features".format(*train_df.shape))
 
     # compute DP values
     target_delta = 1. / num_data

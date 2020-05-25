@@ -12,6 +12,7 @@ from dppp.minibatch import minibatch
 from dppp.util import unvectorize_shape_2d
 
 from .mixture_model import MixtureModel
+from .na_model import NAModel
 
 import numpy as onp
 
@@ -22,7 +23,7 @@ import pandas as pd
 
 
 constraint_dtype_lookup = {
-    dists.constraints._Boolean: 'bool',
+    dists.constraints._Boolean: 'int',
     dists.constraints._Real: 'float',
     dists.constraints._GreaterThan: 'float',
     dists.constraints._Interval: 'float',
@@ -143,6 +144,7 @@ class ModelFeature:
         self._dist = dist
         self._shape = None
         self._value_map = None
+        self._missing_values = False
 
     @staticmethod
     def from_distribution_instance(feature_name: str, dist: dists.Distribution) -> 'ModelFeature':
@@ -352,6 +354,9 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
 
             dtypes.append(feature.distribution.support_dtype)
             feature_dist = TypedDistribution(feature.instantiate(**prior_values), dtypes[-1])
+            if feature._missing_values:
+                feature_na_prob = sample("{}_na_prob".format(feature.name), dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
+                feature_dist = NAModel(feature_dist, feature_na_prob)
             mixture_dists.append(feature_dist)
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
