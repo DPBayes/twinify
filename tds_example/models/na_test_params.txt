@@ -5,3 +5,5 @@
 --sampling_ratio=0.01
 --drop_na=0
 --preprocess=0
+--k=20
+--preprocess=1

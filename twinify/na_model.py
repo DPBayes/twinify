@@ -6,15 +6,16 @@ from numpyro.primitives import sample
 
 class NAModel(dist.Distribution):
 
-	def __init__(self, base_dist, na_prob=0.5, validate_args=None):
+	def __init__(self, base_dist, na_prob=0.5, dtype="float", validate_args=None):
 		self._base_dist = base_dist
 		self._na_prob = na_prob
+		self._dtype = dtype
 		super(NAModel, self).__init__()
 
 	def log_prob(self, value):
 		log_na_prob = np.log(self._na_prob)
 		log_probs = dist.Bernoulli(probs = self._na_prob).log_prob(np.isnan(value))
-		return log_probs + np.isfinite(value)*self._base_dist.log_prob(np.nan_to_num(value))
+		return log_probs + np.isfinite(value)*self._base_dist.log_prob(np.nan_to_num(value).astype(self._dtype))
 
 	def sample(self, key, sample_shape=()):
 		return self.sample_with_intermediates(key, sample_shape)[0]

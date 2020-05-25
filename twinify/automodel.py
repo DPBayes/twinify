@@ -208,7 +208,7 @@ class ModelFeature:
                 self.shape = (len(column.dropna().unique()), )
 
             # we map the feature values to integers
-            self._value_map = {val: i for i, val in enumerate(column.unique())}
+            self._value_map = {val: i for i, val in enumerate(column.dropna().unique())}
             column = column.map(self._value_map)
 
         if isinstance(data, pd.DataFrame):
@@ -341,10 +341,10 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
 
             dtypes.append(feature.distribution.support_dtype)
             feature_dist = feature.instantiate(**prior_values)
-            #feature_dist.log_prob = lambda x : feature_dist.log_prob(x.astype(dtypes[-1]))
             if feature._missing_values:
                 feature_na_prob = sample("{}_na_prob".format(feature.name), dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
-                feature_dist = NAModel(feature_dist, feature_na_prob)
+                feature_dist = NAModel(feature_dist, feature_na_prob, dtypes[-1])
+
             mixture_dists.append(feature_dist)
             #dtypes.append("float")
 
