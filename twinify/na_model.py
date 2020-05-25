@@ -17,12 +17,14 @@ class NAModel(dist.Distribution):
 		return log_probs + np.isfinite(value)*self._base_dist.log_prob(np.nan_to_num(value))
 
 	def sample(self, key, sample_shape=()):
-		return self.sample_with_intermediates(key, sample_shape)[0]
+		return self.sample_with_intermediates(key, sample_shape)
 
 	def sample_with_intermediates(self, key, sample_shape=()):
 		assert(len(sample_shape) == 1)
 
 		vals_rng_key, probs_rng_key = jax.random.split(key, 2)
-		z = dist.Bernoulli(probs = self._na_prob).sample(probs_rng_key, sample_shape)
+		z = dist.Bernoulli(probs = self._na_prob).sample(probs_rng_key, sample_shape).astype("int")
 		vals = self._base_dist.sample(vals_rng_key, sample_shape=sample_shape)
-		return vals*(1.-z)+999.*z, z
+		vals = np.stack([vals, np.nan*np.ones_like(vals)]).squeeze(1)
+		return vals[z, np.arange(vals.shape[1])]
+		#return vals*(1.-z)+999.*z, z

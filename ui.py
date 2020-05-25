@@ -127,18 +127,18 @@ def main():
 
 	# pick features from data according to model file
 	num_data = train_df.shape[0]
-	print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+	#print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
 
-	# compute DP values
-	target_delta = 1. / num_data
-	num_compositions = int(args.num_epochs / args.sampling_ratio)
-	dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
-		args.epsilon, target_delta, args.sampling_ratio, num_compositions
-	)
-	batch_size = q_to_batch_size(args.sampling_ratio, num_data)
-	sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
-	print("Will apply noise with variance {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
-		"of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
+	## compute DP values
+	#target_delta = 1. / num_data
+	#num_compositions = int(args.num_epochs / args.sampling_ratio)
+	#dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
+	#	args.epsilon, target_delta, args.sampling_ratio, num_compositions
+	#)
+	#batch_size = q_to_batch_size(args.sampling_ratio, num_data)
+	#sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
+	#print("Will apply noise with variance {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+	#	"of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
 
 	# TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
