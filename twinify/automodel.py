@@ -318,6 +318,19 @@ def create_feature_prior_dists(feature: ModelFeature, k: int) -> Dict[str, dists
     }
     return prior_dists
 
+################### typed dist ##########################
+class TypedDistribution(dists.Distribution):
+    def __init__(self, base_dist, dtype, validate_args=None):
+        super(TypedDistribution, self).__init__(base_dist.batch_shape, base_dist.event_shape, validate_args=validate_args)
+        self.dtype = dtype
+        self.base_dist = base_dist
+    def log_prob(self, value):
+        log_prob = self.base_dist.log_prob(value.astype(self.dtype))
+        return log_prob
+    def sample(self, key, sample_shape=()):
+        return self.base_dist.sample(key, sample_shape=sample_shape)
+
+
 ################### automatically build mixture model ##########################
 
 def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
@@ -340,17 +353,16 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
                 )
 
             dtypes.append(feature.distribution.support_dtype)
-            feature_dist = feature.instantiate(**prior_values)
+            feature_dist = TypedDistribution(feature.instantiate(**prior_values), dtypes[-1])
             if feature._missing_values:
                 feature_na_prob = sample("{}_na_prob".format(feature.name), dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
-                feature_dist = NAModel(feature_dist, feature_na_prob, dtypes[-1])
-
+                feature_dist = NAModel(feature_dist, feature_na_prob)
+    
             mixture_dists.append(feature_dist)
-            #dtypes.append("float")
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
         with minibatch(N, num_obs_total=num_obs_total):
-            mixture_model_dist = MixtureModel(mixture_dists, dtypes, pis)
+            mixture_model_dist = MixtureModel(mixture_dists, pis)
             x = sample('x', mixture_model_dist, sample_shape=(N,))
             return x
     return model
