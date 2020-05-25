@@ -13,19 +13,18 @@ class MixtureModel(dist.Distribution):
         '_pis' : dist.constraints.simplex
     }
 
-    def __init__(self, dists, dtypes, pis=1.0, validate_args=None):
+    def __init__(self, dists, pis=1.0, validate_args=None):
         self.dists = dists
         self._pis = pis
-        self._dtypes = dtypes
         super(MixtureModel, self).__init__()
 
     def log_prob(self, value):
         log_pis = np.log(self._pis)
         try:
-            log_phis = np.array([dbn.log_prob(value[:, feat_idx, np.newaxis].astype(self._dtypes[feat_idx])) for feat_idx, dbn in \
+            log_phis = np.array([dbn.log_prob(value[:, feat_idx, np.newaxis]) for feat_idx, dbn in \
                     enumerate(self.dists)]).sum(axis=0)
         except:
-            log_phis = np.array([dbn.log_prob(value[feat_idx, np.newaxis].astype(self._dtypes[feat_idx])) for feat_idx, dbn in \
+            log_phis = np.array([dbn.log_prob(value[feat_idx, np.newaxis]) for feat_idx, dbn in \
                     enumerate(self.dists)]).sum(axis=0)
         temp = log_pis + log_phis
 
