@@ -11,6 +11,7 @@ from numpyro.handlers import seed, trace
 from dppp.minibatch import minibatch
 
 from .mixture_model import MixtureModel
+from .na_model import NAModel
 
 import numpy as onp
 
@@ -21,7 +22,8 @@ import pandas as pd
 
 
 constraint_dtype_lookup = {
-    dists.constraints._Boolean: 'bool',
+    dists.constraints._Boolean: 'int',
+    #dists.constraints._Boolean: 'bool',
     dists.constraints._Real: 'float',
     dists.constraints._GreaterThan: 'float',
     dists.constraints._Interval: 'float',
@@ -142,6 +144,7 @@ class ModelFeature:
         self._dist = dist
         self._shape = None
         self._value_map = None
+        self._missing_values = False
 
     @staticmethod
     def from_distribution_instance(feature_name: str, dist: dists.Distribution) -> 'ModelFeature':
@@ -336,9 +339,14 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
                     feature_prior_dist
                 )
 
-            feature_dist = feature.instantiate(**prior_values)
-            mixture_dists.append(feature_dist)
             dtypes.append(feature.distribution.support_dtype)
+            feature_dist = feature.instantiate(**prior_values)
+            #feature_dist.log_prob = lambda x : feature_dist.log_prob(x.astype(dtypes[-1]))
+            if feature._missing_values:
+                feature_na_prob = sample("{}_na_prob".format(feature.name), dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
+                feature_dist = NAModel(feature_dist, feature_na_prob)
+            mixture_dists.append(feature_dist)
+            #dtypes.append("float")
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
         with minibatch(N, num_obs_total=num_obs_total):
