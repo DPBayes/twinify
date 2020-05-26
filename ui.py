@@ -144,27 +144,27 @@ def main():
 
 	# learn posterior distributions
 	try:
-		#Posterior_params = train_model(
-		#	 jax.random.PRNGKey(args.seed),
-		#	 model, automodel.model_args_map, guide, None,
-		#	 train_df.to_numpy(),
-		#	 batch_size=int(args.sampling_ratio*len(train_df)),
-		#	 num_epochs=args.num_epochs,
-		#	 dp_scale=dp_sigma
-		#)
-		# learn posterior distributions
-		print("OI! DP IS NOT ON")
-		print("OI! DP IS NOT ON")
-		print("OI! DP IS NOT ON")
-		print("OI! DP IS NOT ON")
-		print("OI! DP IS NOT ON")
-		posterior_params = train_model_no_dp(
-			jax.random.PRNGKey(args.seed),
-			model, automodel.model_args_map, guide, None,
-			train_df.to_numpy(),
-			batch_size=int(args.sampling_ratio*len(train_df)),
-			num_epochs=args.num_epochs
+		posterior_params = train_model(
+			 jax.random.PRNGKey(args.seed),
+			 model, automodel.model_args_map, guide, None,
+			 train_df.to_numpy(),
+			 batch_size=int(args.sampling_ratio*len(train_df)),
+			 num_epochs=args.num_epochs,
+			 dp_scale=dp_sigma
 		)
+		## learn posterior distributions
+		#print("OI! DP IS NOT ON")
+		#print("OI! DP IS NOT ON")
+		#print("OI! DP IS NOT ON")
+		#print("OI! DP IS NOT ON")
+		#print("OI! DP IS NOT ON")
+		#posterior_params = train_model_no_dp(
+		#	jax.random.PRNGKey(args.seed),
+		#	model, automodel.model_args_map, guide, None,
+		#	train_df.to_numpy(),
+		#	batch_size=int(args.sampling_ratio*len(train_df)),
+		#	num_epochs=args.num_epochs
+		#)
 	except (InferenceException, FloatingPointError):
 		print("################################## ERROR ##################################")
 		print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")

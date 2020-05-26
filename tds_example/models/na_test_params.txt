@@ -1,9 +1,9 @@
 --num_epochs=200
---epsilon=5.0
+--epsilon=2.0
 --drop_na=0
 --num_synthetic=20000
 --sampling_ratio=0.01
 --drop_na=0
 --preprocess=0
---k=40
+--k=20
 --preprocess=1

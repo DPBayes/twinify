@@ -4,21 +4,21 @@ Inf A H1N1 2009: Bernoulli
 Eosinophils: Normal
 Platelets: Normal
 Monocytes: Normal
-#Patient addmited to regular ward (1=yes, 0=no): Poisson
+Patient addmited to regular ward (1=yes, 0=no): Bernoulli
 Red blood Cells: Normal
 Respiratory Syncytial Virus: Bernoulli
-#Patient age quantile: Poisson
+Patient age quantile: Categorical
 Influenza B: Bernoulli
 Proteina C reativa mg/dL: Normal
 Basophils: Normal
-#Patient addmited to intensive care unit (1=yes, 0=no): Poisson
+Patient addmited to intensive care unit (1=yes, 0=no): Bernoulli
 Potassium: Normal
 Mean corpuscular volume (MCV): Normal
 Influenza A, rapid test: Bernoulli
 Creatinine: Normal
 Mean corpuscular hemoglobin concentration (MCHC): Normal
 Sodium: Normal
-#Patient addmited to semi-intensive unit (1=yes, 0=no): Poisson
+Patient addmited to semi-intensive unit (1=yes, 0=no): Bernoulli
 Hematocrit: Normal
 Urea: Normal
 Neutrophils: Normal
