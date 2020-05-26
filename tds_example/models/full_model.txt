@@ -4,42 +4,42 @@ Inf A H1N1 2009: Bernoulli
 Eosinophils: Normal
 Platelets: Normal
 Monocytes: Normal
-#Patient addmited to regular ward (1=yes, 0=no): Bernoulli
+#Patient addmited to regular ward (1=yes, 0=no): Poisson
 Red blood Cells: Normal
 Respiratory Syncytial Virus: Bernoulli
-#Patient age quantile: Categorical
+#Patient age quantile: Poisson
 Influenza B: Bernoulli
 Proteina C reativa mg/dL: Normal
 Basophils: Normal
-#Patient addmited to intensive care unit (1=yes, 0=no): Bernoulli
+#Patient addmited to intensive care unit (1=yes, 0=no): Poisson
 Potassium: Normal
 Mean corpuscular volume (MCV): Normal
 Influenza A, rapid test: Bernoulli
 Creatinine: Normal
 Mean corpuscular hemoglobin concentration (MCHC): Normal
 Sodium: Normal
-#Patient addmited to semi-intensive unit (1=yes, 0=no): Bernoulli
+#Patient addmited to semi-intensive unit (1=yes, 0=no): Poisson
 Hematocrit: Normal
 Urea: Normal
 Neutrophils: Normal
 Mean platelet volume: Normal
-#CoronavirusNL63: Bernoulli
-#Mean corpuscular hemoglobin (MCH): Normal
-#Coronavirus HKU1: Bernoulli
-#Hemoglobin: Normal
-#Lymphocytes: Normal
-#Red blood cell distribution width (RDW): Normal
-#Influenza A: Bernoulli
-#Influenza B, rapid test: Bernoulli
-#Parainfluenza 1: Bernoulli
-#Parainfluenza 3: Bernoulli
-#Chlamydophila pneumoniae: Bernoulli
-#Adenovirus: Bernoulli
-#Parainfluenza 4: Bernoulli
-#Coronavirus229E: Bernoulli
-#CoronavirusOC43: Bernoulli
-#Bordetella pertussis: Bernoulli
-#Metapneumovirus: Bernoulli
-## THIS FEATURE HAS ONLY ONE VALUE Parainfluenza 2: Categorical
-#Strepto A: Categorical
-#SARS-Cov-2 exam result: Bernoulli
+CoronavirusNL63: Bernoulli
+Mean corpuscular hemoglobin (MCH): Normal
+Coronavirus HKU1: Bernoulli
+Hemoglobin: Normal
+Lymphocytes: Normal
+Red blood cell distribution width (RDW): Normal
+Influenza A: Bernoulli
+Influenza B, rapid test: Bernoulli
+Parainfluenza 1: Bernoulli
+Parainfluenza 3: Bernoulli
+Chlamydophila pneumoniae: Bernoulli
+Adenovirus: Bernoulli
+Parainfluenza 4: Bernoulli
+Coronavirus229E: Bernoulli
+CoronavirusOC43: Bernoulli
+Bordetella pertussis: Bernoulli
+Metapneumovirus: Bernoulli
+# Parainfluenza 2: Categorical
+Strepto A: Categorical
+SARS-Cov-2 exam result: Bernoulli

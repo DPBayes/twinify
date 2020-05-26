@@ -4,10 +4,10 @@ import pandas as pd
 dataset.xlsx is from https://github.com/souzatharsis/covid-19-ML-Lab-Test/blob/master/data/dataset.xlsx
 """
 
-tds_data = pd.read_excel("dataset.xlsx") 
-feature_names = list(tds_data.columns)
+original_data = pd.read_excel("dataset.xlsx") 
+feature_names = list(original_data.columns)
 feature_names = [name.strip() for name in feature_names]
-tds_data = pd.DataFrame(tds_data, columns=feature_names)
+tds_data = pd.DataFrame(original_data.values, columns=feature_names)
 
 ## save top 10 features
 top10_features_handle = open("tds_top10_features.txt", "r")
