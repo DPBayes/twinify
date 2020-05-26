@@ -37,6 +37,7 @@ parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="subsampling ratio for DP-SGD")
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
 parser.add_argument("--drop_na", default=0, type=int, help="remove missing values from data (yes=1)")
+parser.add_argument("--clipping_threshold", default=1., type=float, help="clipping threshold")
 
 def initialize_rngs(seed):
     if seed is None:
@@ -143,7 +144,8 @@ def main(args):
             train_df.to_numpy(),
             batch_size=int(args.sampling_ratio*len(train_df)),
             num_epochs=args.num_epochs,
-            dp_scale=dp_sigma
+            dp_scale=dp_sigma,
+            clipping_threshold=args.clipping_threshold
         )
     except (InferenceException, FloatingPointError):
         print("################################## ERROR ##################################")
