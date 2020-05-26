@@ -144,59 +144,64 @@ def main():
 	# TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
 	# learn posterior distributions
-	try:
-		posterior_params = train_model(
-			 jax.random.PRNGKey(args.seed),
-			 model, automodel.model_args_map, guide, None,
-			 train_df.to_numpy(),
-			 batch_size=int(args.sampling_ratio*len(train_df)),
-			 num_epochs=args.num_epochs,
-			 dp_scale=dp_sigma,
-			 clipping_threshold=args.clipping_threshold
-		)
-		## learn posterior distributions
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#posterior_params = train_model_no_dp(
-		#	jax.random.PRNGKey(args.seed),
-		#	model, automodel.model_args_map, guide, None,
-		#	train_df.to_numpy(),
-		#	batch_size=int(args.sampling_ratio*len(train_df)),
-		#	num_epochs=args.num_epochs
-		#)
-	except (InferenceException, FloatingPointError):
-		print("################################## ERROR ##################################")
-		print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
-		print("This means the model has major difficulties in capturing the data and is")
-		print("likely to happen when the dataset is very small and/or sparse.")
-		print("Try adapting (simplifying) the model.")
-		print("Aborting...")
-		exit(2)
+	posterior_list = []
+	for n_run in range(100):
+		try:
+			print("Rep {}\n".format(n_run))
+			posterior_params = train_model(
+				 jax.random.PRNGKey(args.seed+n_run),
+				 model, automodel.model_args_map, guide, None,
+				 train_df.to_numpy(),
+				 batch_size=int(args.sampling_ratio*len(train_df)),
+				 num_epochs=args.num_epochs,
+				 dp_scale=dp_sigma,
+				 clipping_threshold=args.clipping_threshold
+			)
+			posterior_list.append(posterior_params)
+			## learn posterior distributions
+			#print("OI! DP IS NOT ON")
+			#print("OI! DP IS NOT ON")
+			#print("OI! DP IS NOT ON")
+			#print("OI! DP IS NOT ON")
+			#print("OI! DP IS NOT ON")
+			#posterior_params = train_model_no_dp(
+			#	jax.random.PRNGKey(args.seed),
+			#	model, automodel.model_args_map, guide, None,
+			#	train_df.to_numpy(),
+			#	batch_size=int(args.sampling_ratio*len(train_df)),
+			#	num_epochs=args.num_epochs
+			#)
+		except (InferenceException, FloatingPointError):
+			print("################################## ERROR ##################################")
+			print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
+			print("This means the model has major difficulties in capturing the data and is")
+			print("likely to happen when the dataset is very small and/or sparse.")
+			print("Try adapting (simplifying) the model.")
+			print("Aborting...")
 
-	# sample synthetic data from posterior predictive distribution
-	posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed + 1),\
-			args.num_synthetic, model, (1,), guide, (), posterior_params)
-	syn_data = posterior_samples['x']
+	for n_run in range(100):
+		# sample synthetic data from posterior predictive distribution
+		posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed + n_run),\
+				args.num_synthetic, model, (1,), guide, (), posterior_list[n_run])
+		syn_data = posterior_samples['x']
 
-	# save results
-	syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
+		# save results
+		syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
 
-	# postprocess: if preprocessing involved data mapping, it is mapped back here
-	#	so that the synthetic twin looks like the original data
-	if args.preprocess:
-		for feature in features:
-			syn_df = feature.postprocess_data(syn_df)
+		# postprocess: if preprocessing involved data mapping, it is mapped back here
+		#	so that the synthetic twin looks like the original data
+		if args.preprocess:
+			for feature in features:
+				syn_df = feature.postprocess_data(syn_df)
 
-	else:
-		for name, forward_map in feature_maps.items():
-			inverse_map = {value: key for key, value in forward_map.items()}
-			syn_df[name] = syn_df[name].map(inverse_map)
+		else:
+			for name, forward_map in feature_maps.items():
+				inverse_map = {value: key for key, value in forward_map.items()}
+				syn_df[name] = syn_df[name].map(inverse_map)
 
-	syn_df.to_csv("{}.csv".format(args.output_path))
-	pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
+		syn_df.to_csv("{}_{}.csv".format(args.output_path, n_run))
+	#pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
+	pickle.dump(posterior_list, open("{}.p".format(args.output_path), "wb"))
 
 	# TODO
 	# illustrate
