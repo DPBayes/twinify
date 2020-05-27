@@ -14,8 +14,10 @@ class MixtureModel(dist.Distribution):
     }
 
     def __init__(self, dists, pis=1.0, validate_args=None):
+    #def __init__(self, dists, pis_unc=.0, validate_args=None):
         self.dists = dists
         self._pis = pis
+        #self._pis_unc = pis_unc
         super(MixtureModel, self).__init__()
 
     def log_prob(self, value):
@@ -27,6 +29,8 @@ class MixtureModel(dist.Distribution):
             log_phis = np.array([dbn.log_prob(value[feat_idx, np.newaxis]) for feat_idx, dbn in \
                     enumerate(self.dists)]).sum(axis=0)
         temp = log_pis + log_phis
+        #print(self._pis_unc.shape)
+        #temp = (self._pis_unc-logsumexp(self._pis_unc, axis=-1)) + log_phis
 
         return logsumexp(temp, axis=-1)
 

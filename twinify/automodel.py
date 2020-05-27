@@ -365,8 +365,12 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
             mixture_dists.append(feature_dist)
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
+        #pis = np.ones(k)/k
+        #pis_unc = sample('pis', dists.Normal(np.zeros(k), np.ones(k)))
+        #pis = jax.nn.softmax(pis_unc)
         with minibatch(N, num_obs_total=num_obs_total):
             mixture_model_dist = MixtureModel(mixture_dists, pis)
+            #mixture_model_dist = MixtureModel(mixture_dists, pis_unc)
             x = sample('x', mixture_model_dist, sample_shape=(N,))
             return x
     return model
