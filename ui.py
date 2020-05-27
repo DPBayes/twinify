@@ -119,7 +119,7 @@ def main(args):
     )
     batch_size = q_to_batch_size(args.sampling_ratio, num_data)
     sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
-    print("Will apply noise with variance {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+    print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
         "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
 
     # TODO: warn for high noise? but when is it too high? what is a good heuristic?
