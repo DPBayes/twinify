@@ -2,7 +2,7 @@
 --drop_na=0
 --num_synthetic=20000
 --sampling_ratio=0.01
---k=20
+--k=5
 --preprocess=1
 --clipping_threshold=5.0
 --seed=0

@@ -248,7 +248,8 @@ categorical_dist_lookup = {
 
 dist_lookup = {
     "normal": Distribution("Normal", dists.Normal),
-    "bernoulli": Distribution("Bernoulli", dists.BernoulliProbs),
+    #"bernoulli": Distribution("Bernoulli", dists.BernoulliProbs),
+    "bernoulli": Distribution("Bernoulli", dists.BernoulliLogits),
     "categorical": Distribution("Categorical", dists.CategoricalProbs),
     "poisson": Distribution("Poisson", dists.Poisson)
 }
@@ -304,8 +305,10 @@ def parse_model_fn(model: Callable, feature_names: List[str]) -> List[ModelFeatu
 ##################### prior lookup ########################
 
 prior_lookup = {
-    dists.Normal: {'loc': (dists.Normal, (0., 1.)), 'scale': (dists.Gamma, (2., 2.))},
-    dists.BernoulliProbs: {'probs': (dists.Beta, (1., 1.))},
+    #dists.Normal: {'loc': (dists.Normal, (0., 1.)), 'scale': (dists.Gamma, (2., 2.))},
+    dists.Normal: {'loc': (dists.Normal, (0., 1.)), 'scale': (dists.LogNormal, (0., 2.))},
+    #dists.BernoulliProbs: {'probs': (dists.Beta, (1., 1.))},
+    dists.BernoulliLogits: {'logits': (dists.Normal, (0., 1.))},
     dists.CategoricalProbs: {'probs': (dists.Dirichlet, (1.,))},
     dists.Poisson: {'rate': (dists.Exponential, (1.,))}
 }
@@ -355,7 +358,8 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
             dtypes.append(feature.distribution.support_dtype)
             feature_dist = TypedDistribution(feature.instantiate(**prior_values), dtypes[-1])
             if feature._missing_values:
-                feature_na_prob = sample("{}_na_prob".format(feature.name), dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
+                feature_na_prob = sample("{}_na_prob".format(feature.name), \
+                        dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
                 feature_dist = NAModel(feature_dist, feature_na_prob)
     
             mixture_dists.append(feature_dist)
