@@ -9,6 +9,7 @@ import numpyro.distributions as dists
 from numpyro.primitives import sample, param, deterministic
 from numpyro.handlers import seed, trace
 from dppp.minibatch import minibatch
+from dppp.util import unvectorize_shape_2d
 
 from .mixture_model import MixtureModel
 
@@ -348,7 +349,8 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
     return model
 
 def model_args_map(x, **kwargs):
-    return (x.shape[0],), kwargs, {'x': x}
+    N = unvectorize_shape_2d(x)[0]
+    return (N,), kwargs, {'x': x}
 
 def guide_args_map(x, **kwargs):
     return (), kwargs, {}
