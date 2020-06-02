@@ -7,7 +7,7 @@ from dppp.modelling import sample_multi_posterior_predictive, make_observed_mode
 from dppp.minibatch import q_to_batch_size, batch_size_to_q
 from dppp.dputil import approximate_sigma_remove_relation
 from numpyro.handlers import seed
-from numpyro.contrib.autoguide import AutoDiagonalNormal, AutoContinuousELBO
+from numpyro.contrib.autoguide import AutoDiagonalNormal
 
 import fourier_accountant
 
@@ -131,7 +131,6 @@ def main(args):
         posterior_params = train_model(
             inference_rng,
             model, automodel.model_args_map, guide, None,
-            AutoContinuousELBO(),
             train_df.to_numpy(),
             batch_size=int(args.sampling_ratio*len(train_df)),
             num_epochs=args.num_epochs,

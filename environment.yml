@@ -110,9 +110,9 @@ dependencies:
     - fastcache==1.1.0
     - fourier-accountant==0.12.0
     - git+ssh://git@github.com:/PROBIC/DP-probabilistic-programming.git@f57c667932e3b86ce97d57ef42771c10aa552cf8#egg=dppp
-    - jax==0.1.57
-    - jaxlib==0.1.37
-    - numpyro==0.2.4
+    - jax==0.1.67
+    - jaxlib==0.1.47
+    - git+https://github.com/pyro-ppl/numpyro.git@27acd146fadcbcb34711ce093c962f19a2ae37b3#egg=numpyro
     - opt-einsum==3.2.0
     - protobuf==3.11.3
     - tqdm==4.43.0
