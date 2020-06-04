@@ -20,13 +20,18 @@ class MixtureModel(dist.Distribution):
 
     def log_prob(self, value):
         log_pis = np.log(self._pis)
-        try:
+        if value.ndim == 2:
             log_phis = np.array([dbn.log_prob(value[:, feat_idx, np.newaxis]) for feat_idx, dbn in \
                     enumerate(self.dists)]).sum(axis=0)
-        except:
+            assert(value.ndim == 2)
+            assert(log_phis.shape == (value.shape[0], len(log_pis)))
+            temp = log_pis + log_phis[:,:len(log_pis)]
+        else:
             log_phis = np.array([dbn.log_prob(value[feat_idx, np.newaxis]) for feat_idx, dbn in \
                     enumerate(self.dists)]).sum(axis=0)
-        temp = log_pis + log_phis
+            assert(value.ndim == 1)
+            assert(log_phis.shape == (len(log_pis),))
+            temp = log_pis + log_phis[:len(log_pis)]
 
         return logsumexp(temp, axis=-1)
 
