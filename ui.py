@@ -158,7 +158,7 @@ def main(args):
     for feature in features:
         syn_df = feature.postprocess_data(syn_df)
 
-    syn_df.to_csv("{}.csv".format(args.output_path))
+    syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
     # TODO
