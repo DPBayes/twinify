@@ -1,0 +1,7 @@
+--num_epochs=200
+--drop_na=0
+--num_synthetic=20000
+--sampling_ratio=0.01
+--k=50
+--preprocess=1
+--clipping_threshold=5.0
