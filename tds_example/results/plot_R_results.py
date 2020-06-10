@@ -42,7 +42,11 @@ nondp_basic_auc = pd.read_csv("./r_outputs/basic_auc_full_model_nonprivate.csv",
 plt.bar(range(len(epsilons)), avg_basic_auc, yerr=std_basic_auc, label="Synthetic data", width=0.5)
 xmin, xmax = plt.xlim()
 plt.hlines(orig_basic_auc, xmin, xmax, label="Original data", color="red")
-plt.hlines(nondp_basic_auc.mean(), xmin, xmax, label="Synthetic data (non private)")
+plt.hlines(nondp_basic_auc.mean(), xmin, xmax, label="Synthetic data (non private)", color="g")
+nondp_basic_auc_std = nondp_basic_auc.std()
+plt.hlines(nondp_basic_auc.mean()-nondp_basic_auc_std, xmin, xmax, ls="--", alpha=0.5, lw=1., color="g")
+plt.hlines(nondp_basic_auc.mean()+nondp_basic_auc_std, xmin, xmax, ls="--", alpha=0.5, lw=1., color="g")
+
 
 plt.xticks(range(len(epsilons)), epsilons)
 plt.xlabel(r"$\epsilon$")
