@@ -27,21 +27,22 @@ data_pos = data.loc[data["SARS-Cov-2 exam result"] == 1.]
 data_neg = data.loc[data["SARS-Cov-2 exam result"] == 0.]
 non_nan_threshold = 10
 data_neg = data_neg[len(data.columns) - data.isna().sum(axis=1) >= non_nan_threshold]
-data = pd.concat([data_pos, data_neg], axis=0)
-data = data.sample(frac=1)
+
+# ...and splitting train/test
+split_ratio = 2/3
+train_data_pos = data_pos.iloc[:int(split_ratio*data_pos.shape[0])]
+test_data_pos = data_pos.iloc[int(split_ratio*data_pos.shape[0]):]
+train_data_neg = data_neg.iloc[:int(split_ratio*data_neg.shape[0])]
+test_data_neg = data_neg.iloc[int(split_ratio*data_neg.shape[0]):]
+train_data = pd.concat([train_data_pos, train_data_neg], axis=0)
+test_data = pd.concat([test_data_pos, test_data_neg], axis=0)
 
 # impute nan values (replace with mean) -- not good but required by sklearn
 from sklearn.impute import SimpleImputer
 imp = SimpleImputer(missing_values=np.nan, strategy='mean')
 imp.fit(data)
-nan_data = data
-data = pd.DataFrame(imp.transform(nan_data), columns=nan_data.columns)
-
-# splitting train/test
-split_ratio = 2/3
-num_orig_data = data.shape[0]
-train_data = data.iloc[:int(split_ratio*num_orig_data)]
-test_data = data.iloc[int(split_ratio*num_orig_data):]
+train_data = pd.DataFrame(imp.transform(train_data), columns=train_data.columns)
+test_data = pd.DataFrame(imp.transform(test_data), columns=test_data.columns)
 
 from sklearn.ensemble import GradientBoostingClassifier
 train_data_x = train_data.drop(outcome_var, axis=1)
@@ -65,3 +66,5 @@ plt.xlim([-0.01, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate / sensitivity')
+sens = tpr
+spec = 1 - fpr
