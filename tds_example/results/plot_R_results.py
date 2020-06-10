@@ -15,6 +15,18 @@ bal_sens = pd.read_csv("./r_outputs/bal_sens_full_model.csv", names=epsilons, sk
 bal_spec = pd.read_csv("./r_outputs/bal_spec_full_model.csv", names=epsilons, skiprows=[0])
 
 
+# nondp baseline
+nondp_basic_auc = pd.read_csv("./r_outputs/basic_auc_full_model_nonprivate.csv", index_col=0)
+
+nondp_sens_auc = pd.read_csv("./r_outputs/sens_auc_full_model_nonprivate.csv", index_col=0)
+nondp_sens_sens = pd.read_csv("./r_outputs/sens_sens_full_model_nonprivate.csv", index_col=0)
+nondp_sens_spec = pd.read_csv("./r_outputs/sens_spec_full_model_nonprivate.csv", index_col=0)
+
+nondp_bal_auc = pd.read_csv("./r_outputs/bal_auc_full_model_nonprivate.csv", index_col=0)
+nondp_bal_sens = pd.read_csv("./r_outputs/bal_sens_full_model_nonprivate.csv", index_col=0)
+nondp_bal_spec = pd.read_csv("./r_outputs/bal_spec_full_model_nonprivate.csv", index_col=0)
+
+
 # bar plot for basic AUCs
 import matplotlib.pyplot as plt
 
@@ -24,17 +36,23 @@ std_basic_auc = basic_auc.std()
 # orig baseline
 orig_basic_auc = pd.read_csv("./r_outputs/original_auc.csv", index_col=0).values[0,0]
 
+# non private baseline
+nondp_basic_auc = pd.read_csv("./r_outputs/basic_auc_full_model_nonprivate.csv", index_col=0)
+
 plt.bar(range(len(epsilons)), avg_basic_auc, yerr=std_basic_auc, label="Synthetic data", width=0.5)
 xmin, xmax = plt.xlim()
-plt.hlines(orig_basic_auc, xmin, xmax, label="Original data")
+plt.hlines(orig_basic_auc, xmin, xmax, label="Original data", color="red")
+plt.hlines(nondp_basic_auc.mean(), xmin, xmax, label="Synthetic data (non private)")
+
 plt.xticks(range(len(epsilons)), epsilons)
 plt.xlabel(r"$\epsilon$")
 plt.ylabel("AUC")
 plt.legend(loc="lower right")
 plt.title("AUC of ROC curve")
 
-plt.savefig("./figures/auc_bar_plot.pdf", format="pdf", tight_layout=True)
-plt.close()
+plt.show()
+#plt.savefig("./figures/auc_bar_plot.pdf", format="pdf", tight_layout=True)
+#plt.close()
 
 ## bar plot for high sensitivity AUCs
 #import matplotlib.pyplot as plt
