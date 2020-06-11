@@ -43,6 +43,7 @@ def initialize_rngs(seed):
         seed = secrets.randbelow(2**32)
     print("RNG seed: {}".format(seed))
     master_rng = jax.random.PRNGKey(seed)
+    onp.random.seed(seed)
     return jax.random.split(master_rng, 2)
 
 class ParsingError(Exception):
