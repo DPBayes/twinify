@@ -92,12 +92,6 @@ def main(args):
         if args.drop_na:
             train_df = train_df.dropna()
 
-        # NOTE add missing values to features
-        for feature in features:
-            if onp.any(train_df[feature.name].isna()):
-                feature._missing_values = True
-
-
         # TODO normalize?
 
         # data preprocessing: determines number of categories for Categorical

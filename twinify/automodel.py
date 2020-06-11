@@ -181,6 +181,10 @@ class ModelFeature:
     def shape(self, value: Tuple[int]):
         self._shape = value
 
+    @property
+    def has_missing_values(self) -> bool:
+        return self._missing_values
+
     def preprocess_data(self, data: Union[pd.DataFrame, pd.Series]) -> Union[pd.DataFrame, pd.Series]:
         """ Preprocesses data according to the feature distribution.
 
@@ -200,6 +204,12 @@ class ModelFeature:
             column = data[self.name]
         assert(isinstance(column, pd.Series))
 
+        # detect whether there are missing values in the data
+        if onp.any(column.isna()):
+            self._missing_values = True
+
+        # if the distribution is a categorical, we need to determine the number
+        # of categories
         if self.distribution.is_categorical:
 
             # if shape of the categorical distribution depends on data, we extract the
@@ -354,7 +364,7 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
 
             dtypes.append(feature.distribution.support_dtype)
             feature_dist = TypedDistribution(feature.instantiate(**prior_values), dtypes[-1])
-            if feature._missing_values:
+            if feature.has_missing_values:
                 feature_na_prob = sample("{}_na_prob".format(feature.name), dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
                 feature_dist = NAModel(feature_dist, feature_na_prob)
             mixture_dists.append(feature_dist)
