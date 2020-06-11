@@ -25,13 +25,13 @@ class MixtureModel(dist.Distribution):
                     enumerate(self.dists)]).sum(axis=0)
             assert(value.ndim == 2)
             assert(log_phis.shape == (value.shape[0], len(log_pis)))
-            temp = log_pis + log_phis[:,:len(log_pis)]
+            temp = log_pis + log_phis[:,:len(log_phis)]
         else:
             log_phis = np.array([dbn.log_prob(value[feat_idx, np.newaxis]) for feat_idx, dbn in \
                     enumerate(self.dists)]).sum(axis=0)
             assert(value.ndim == 1)
             assert(log_phis.shape == (len(log_pis),))
-            temp = log_pis + log_phis[:len(log_pis)]
+            temp = log_pis + log_phis[:len(log_phis)]
 
         return logsumexp(temp, axis=-1)
 
