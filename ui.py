@@ -47,9 +47,6 @@ def initialize_rngs(seed):
     onp.random.seed(seed)
     return jax.random.split(master_rng, 2)
 
-class ParsingError(Exception):
-    pass
-
 def main(args):
     # read data
     df = pd.read_csv(args.data_path)
@@ -61,7 +58,7 @@ def main(args):
             model_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(model_module)
         except Exception as e:
-            raise ParsingError from e
+            raise automodel.ParsingError from e
 
         model = model_module.model
         model_args_map = model_module.model_args_map
@@ -78,37 +75,50 @@ def main(args):
         for feature in features:
             train_df = feature.preprocess_data(train_df)
 
-    except ParsingError:
-        print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
-        k = args.k
-        # read model file
-        model_handle = open(args.model_path, 'r')
-        model_str = "".join(model_handle.readlines())
-        model_handle.close()
-        features = automodel.parse_model(model_str)
-        feature_names = [feature.name for feature in features]
+    except automodel.ParsingError:
+        try:
+            print("Parsing model from txt file (was unable to read it as a python module containing numpyro code)")
+            k = args.k
+            # read model file
+            with open(args.model_path, 'r') as model_handle:
+                model_str = "".join(model_handle.readlines())
+            features = automodel.parse_model(model_str)
+            feature_names = [feature.name for feature in features]
 
-        # pick features from data according to model file
-        train_df = df.loc[:, feature_names]
-        if args.drop_na:
-            train_df = train_df.dropna()
+            # pick features from data according to model file
+            missing_features = set(feature_names).difference(df.columns)
+            if missing_features:
+                raise automodel.ParsingError(
+                    "The model specifies features that are not present in the data:\n{}".format(
+                        ", ".join(missing_features)
+                    )
+                )
 
-        # TODO normalize?
+            train_df = df.loc[:, feature_names]
+            if args.drop_na:
+                train_df = train_df.dropna()
 
-        # data preprocessing: determines number of categories for Categorical
-        #   distribution and maps categorical values in the data to ints
-        for feature in features:
-            train_df = feature.preprocess_data(train_df)
+            # TODO normalize?
 
-        # build model
-        model = automodel.make_model(features, k)
-        model_args_map = automodel.model_args_map
-    except Exception as e:
-        print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
+            # data preprocessing: determines number of categories for Categorical
+            #   distribution and maps categorical values in the data to ints
+            for feature in features:
+                train_df = feature.preprocess_data(train_df)
+
+            # build model
+            model = automodel.make_model(features, k)
+            model_args_map = automodel.model_args_map
+        except automodel.ParsingError as pe: # handling errors in txt-file parsing
+            print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
+            print(pe)
+            print("\nAborting...")
+            exit(3)
+    except Exception as e: # handling errors in py-file parsing
+        print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
         print("Here's the technical error description:")
         print(e)
         traceback.print_tb(e.__traceback__)
-        print("Aborting...")
+        print("\nAborting...")
         exit(3)
 
     # build variational guide for optimization
