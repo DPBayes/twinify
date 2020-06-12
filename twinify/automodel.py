@@ -9,6 +9,7 @@ import numpyro.distributions as dists
 from numpyro.primitives import sample, param, deterministic
 from numpyro.handlers import seed, trace
 from dppp.minibatch import minibatch
+from dppp.util import unvectorize_shape_2d
 
 from .mixture_model import MixtureModel
 from .na_model import NAModel
@@ -23,7 +24,6 @@ import pandas as pd
 
 constraint_dtype_lookup = {
     dists.constraints._Boolean: 'int',
-    #dists.constraints._Boolean: 'bool',
     dists.constraints._Real: 'float',
     dists.constraints._GreaterThan: 'float',
     dists.constraints._Interval: 'float',
@@ -181,6 +181,10 @@ class ModelFeature:
     def shape(self, value: Tuple[int]):
         self._shape = value
 
+    @property
+    def has_missing_values(self) -> bool:
+        return self._missing_values
+
     def preprocess_data(self, data: Union[pd.DataFrame, pd.Series]) -> Union[pd.DataFrame, pd.Series]:
         """ Preprocesses data according to the feature distribution.
 
@@ -200,6 +204,12 @@ class ModelFeature:
             column = data[self.name]
         assert(isinstance(column, pd.Series))
 
+        # detect whether there are missing values in the data
+        if onp.any(column.isna()):
+            self._missing_values = True
+
+        # if the distribution is a categorical, we need to determine the number
+        # of categories
         if self.distribution.is_categorical:
 
             # if shape of the categorical distribution depends on data, we extract the
@@ -358,25 +368,24 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
             dtypes.append(feature.distribution.support_dtype)
             feature_dist = TypedDistribution(feature.instantiate(**prior_values), dtypes[-1])
             if feature._missing_values:
-                feature_na_prob = sample("{}_na_prob".format(feature.name), \
-                        dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
+                feature_na_prob = sample(
+                    "{}_na_prob".format(feature.name),
+                    dists.Beta(2.*np.ones(k), 2.*np.ones(k))
+                )
                 feature_dist = NAModel(feature_dist, feature_na_prob)
-    
+
             mixture_dists.append(feature_dist)
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
-        #pis = np.ones(k)/k
-        #pis_unc = sample('pis', dists.Normal(np.zeros(k), np.ones(k)))
-        #pis = jax.nn.softmax(pis_unc)
         with minibatch(N, num_obs_total=num_obs_total):
             mixture_model_dist = MixtureModel(mixture_dists, pis)
-            #mixture_model_dist = MixtureModel(mixture_dists, pis_unc)
             x = sample('x', mixture_model_dist, sample_shape=(N,))
             return x
     return model
 
 def model_args_map(x, **kwargs):
-    return (x.shape[0],), kwargs, {'x': x}
+    N = unvectorize_shape_2d(x)[0]
+    return (N,), kwargs, {'x': x}
 
 def guide_args_map(x, **kwargs):
     return (), kwargs, {}

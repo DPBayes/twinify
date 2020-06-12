@@ -34,171 +34,144 @@ parser.add_argument("--k", default=5, type=int, help="mixture components in fit"
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="subsampling ratio for DP-SGD")
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
-parser.add_argument("--drop_na", default=1, type=int, help="remove missing values from data (yes=1)")
-parser.add_argument("--preprocess", default=1, type=int, help="whether to use automatic prerocessing or not")
+parser.add_argument("--drop_na", default=0, type=int, help="remove missing values from data (yes=1)")
 parser.add_argument("--clipping_threshold", default=1., type=float, help="clipping threshold")
 
-args = parser.parse_args()
-print(args)
+def initialize_rngs(seed):
+    if seed is None:
+        seed = secrets.randbelow(2**32)
+    print("RNG seed: {}".format(seed))
+    master_rng = jax.random.PRNGKey(seed)
+    onp.random.seed(seed)
+    return jax.random.split(master_rng, 2)
 
 class ParsingError(Exception):
-	pass
+    pass
 
-def main():
-	onp.random.seed(args.seed)
+def main(args):
+    # read data
+    df = pd.read_csv(args.data_path)
 
-	# read data
-	df = pd.read_csv(args.data_path)
+    # check whether we parse model from txt or whether we have a numpyro module
+    try:
+        try:
+            spec = importlib.util.spec_from_file_location("model_module", args.model_path)
+            model_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(model_module)
+        except Exception as e:
+            raise ParsingError from e
 
-	# check whether we parse model from txt or whether we have a numpyro module
-	try:
-		try:
-			spec = importlib.util.spec_from_file_location("model_module", args.model_path)
-			model_module = importlib.util.module_from_spec(spec)
-			spec.loader.exec_module(model_module)
-		except Exception as e:
-			raise ParsingError from e
+        model = model_module.model
+        model_args_map = model_module.model_args_map
+        feature_names = model_module.features
 
-		model = model_module.model
-		model_args_map = model_module.model_args_map
-		feature_names = model_module.features
+        features = automodel.parse_model_fn(model, feature_names)
 
-		features = automodel.parse_model_fn(model, feature_names)
+        train_df = df[feature_names]
+        if args.drop_na:
+            train_df = train_df.dropna()
 
-		train_df = df[feature_names]
-		if args.drop_na:
-			train_df = train_df.dropna()
+        # data preprocessing: determines number of categories for Categorical
+        #   distribution and maps categorical values in the data to ints
+        for feature in features:
+            train_df = feature.preprocess_data(train_df)
 
-		# data preprocessing: determines number of categories for Categorical
-		#	distribution and maps categorical values in the data to ints
-		if args.preprocess:
-			for feature in features:
-				train_df = feature.preprocess_data(train_df)
-		else:
-			if hasattr(model_module, "feature_maps"):
-				feature_maps = model_module.feature_maps
-			else: 
-				feature_maps = {name : {value : iterator for iterator, value in \
-					enumerate(onp.unique(train_df[name].dropna()))} \
-					for name in train_df.columns if (train_df[name].dtype=='O' or train_df[name].dtype=='int')}
-					#for name in train_df.columns if train_df[name].dtype=='O'}
-			for name in feature_maps.keys():
-				train_df[name] = train_df[name].map(feature_maps[name])
+    except ParsingError:
+        print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
+        k = args.k
+        # read model file
+        model_handle = open(args.model_path, 'r')
+        model_str = "".join(model_handle.readlines())
+        model_handle.close()
+        features = automodel.parse_model(model_str)
+        feature_names = [feature.name for feature in features]
 
-	except ParsingError:
-		print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
-		k = args.k
-		# read model file
-		model_handle = open(args.model_path, 'r')
-		model_str = "".join(model_handle.readlines())
-		model_handle.close()
-		features = automodel.parse_model(model_str)
-		feature_names = [feature.name for feature in features]
+        # pick features from data according to model file
+        train_df = df.loc[:, feature_names]
+        if args.drop_na:
+            train_df = train_df.dropna()
 
-		# pick features from data according to model file
-		train_df = df[feature_names]
-		if args.drop_na:
-			train_df = train_df.dropna()
+        # TODO normalize?
 
-		# NOTE add missing values to features
-		for feature in features:
-			if onp.any(train_df[feature.name].isna()):
-				feature._missing_values = True
-		
+        # data preprocessing: determines number of categories for Categorical
+        #   distribution and maps categorical values in the data to ints
+        for feature in features:
+            train_df = feature.preprocess_data(train_df)
 
-		# TODO normalize?
+        # build model
+        model = automodel.make_model(features, k)
+        model_args_map = automodel.model_args_map
+    except Exception as e:
+        print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
+        print("Here's the technical error description:")
+        print(e)
+        traceback.print_tb(e.__traceback__)
+        print("Aborting...")
+        exit(3)
 
-		# data preprocessing: determines number of categories for Categorical
-		#	distribution and maps categorical values in the data to ints
-		for feature in features:
-			train_df = feature.preprocess_data(train_df)
+    # build variational guide for optimization
+    guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
 
-		# build model
-		model = automodel.make_model(features, k)
-		model_args_map = automodel.model_args_map
-	except Exception as e:
-		print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
-		print("Here's the technical error description:")
-		print(e.trace)
-		print("Aborting...")
-		exit(3)
+    # pick features from data according to model file
+    num_data = train_df.shape[0]
+    if args.drop_na:
+        print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+    else:
+        print("The data has {} entries with {} features".format(*train_df.shape))
 
-	# build variational guide for optimization
-	guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
+    # compute DP values
+    target_delta = 1. / num_data
+    num_compositions = int(args.num_epochs / args.sampling_ratio)
+    dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
+        args.epsilon, target_delta, args.sampling_ratio, num_compositions
+    )
+    batch_size = q_to_batch_size(args.sampling_ratio, num_data)
+    sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
+    print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+        "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
 
-	# pick features from data according to model file
-	num_data = train_df.shape[0]
-	print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+    # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
-	# compute DP values
-	target_delta = 1. / num_data
-	num_compositions = int(args.num_epochs / args.sampling_ratio)
-	dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
-		args.epsilon, target_delta, args.sampling_ratio, num_compositions
-	)
-	batch_size = q_to_batch_size(args.sampling_ratio, num_data)
-	sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
-	print("Will apply noise with variance {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
-		"of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
+    inference_rng, sampling_rng = initialize_rngs(args.seed)
 
-	# TODO: warn for high noise? but when is it too high? what is a good heuristic?
+    # learn posterior distributions
+    try:
+        posterior_params = train_model(
+            inference_rng,
+            model, automodel.model_args_map, guide, None,
+            train_df.to_numpy(),
+            batch_size=int(args.sampling_ratio*len(train_df)),
+            num_epochs=args.num_epochs,
+            dp_scale=dp_sigma,
+            clipping_threshold=args.clipping_threshold
+        )
+    except (InferenceException, FloatingPointError):
+        print("################################## ERROR ##################################")
+        print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
+        print("This means the model has major difficulties in capturing the data and is")
+        print("likely to happen when the dataset is very small and/or sparse.")
+        print("Try adapting (simplifying) the model.")
+        print("Aborting...")
+        exit(2)
 
-	# learn posterior distributions
-	try:
-		posterior_params = train_model(
-			 jax.random.PRNGKey(args.seed),
-			 model, automodel.model_args_map, guide, None,
-			 train_df.to_numpy(),
-			 batch_size=int(args.sampling_ratio*len(train_df)),
-			 num_epochs=args.num_epochs,
-			 dp_scale=dp_sigma,
-			 clipping_threshold=args.clipping_threshold
-		)
-		## learn posterior distributions
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#print("OI! DP IS NOT ON")
-		#posterior_params = train_model_no_dp(
-		#	jax.random.PRNGKey(args.seed),
-		#	model, automodel.model_args_map, guide, None,
-		#	train_df.to_numpy(),
-		#	batch_size=int(args.sampling_ratio*len(train_df)),
-		#	num_epochs=args.num_epochs
-		#)
-	except (InferenceException, FloatingPointError):
-		print("################################## ERROR ##################################")
-		print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
-		print("This means the model has major difficulties in capturing the data and is")
-		print("likely to happen when the dataset is very small and/or sparse.")
-		print("Try adapting (simplifying) the model.")
-		print("Aborting...")
+    # sample synthetic data from posterior predictive distribution
+    posterior_samples = sample_multi_posterior_predictive(sampling_rng,
+            args.num_synthetic, model, (1,), guide, (), posterior_params)
+    syn_data = posterior_samples['x']
 
-	# sample synthetic data from posterior predictive distribution
-	posterior_samples = sample_multi_posterior_predictive(jax.random.PRNGKey(args.seed),\
-			args.num_synthetic, model, (1,), guide, (), posterior_params)
-	syn_data = posterior_samples['x']
+    # save results
+    syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
 
-	# save results
-	syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
+    # postprocess: if preprocessing involved data mapping, it is mapped back here
+    #   so that the synthetic twin looks like the original data
+    for feature in features:
+        syn_df = feature.postprocess_data(syn_df)
 
-	# postprocess: if preprocessing involved data mapping, it is mapped back here
-	#	so that the synthetic twin looks like the original data
-	if args.preprocess:
-		for feature in features:
-			syn_df = feature.postprocess_data(syn_df)
+    syn_df.to_csv("{}.csv".format(args.output_path), index=False)
+    pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
-	else:
-		for name, forward_map in feature_maps.items():
-			inverse_map = {value: key for key, value in forward_map.items()}
-			syn_df[name] = syn_df[name].map(inverse_map)
-
-	syn_df.to_csv("{}.csv".format(args.output_path))
-	pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
-
-	# TODO
-	# illustrate
+    # TODO
+    # illustrate
 
 if __name__ == "__main__":
 		main()
