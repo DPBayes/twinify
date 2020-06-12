@@ -89,7 +89,7 @@ def main(args):
         feature_names = [feature.name for feature in features]
 
         # pick features from data according to model file
-        train_df = df[feature_names]
+        train_df = df.loc[:, feature_names]
         if args.drop_na:
             train_df = train_df.dropna()
 
