@@ -57,8 +57,12 @@ train_spec = 1 - train_fpr
 orig_bal_idx = np.argmax(train_sens+train_spec)
 orig_balanced_accuracy = np.mean(1*(test_predictions>train_thresholds[orig_bal_idx])==test_data_y)
 
+pd.DataFrame([[auc_score, orig_balanced_accuracy]], columns=["auc", "bal_acc"])\
+        .to_csv("./python_outputs/orig_auc_acc.csv", index=False)
+
 ########################## Synthetic data load and preprocess ##############################
 train = False
+just_dp_predict = False
 import pickle
 if train:
     res_dict = {}
@@ -104,14 +108,14 @@ if train:
             res.append([synthetic_imp_fit, synthetic_gbm])
         res_dict[eps] = res
 
-    pickle.dump(res_dict, open("imp_gbm_from_python_data_from_R.p", "wb"))
+    pickle.dump(res_dict, open("./python_outputs/imp_gbm_from_python_data_from_R.p", "wb"))
 
-else:
+elif just_dp_predict:
     basic_auc_dict = {}
     balanced_sens_dict = {}
     balanced_spec_dict = {}
     balanced_acc_dict = {}
-    res_dict = pickle.load(open("imp_gbm_from_python_data_from_R.p", "rb"))
+    res_dict = pickle.load(open("./python_outputs/imp_gbm_from_python_data_from_R.p", "rb"))
     for eps in [1.0, 2.0, 4.0]:
         res = res_dict[eps]
         aucs = []
@@ -147,7 +151,6 @@ else:
                     .predict_proba(imputed_testing_x)[:,synthetic_pos_class_id])
 
             synthetic_auc_score = roc_auc_score(test_data_y, synthetic_test_predictions)
-            print(synthetic_auc_score)
             syn_fpr, syn_tpr, syn_thresholds = roc_curve(test_data_y, synthetic_test_predictions)
             syn_sens = syn_tpr
             syn_spec = 1.-syn_fpr
@@ -161,3 +164,100 @@ else:
         balanced_sens_dict[eps] = bal_sens
         balanced_spec_dict[eps] = bal_spec
         balanced_acc_dict[eps] = bal_acc
+    pd.DataFrame(basic_auc_dict).to_csv("./python_outputs/basic_auc_full_model.csv", index=False)
+    pd.DataFrame(balanced_sens_dict).to_csv("./python_outputs/bal_sens_full_model.csv", index=False)
+    pd.DataFrame(balanced_spec_dict).to_csv("./python_outputs/bal_spec_full_model.csv", index=False)
+    pd.DataFrame(balanced_acc_dict).to_csv("./python_outputs/bal_acc_full_model.csv", index=False)
+
+
+########################## Synthetic non-private data load and preprocess ##############################
+train_nondp = False
+import pickle
+if train_nondp:
+    res = []
+    for seed in range(10):
+        synthetic_nondp_data = pd.read_csv("full_model_nonprivate/syn_data_seed{}_eps2.0.csv".format(seed))
+
+        # map strings
+        synthetic_nondp_data = encoder(synthetic_nondp_data)
+
+        # reorder columns to match original
+        synthetic_nondp_data = synthetic_nondp_data[train_data.columns]
+
+        # removing of all rows with <10 non nan values from negative instances
+        synthetic_nondp_data_pos = synthetic_nondp_data.loc[synthetic_nondp_data["SARS-Cov-2 exam result"] == 1.]
+        synthetic_nondp_data_neg = synthetic_nondp_data.loc[synthetic_nondp_data["SARS-Cov-2 exam result"] == 0.]
+        synthetic_nondp_data_neg = synthetic_nondp_data_neg.dropna(axis=0, thresh=non_nan_threshold)
+
+        synthetic_nondp_data_train = synthetic_nondp_data_pos.append(synthetic_nondp_data_neg)
+        # impute missing data
+        from sklearn.impute import SimpleImputer
+        synthetic_nondp_imp = SimpleImputer(missing_values=np.nan, strategy='mean')
+        synthetic_nondp_imp_fit = SimpleImputer(missing_values=np.nan, strategy='mean').fit(synthetic_nondp_data_train)
+        synthetic_nondp_data_imputed = pd.DataFrame(synthetic_nondp_imp.fit_transform(synthetic_nondp_data_train),\
+                columns=synthetic_nondp_data_train.columns)
+
+        ########################## Learn GBM on synthetic_nondp data ##############################
+        synthetic_nondp_data_x = synthetic_nondp_data_imputed.drop(outcome_var, axis=1)
+        synthetic_nondp_data_y = synthetic_nondp_data_imputed[outcome_var]
+        synthetic_nondp_gbm = GradientBoostingClassifier(n_estimators=500, subsample=0.8, random_state=gbm_seed)\
+                .fit(synthetic_nondp_data_x, synthetic_nondp_data_y)
+
+        res.append([synthetic_nondp_imp_fit, synthetic_nondp_gbm])
+
+    pickle.dump(res, open("./python_outputs/nondp_imp_gbm_from_python_data_from_R.p", "wb"))
+
+else:
+    basic_auc_dict = {}
+    balanced_sens_dict = {}
+    balanced_spec_dict = {}
+    balanced_acc_dict = {}
+    res = pickle.load(open("./python_outputs/nondp_imp_gbm_from_python_data_from_R.p", "rb"))
+
+    aucs = []
+    bal_sens = []
+    bal_spec = []
+    bal_acc = []
+    for seed in range(10):
+        [synthetic_nondp_imp_fit, synthetic_nondp_gbm] = res[seed]
+        synthetic_nondp_data = pd.read_csv("full_model_nonprivate/syn_data_seed{}_eps2.0.csv".format(seed))
+
+        # map strings
+        synthetic_nondp_data = encoder(synthetic_nondp_data)
+
+        # reorder columns to match original
+        synthetic_nondp_data = synthetic_nondp_data[train_data.columns]
+
+        # removing of all rows with <10 non nan values from negative instances
+        synthetic_nondp_data_pos = synthetic_nondp_data.loc[synthetic_nondp_data["SARS-Cov-2 exam result"] == 1.]
+        synthetic_nondp_data_neg = synthetic_nondp_data.loc[synthetic_nondp_data["SARS-Cov-2 exam result"] == 0.]
+        synthetic_nondp_data_neg = synthetic_nondp_data_neg.dropna(axis=0, thresh=non_nan_threshold)
+
+        synthetic_nondp_data_train = synthetic_nondp_data_pos.append(synthetic_nondp_data_neg)
+        # impute missing data
+        from sklearn.impute import SimpleImputer
+        synthetic_nondp_imp = SimpleImputer(missing_values=np.nan, strategy='mean')
+        synthetic_nondp_imp_fit = SimpleImputer(missing_values=np.nan, strategy='mean').fit(synthetic_nondp_data_train)
+        synthetic_nondp_data_imputed = pd.DataFrame(synthetic_nondp_imp.fit_transform(synthetic_nondp_data_train),\
+                columns=synthetic_nondp_data_train.columns)
+        imputed_testing_x = pd.DataFrame(synthetic_nondp_imp_fit.transform(test_data[synthetic_nondp_data.columns]), \
+                columns=synthetic_nondp_data.columns).drop(outcome_var, axis=1)
+        synthetic_nondp_pos_class_id = np.squeeze(np.where(synthetic_nondp_gbm.classes_==1.))
+        synthetic_nondp_test_predictions = np.squeeze(synthetic_nondp_gbm\
+                .predict_proba(imputed_testing_x)[:,synthetic_nondp_pos_class_id])
+
+        synthetic_nondp_auc_score = roc_auc_score(test_data_y, synthetic_nondp_test_predictions)
+        syn_fpr, syn_tpr, syn_thresholds = roc_curve(test_data_y, synthetic_nondp_test_predictions)
+        syn_sens = syn_tpr
+        syn_spec = 1.-syn_fpr
+        bal_idx = np.argmax(syn_sens+syn_spec)
+        aucs.append(synthetic_nondp_auc_score)
+        bal_sens.append(syn_sens[bal_idx])
+        bal_spec.append(syn_spec[bal_idx])
+        balanced_accuracy = np.mean(1*(synthetic_nondp_test_predictions>syn_thresholds[bal_idx])==test_data_y)
+        bal_acc.append(balanced_accuracy)
+
+    pd.DataFrame(aucs).to_csv("./python_outputs/nondp_basic_auc_full_model.csv", index=False)
+    pd.DataFrame(bal_sens).to_csv("./python_outputs/nondp_bal_sens_full_model.csv", index=False)
+    pd.DataFrame(bal_spec).to_csv("./python_outputs/nondp_bal_spec_full_model.csv", index=False)
+    pd.DataFrame(bal_acc).to_csv("./python_outputs/nondp_bal_acc_full_model.csv", index=False)
