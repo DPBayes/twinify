@@ -8,8 +8,7 @@ syn_data_label = 'Synthetic data'
 orig_data_color = 'blue'
 orig_data_label = 'Original data'
 
-def violin(syn_df, orig_df):
-    plt.close()
+def plot_margins(syn_df, orig_df, show=False):
     fig, axis = plt.subplots()
     red_patch = mpatches.Patch(color=syn_data_color, label=syn_data_label)
     blue_patch = mpatches.Patch(color=orig_data_color, label=orig_data_label)
@@ -35,10 +34,11 @@ def violin(syn_df, orig_df):
 
     axis.set_xticks(onp.arange(0, syn_df.shape[1]))
     axis.set_xticklabels(list(syn_df.columns))
+    if show:
+        fig.show()
     return fig
 
-def covariance_heatmap(syn_df, orig_df, path=None, show=False):
-    plt.close()
+def plot_covariance_heatmap(syn_df, orig_df, show=False):
     syn_cov = syn_df.dropna().cov().values
     orig_cov = orig_df.dropna().cov().values
     fig, axis = plt.subplots(nrows=1, ncols=2)
@@ -59,10 +59,12 @@ def covariance_heatmap(syn_df, orig_df, path=None, show=False):
     fig.subplots_adjust(right=0.8)
     cbar_ax = fig.add_axes([0.85, 0.15, 0.02, 0.7])
     fig.colorbar(im, cax=cbar_ax)
+
+    if show:
+        fig.show()
     return fig
 
-def plot_missing_values(syn_df, orig_df):
-    plt.close()
+def plot_missing_values(syn_df, orig_df, show=False):
     syn_nas = syn_df.isna().mean()
     orig_nas = orig_df.isna().mean()
     bar_width = 0.25
@@ -77,4 +79,7 @@ def plot_missing_values(syn_df, orig_df):
     red_patch = mpatches.Patch(color=syn_data_color, label=syn_data_label)
     blue_patch = mpatches.Patch(color=orig_data_color, label=orig_data_label)
     axis.legend(handles=[blue_patch, red_patch])
+
+    if show:
+        fig.show()
     return fig

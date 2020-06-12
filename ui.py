@@ -24,6 +24,9 @@ import traceback
 import jax, argparse, pickle
 import secrets
 
+from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
+import matplotlib.pyplot as plt
+
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
@@ -183,19 +186,14 @@ def main(args):
     encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
-    # TODO
-    # illustrate
-    from illustrate import violin, covariance_heatmap, plot_missing_values
-    import matplotlib.pyplot as plt
+    ## illustrate results
     # Missing value rate
     if not args.drop_na:
-        mv_fig = plot_missing_values(syn_df, train_df)
-        plt.show()
+        plot_missing_values(syn_df, train_df, show=True)
     # Marginal violins
-    violin_fig = violin(syn_df, train_df)
-    plt.show()
+    plot_margins(syn_df, train_df, show=True)
     # Covariance matrices
-    cov_fig = covariance_heatmap(syn_df, train_df)
+    plot_covariance_heatmap(syn_df, train_df, show=True)
     plt.show()
 
 if __name__ == "__main__":
