@@ -4,8 +4,7 @@ import jax
 import numpyro
 import numpyro.distributions as dist
 from numpyro.optim import Adam
-from numpyro.infer import SVI
-from numpyro.contrib.autoguide import AutoContinuousELBO as ELBO
+from numpyro.infer import ELBO, SVI
 from dppp.svi import DPSVI
 from dppp.modelling import make_observed_model
 from dppp.minibatch import minibatch, subsample_batchify_data
