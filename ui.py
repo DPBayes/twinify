@@ -185,8 +185,12 @@ def main(args):
 
     # TODO
     # illustrate
-    from illustrate import violin, covariance_heatmap
+    from illustrate import violin, covariance_heatmap, plot_missing_values
     import matplotlib.pyplot as plt
+    # Missing value rate
+    if not args.drop_na:
+        mv_fig = plot_missing_values(syn_df, train_df)
+        plt.show()
     # Marginal violins
     violin_fig = violin(syn_df, train_df)
     plt.show()
