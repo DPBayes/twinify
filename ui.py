@@ -24,6 +24,9 @@ import traceback
 import jax, argparse, pickle
 import secrets
 
+from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
+import matplotlib.pyplot as plt
+
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
@@ -38,6 +41,7 @@ parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="su
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
 parser.add_argument("--drop_na", default=0, type=int, help="remove missing values from data (yes=1)")
 parser.add_argument("--clipping_threshold", default=1., type=float, help="clipping threshold")
+parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
 
 def initialize_rngs(seed):
     if seed is None:
@@ -176,14 +180,31 @@ def main(args):
 
     # postprocess: if preprocessing involved data mapping, it is mapped back here
     #   so that the synthetic twin looks like the original data
+    encoded_syn_df = syn_df.copy()
     for feature in features:
-        syn_df = feature.postprocess_data(syn_df)
+        encoded_syn_df = feature.postprocess_data(encoded_syn_df)
 
-    syn_df.to_csv("{}.csv".format(args.output_path), index=False)
+    encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
-    # TODO
-    # illustrate
+    ## illustrate results
+    if args.visualize != 'none':
+        show_popups = args.visualize in ('popup', 'both')
+        save_plots = args.visualize in ('store', 'both')
+        # Missing value rate
+        if not args.drop_na:
+            missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
+            if save_plots:
+                missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
+        # Marginal violins
+        margin_fig = plot_margins(syn_df, train_df, show=show_popups)
+        # Covariance matrices
+        cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
+        if save_plots:
+            margin_fig.savefig(args.output_path + "_marginal_plots.svg")
+            cov_fig.savefig(args.output_path + "_correlation_plots.svg")
+        if show_popups:
+            plt.show()
 
 if __name__ == "__main__":
 
