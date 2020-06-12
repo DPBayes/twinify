@@ -1,4 +1,0 @@
-Leukocytes: Normal
-Inf A H1N1 2009: Bernoulli
-Platelets: Normal
-Monocytes: Normal
