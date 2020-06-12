@@ -218,7 +218,7 @@ class ModelFeature:
                 self.shape = (len(column.dropna().unique()), )
 
             # we map the feature values to integers
-            self._value_map = {val: i for i, val in enumerate(column.unique())}
+            self._value_map = {val: i for i, val in enumerate(column.dropna().unique())}
             column = column.map(self._value_map)
 
         if isinstance(data, pd.DataFrame):
