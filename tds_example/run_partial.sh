@@ -4,8 +4,7 @@
 #SBATCH --mem=2G
 #SBATCH -c 2
 #SBATCH -J twinify_partial
-#SBATCH --output=./results/partial_model/%j.out
-
+#SBATCH --output=./results/partial_model/slurm-%A_%a.out
 
 module load anaconda3/latest
 source activate ~/.conda/envs/twinify

@@ -1,8 +1,8 @@
+import sys
+sys.path.append("../")
+
 from jax.config import config
 config.update("jax_enable_x64", True)
-
-import sys
-sys.path.append('../')
 
 import jax.numpy as np
 
@@ -22,17 +22,19 @@ import numpy as onp
 import pandas as pd
 
 import importlib.util
+import traceback
 
 import jax, argparse, pickle
+import secrets
 
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
-		fromfile_prefix_chars="%")
+        fromfile_prefix_chars="%")
 parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
 parser.add_argument("--epsilon", default=1., type=float, help="target privacy parameter")
-parser.add_argument("--seed", default=0, type=int, help="PRNG seed used in model fitting")
+parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a unique value.")
 parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="subsampling ratio for DP-SGD")
@@ -144,7 +146,7 @@ def main(args):
             model, automodel.model_args_map, guide, None,
             train_df.to_numpy(),
             batch_size=int(args.sampling_ratio*len(train_df)),
-            num_epochs=args.num_epochs,
+            num_epochs=args.num_epochs
         )
     except (InferenceException, FloatingPointError):
         print("################################## ERROR ##################################")
@@ -175,6 +177,10 @@ def main(args):
     # illustrate
 
 if __name__ == "__main__":
-		main()
+
+    args = parser.parse_args()
+    print(args)
+
+    main(args)
 
 
