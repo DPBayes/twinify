@@ -1,3 +1,4 @@
 --epsilon=1.2
 --num_epochs=1
 --sampling_ratio=0.1
+--seed=0

@@ -9,6 +9,8 @@ from dppp.svi import DPSVI
 from dppp.modelling import make_observed_model
 from dppp.minibatch import minibatch, subsample_batchify_data
 
+from numpyro.infer.svi import SVIState
+
 class InferenceException(Exception):
     pass
 
@@ -20,6 +22,14 @@ def _train_model(rng, svi, data, batch_size, num_epochs):
 
     batch = get_batch(0, batchify_state)
     svi_state = svi.init(svi_rng, *batch)
+
+    ##### hotfix to prevent double jit compilation #####
+    ###### remove this once fixed in numpyro/jax #######
+    optim_state = svi_state.optim_state
+    optim_state = (np.array(svi_state.optim_state[0]), *(optim_state[1:]))
+    svi_state = SVIState(optim_state, svi_state.rng_key)
+    ####################################################
+
 
     def loop_it(start, stop, fn, init_val, do_jit=True):
         if do_jit:
@@ -56,14 +66,14 @@ def _train_model(rng, svi, data, batch_size, num_epochs):
 
     return svi.get_params(svi_state)
 
-def train_model(rng, model, model_args_map, guide, guide_args_map, data, batch_size, dp_scale, num_epochs):
+def train_model(rng, model, model_args_map, guide, guide_args_map, data, batch_size, dp_scale, num_epochs, clipping_threshold=1.):
     """ trains a given model using DPSVI and the globally defined parameters and data """
 
     optimizer = Adam(1e-3)
 
     svi = DPSVI(
         model, guide, optimizer, ELBO(),
-        num_obs_total=data.shape[0], clipping_threshold=1.,
+        num_obs_total=data.shape[0], clipping_threshold=clipping_threshold,
         dp_scale=dp_scale,
         map_model_args_fn=model_args_map, map_guide_args_fn=guide_args_map
     )

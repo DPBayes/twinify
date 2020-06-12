@@ -9,8 +9,10 @@ import numpyro.distributions as dists
 from numpyro.primitives import sample, param, deterministic
 from numpyro.handlers import seed, trace
 from dppp.minibatch import minibatch
+from dppp.util import unvectorize_shape_2d
 
 from .mixture_model import MixtureModel
+from .na_model import NAModel
 
 import numpy as onp
 
@@ -21,7 +23,7 @@ import pandas as pd
 
 
 constraint_dtype_lookup = {
-    dists.constraints._Boolean: 'bool',
+    dists.constraints._Boolean: 'int',
     dists.constraints._Real: 'float',
     dists.constraints._GreaterThan: 'float',
     dists.constraints._Interval: 'float',
@@ -142,6 +144,7 @@ class ModelFeature:
         self._dist = dist
         self._shape = None
         self._value_map = None
+        self._missing_values = False
 
     @staticmethod
     def from_distribution_instance(feature_name: str, dist: dists.Distribution) -> 'ModelFeature':
@@ -178,6 +181,10 @@ class ModelFeature:
     def shape(self, value: Tuple[int]):
         self._shape = value
 
+    @property
+    def has_missing_values(self) -> bool:
+        return self._missing_values
+
     def preprocess_data(self, data: Union[pd.DataFrame, pd.Series]) -> Union[pd.DataFrame, pd.Series]:
         """ Preprocesses data according to the feature distribution.
 
@@ -197,6 +204,12 @@ class ModelFeature:
             column = data[self.name]
         assert(isinstance(column, pd.Series))
 
+        # detect whether there are missing values in the data
+        if onp.any(column.isna()):
+            self._missing_values = True
+
+        # if the distribution is a categorical, we need to determine the number
+        # of categories
         if self.distribution.is_categorical:
 
             # if shape of the categorical distribution depends on data, we extract the
@@ -257,6 +270,8 @@ def make_distribution(token: str) -> Distribution:
     except KeyError:
         raise ValueError("{} distributions are currently not supported".format(token))
 
+class ParsingError(Exception):
+    pass
 
 def parse_model(model_str: str) -> List[ModelFeature]:
     """
@@ -266,7 +281,7 @@ def parse_model(model_str: str) -> List[ModelFeature]:
         OrderedDict(feature_name -> Distribution)
     """
     features = []
-    for line in model_str.splitlines():
+    for line_nr, line in enumerate(model_str.splitlines()):
         # ignore comments (indicated by #)
         line = line.split('#')[0].strip()
         if len(line) == 0:
@@ -277,12 +292,18 @@ def parse_model(model_str: str) -> List[ModelFeature]:
             feature_name = parts[0].strip()
             distribution_name = parts[1].strip()
 
-            dist = make_distribution(distribution_name)
-            features.append(ModelFeature(feature_name, dist))
+            try:
+                dist = make_distribution(distribution_name)
+                features.append(ModelFeature(feature_name, dist))
+            except ValueError as e:
+                raise ParsingError("Unable to parse line {}:\n<< {} >>\n{}".format(
+                    line_nr, line, e
+                ))
 
         else:
-            # todo: something?
-            pass
+            raise ParsingError("Unable to parse line {}:\n<< {} >>\nSyntax error!".format(
+                line_nr, line
+            ))
     return features
 
 def extract_features_from_mixture_model(mixture: MixtureModel, feature_names: List[str]) -> List[ModelFeature]:
@@ -315,6 +336,19 @@ def create_feature_prior_dists(feature: ModelFeature, k: int) -> Dict[str, dists
     }
     return prior_dists
 
+################### typed dist ##########################
+class TypedDistribution(dists.Distribution):
+    def __init__(self, base_dist, dtype, validate_args=None):
+        super(TypedDistribution, self).__init__(base_dist.batch_shape, base_dist.event_shape, validate_args=validate_args)
+        self.dtype = dtype
+        self.base_dist = base_dist
+    def log_prob(self, value):
+        log_prob = self.base_dist.log_prob(value.astype(self.dtype))
+        return log_prob
+    def sample(self, key, sample_shape=()):
+        return self.base_dist.sample(key, sample_shape=sample_shape)
+
+
 ################### automatically build mixture model ##########################
 
 def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
@@ -336,19 +370,23 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
                     feature_prior_dist
                 )
 
-            feature_dist = feature.instantiate(**prior_values)
-            mixture_dists.append(feature_dist)
             dtypes.append(feature.distribution.support_dtype)
+            feature_dist = TypedDistribution(feature.instantiate(**prior_values), dtypes[-1])
+            if feature.has_missing_values:
+                feature_na_prob = sample("{}_na_prob".format(feature.name), dists.Beta(2.*np.ones(k), 2.*np.ones(k)))
+                feature_dist = NAModel(feature_dist, feature_na_prob)
+            mixture_dists.append(feature_dist)
 
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
         with minibatch(N, num_obs_total=num_obs_total):
-            mixture_model_dist = MixtureModel(mixture_dists, dtypes, pis)
+            mixture_model_dist = MixtureModel(mixture_dists, pis)
             x = sample('x', mixture_model_dist, sample_shape=(N,))
             return x
     return model
 
 def model_args_map(x, **kwargs):
-    return (x.shape[0],), kwargs, {'x': x}
+    N = unvectorize_shape_2d(x)[0]
+    return (N,), kwargs, {'x': x}
 
 def guide_args_map(x, **kwargs):
     return (), kwargs, {}
