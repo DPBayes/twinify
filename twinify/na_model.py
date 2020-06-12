@@ -12,7 +12,6 @@ class NAModel(dist.Distribution):
         super(NAModel, self).__init__()
 
     def log_prob(self, value):
-        log_na_prob = np.log(self._na_prob)
         log_probs = dist.Bernoulli(probs = self._na_prob).log_prob(np.isnan(value))
         return log_probs + np.isfinite(value)*self._base_dist.log_prob(np.nan_to_num(value))
 
