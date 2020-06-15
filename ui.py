@@ -33,7 +33,8 @@ parser = argparse.ArgumentParser(description='Script for creating synthetic twin
 parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
-parser.add_argument("--epsilon", default=1., type=float, help="target privacy parameter")
+parser.add_argument("--epsilon", default=1., type=float, help="target multiplicative privacy parameter epsilon")
+parser.add_argument("--delta", default=None, type=float, help="target additive privacy parameter delta")
 parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a unique value.")
 parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
@@ -136,7 +137,20 @@ def main(args):
         print("The data has {} entries with {} features".format(*train_df.shape))
 
     # compute DP values
-    target_delta = 1. / num_data
+    target_delta = args.delta
+    if target_delta is None:
+        target_delta = 1. / num_data
+    if target_delta * num_data > 1.:
+        print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
+            "which the maximum value that is usually considered safe!".format(
+                target_delta, 1. / num_data
+            ))
+        x = input("Continue? (type YES ): ")
+        if x != "YES":
+            print("Aborting...")
+            exit(4)
+        print("Continuing... (YOU HAVE BEEN WARNED!)")
+
     num_compositions = int(args.num_epochs / args.sampling_ratio)
     dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
         args.epsilon, target_delta, args.sampling_ratio, num_compositions
