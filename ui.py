@@ -25,13 +25,16 @@ import traceback
 import jax, argparse, pickle
 import secrets
 
+from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
 parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
-parser.add_argument("--epsilon", default=1., type=float, help="target privacy parameter")
+parser.add_argument("--epsilon", default=1., type=float, help="target multiplicative privacy parameter epsilon")
+parser.add_argument("--delta", default=None, type=float, help="target additive privacy parameter delta")
 parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a unique value.")
 parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
@@ -39,6 +42,7 @@ parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="su
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
 parser.add_argument("--drop_na", default=0, type=int, help="remove missing values from data (yes=1)")
 parser.add_argument("--clipping_threshold", default=1., type=float, help="clipping threshold")
+parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
 
 def initialize_rngs(seed):
     if seed is None:
@@ -47,9 +51,6 @@ def initialize_rngs(seed):
     master_rng = jax.random.PRNGKey(seed)
     onp.random.seed(seed)
     return jax.random.split(master_rng, 2)
-
-class ParsingError(Exception):
-    pass
 
 def main(args):
     # read data
@@ -63,9 +64,6 @@ def main(args):
             spec.loader.exec_module(model_module)
 
             model = model_module.model
-            # feature_names = model_module.features
-
-            # features = automodel.parse_model_fn(model, feature_names)
 
             train_df = df
             if args.drop_na:
@@ -95,13 +93,20 @@ def main(args):
             print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
             k = args.k
             # read model file
-            model_handle = open(args.model_path, 'r')
-            model_str = "".join(model_handle.readlines())
-            model_handle.close()
+            with open(args.model_path, 'r') as model_handle:
+                model_str = "".join(model_handle.readlines())
             features = automodel.parse_model(model_str)
             feature_names = [feature.name for feature in features]
 
             # pick features from data according to model file
+            missing_features = set(feature_names).difference(df.columns)
+            if missing_features:
+                raise automodel.ParsingError(
+                    "The model specifies features that are not present in the data:\n{}".format(
+                        ", ".join(missing_features)
+                    )
+                )
+
             train_df = df.loc[:, feature_names]
             if args.drop_na:
                 train_df = train_df.dropna()
@@ -125,12 +130,12 @@ def main(args):
                     syn_df = feature.postprocess_data(syn_df)
                 return syn_df
 
-    except Exception as e:
-        print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
+    except Exception as e: # handling errors in py-file parsing
+        print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
         print("Here's the technical error description:")
         print(e)
         traceback.print_tb(e.__traceback__)
-        print("Aborting...")
+        print("\nAborting...")
         exit(3)
 
     # pick features from data according to model file
@@ -141,7 +146,20 @@ def main(args):
         print("The data has {} entries with {} features".format(*train_df.shape))
 
     # compute DP values
-    target_delta = 1. / num_data
+    target_delta = args.delta
+    if target_delta is None:
+        target_delta = 1. / num_data
+    if target_delta * num_data > 1.:
+        print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
+            "which the maximum value that is usually considered safe!".format(
+                target_delta, 1. / num_data
+            ))
+        x = input("Continue? (type YES ): ")
+        if x != "YES":
+            print("Aborting...")
+            exit(4)
+        print("Continuing... (YOU HAVE BEEN WARNED!)")
+
     num_compositions = int(args.num_epochs / args.sampling_ratio)
     dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
         args.epsilon, target_delta, args.sampling_ratio, num_compositions
@@ -188,14 +206,31 @@ def main(args):
 
     # postprocess: if preprocessing involved data mapping, it is mapped back here
     #   so that the synthetic twin looks like the original data
+    encoded_syn_df = syn_df.copy()
     if postprocess_fn:
-        syn_df = postprocess_fn(syn_df)
+        encoded_syn_df = postprocess_fn(encoded_syn_df)
 
-    syn_df.to_csv("{}.csv".format(args.output_path), index=False)
+    encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
-    # TODO
-    # illustrate
+    ## illustrate results
+    if args.visualize != 'none':
+        show_popups = args.visualize in ('popup', 'both')
+        save_plots = args.visualize in ('store', 'both')
+        # Missing value rate
+        if not args.drop_na:
+            missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
+            if save_plots:
+                missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
+        # Marginal violins
+        margin_fig = plot_margins(syn_df, train_df, show=show_popups)
+        # Covariance matrices
+        cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
+        if save_plots:
+            margin_fig.savefig(args.output_path + "_marginal_plots.svg")
+            cov_fig.savefig(args.output_path + "_correlation_plots.svg")
+        if show_popups:
+            plt.show()
 
 if __name__ == "__main__":
 

@@ -1,6 +1,6 @@
-#Rhinovirus/Enterovirus: Bernoulli
+Rhinovirus/Enterovirus: Bernoulli
 Leukocytes: Normal
-#Inf A H1N1 2009: Bernoulli
+Inf A H1N1 2009: Bernoulli
 #Eosinophils: Normal
 #Platelets: Normal
 #Monocytes: Normal

@@ -270,6 +270,8 @@ def make_distribution(token: str) -> Distribution:
     except KeyError:
         raise ValueError("{} distributions are currently not supported".format(token))
 
+class ParsingError(Exception):
+    pass
 
 def parse_model(model_str: str) -> List[ModelFeature]:
     """
@@ -279,7 +281,7 @@ def parse_model(model_str: str) -> List[ModelFeature]:
         OrderedDict(feature_name -> Distribution)
     """
     features = []
-    for line in model_str.splitlines():
+    for line_nr, line in enumerate(model_str.splitlines()):
         # ignore comments (indicated by #)
         line = line.split('#')[0].strip()
         if len(line) == 0:
@@ -290,12 +292,18 @@ def parse_model(model_str: str) -> List[ModelFeature]:
             feature_name = parts[0].strip()
             distribution_name = parts[1].strip()
 
-            dist = make_distribution(distribution_name)
-            features.append(ModelFeature(feature_name, dist))
+            try:
+                dist = make_distribution(distribution_name)
+                features.append(ModelFeature(feature_name, dist))
+            except ValueError as e:
+                raise ParsingError("Unable to parse line {}:\n<< {} >>\n{}".format(
+                    line_nr, line, e
+                ))
 
         else:
-            # todo: something?
-            pass
+            raise ParsingError("Unable to parse line {}:\n<< {} >>\nSyntax error!".format(
+                line_nr, line
+            ))
     return features
 
 def extract_features_from_mixture_model(mixture: MixtureModel, feature_names: List[str]) -> List[ModelFeature]:
