@@ -8,6 +8,7 @@ from dppp.minibatch import q_to_batch_size, batch_size_to_q
 from dppp.dputil import approximate_sigma_remove_relation
 from numpyro.handlers import seed
 from numpyro.contrib.autoguide import AutoDiagonalNormal
+from numpyro.infer import Predictive
 
 import fourier_accountant
 
@@ -56,53 +57,74 @@ def main(args):
 
     # check whether we parse model from txt or whether we have a numpyro module
     try:
-        try:
+        if args.model_path[-3:] == '.py':
             spec = importlib.util.spec_from_file_location("model_module", args.model_path)
             model_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(model_module)
-        except Exception as e:
-            raise ParsingError from e
 
-        model = model_module.model
-        model_args_map = model_module.model_args_map
-        feature_names = model_module.features
+            model = model_module.model
+            # feature_names = model_module.features
 
-        features = automodel.parse_model_fn(model, feature_names)
+            # features = automodel.parse_model_fn(model, feature_names)
 
-        train_df = df[feature_names]
-        if args.drop_na:
-            train_df = train_df.dropna()
+            train_df = df
+            if args.drop_na:
+                train_df = train_df.dropna()
 
-        # data preprocessing: determines number of categories for Categorical
-        #   distribution and maps categorical values in the data to ints
-        for feature in features:
-            train_df = feature.preprocess_data(train_df)
+            ## AUTOMATIC PREPROCESSING CURRENTLY UNAVAILABLE
+            # data preprocessing: determines number of categories for Categorical
+            #   distribution and maps categorical values in the data to ints
+            # for feature in features:
+            #     train_df = feature.preprocess_data(train_df)
 
-    except ParsingError:
-        print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
-        k = args.k
-        # read model file
-        model_handle = open(args.model_path, 'r')
-        model_str = "".join(model_handle.readlines())
-        model_handle.close()
-        features = automodel.parse_model(model_str)
-        feature_names = [feature.name for feature in features]
+            ## ALTERNATIVE
+            # we do allow the user to specify a preprocess/postprocess function pair
+            # in the numpyro model file
+            try: preprocess_fn = model_module.preprocess
+            except: preprocess_fn = None
+            if preprocess_fn:
+                train_df = preprocess_fn(train_df)
 
-        # pick features from data according to model file
-        train_df = df.loc[:, feature_names]
-        if args.drop_na:
-            train_df = train_df.dropna()
+            try: postprocess_fn = model_module.postprocess
+            except: postprocess_fn = None
 
-        # TODO normalize?
+            try: guide = model_module.guide
+            except: guide = AutoDiagonalNormal(model)
 
-        # data preprocessing: determines number of categories for Categorical
-        #   distribution and maps categorical values in the data to ints
-        for feature in features:
-            train_df = feature.preprocess_data(train_df)
+        else:
+            print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
+            k = args.k
+            # read model file
+            model_handle = open(args.model_path, 'r')
+            model_str = "".join(model_handle.readlines())
+            model_handle.close()
+            features = automodel.parse_model(model_str)
+            feature_names = [feature.name for feature in features]
 
-        # build model
-        model = automodel.make_model(features, k)
-        model_args_map = automodel.model_args_map
+            # pick features from data according to model file
+            train_df = df.loc[:, feature_names]
+            if args.drop_na:
+                train_df = train_df.dropna()
+
+            # TODO normalize?
+
+            # data preprocessing: determines number of categories for Categorical
+            #   distribution and maps categorical values in the data to ints
+            for feature in features:
+                train_df = feature.preprocess_data(train_df)
+
+            # build model
+            model = automodel.make_model(features, k)
+
+            # build variational guide for optimization
+            guide = AutoDiagonalNormal(model)
+
+            # postprocessing for automodel
+            def postprocess_fn(syn_df):
+                for feature in features:
+                    syn_df = feature.postprocess_data(syn_df)
+                return syn_df
+
     except Exception as e:
         print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
         print("Here's the technical error description:")
@@ -110,9 +132,6 @@ def main(args):
         traceback.print_tb(e.__traceback__)
         print("Aborting...")
         exit(3)
-
-    # build variational guide for optimization
-    guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
 
     # pick features from data according to model file
     num_data = train_df.shape[0]
@@ -140,7 +159,7 @@ def main(args):
     try:
         posterior_params = train_model(
             inference_rng,
-            model, automodel.model_args_map, guide, None,
+            model, guide,
             train_df.to_numpy(),
             batch_size=int(args.sampling_ratio*len(train_df)),
             num_epochs=args.num_epochs,
@@ -156,9 +175,12 @@ def main(args):
         print("Aborting...")
         exit(2)
 
+    predictive_model = lambda: model(None)
+    posterior_samples = Predictive(predictive_model, guide=guide, params=posterior_params, num_samples=args.num_synthetic).get_samples(sampling_rng)
+
     # sample synthetic data from posterior predictive distribution
-    posterior_samples = sample_multi_posterior_predictive(sampling_rng,
-            args.num_synthetic, model, (1,), guide, (), posterior_params)
+    # posterior_samples = sample_multi_posterior_predictive(sampling_rng,
+    #         args.num_synthetic, model, (None,), guide, (), posterior_params)
     syn_data = posterior_samples['x']
 
     # save results
@@ -166,8 +188,8 @@ def main(args):
 
     # postprocess: if preprocessing involved data mapping, it is mapped back here
     #   so that the synthetic twin looks like the original data
-    for feature in features:
-        syn_df = feature.postprocess_data(syn_df)
+    if postprocess_fn:
+        syn_df = postprocess_fn(syn_df)
 
     syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))

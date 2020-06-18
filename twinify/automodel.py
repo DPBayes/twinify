@@ -350,7 +350,8 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
         features: list of ModelFeature instances, specifying the feature distributions
         k: number of mixture components
     """
-    def model(N, num_obs_total=None):
+    def model(x, num_obs_total=None):
+        N = unvectorize_shape_2d(x)[0]
         mixture_dists = []
         dtypes = []
         for feature in features:
@@ -376,13 +377,7 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
         pis = sample('pis', dists.Dirichlet(np.ones(k)))
         with minibatch(N, num_obs_total=num_obs_total):
             mixture_model_dist = MixtureModel(mixture_dists, pis)
-            x = sample('x', mixture_model_dist, sample_shape=(N,))
+            x = sample('x', mixture_model_dist, obs=x)
             return x
     return model
 
-def model_args_map(x, **kwargs):
-    N = unvectorize_shape_2d(x)[0]
-    return (N,), kwargs, {'x': x}
-
-def guide_args_map(x, **kwargs):
-    return (), kwargs, {}
