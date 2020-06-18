@@ -3,7 +3,6 @@ config.update("jax_enable_x64", True)
 
 import jax.numpy as np
 
-from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
 from dppp.minibatch import q_to_batch_size, batch_size_to_q
 from dppp.dputil import approximate_sigma_remove_relation
 from numpyro.handlers import seed
