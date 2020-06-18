@@ -39,11 +39,24 @@ class MixtureModel(dist.Distribution):
         return self.sample_with_intermediates(key, sample_shape)[0]
 
     def sample_with_intermediates(self, key, sample_shape=()):
-        assert(len(sample_shape) == 1)
+        assert(len(sample_shape) <= 1)
 
-        vals_rng_key, pis_rng_key = jax.random.split(key, 2)
-        z = dist.Categorical(self._pis).sample(pis_rng_key, sample_shape)
-        rng_keys = jax.random.split(vals_rng_key, len(self.dists))
-        vals = [dbn.sample(rng_keys[feat_idx], sample_shape=sample_shape)[np.arange(sample_shape[0]), z] \
-                 for feat_idx, dbn in enumerate(self.dists)]
-        return np.stack(vals).squeeze(-1).T, [z]
+        num_samples = 1
+        if len(sample_shape) > 0:
+            num_samples = sample_shape[0]
+
+        keys = jax.random.split(key, num_samples)
+
+        @jax.vmap
+        def sample_single(single_key):
+            vals_rng_key, pis_rng_key = jax.random.split(single_key, 2)
+            z = dist.Categorical(self._pis).sample(pis_rng_key)
+            rng_keys = jax.random.split(vals_rng_key, len(self.dists))
+            vals = [dbn.sample(rng_keys[feat_idx])[z] \
+                    for feat_idx, dbn in enumerate(self.dists)]
+            return np.stack(vals).T, z
+
+        vals, zs = sample_single(keys)
+        if len(sample_shape) == 0:
+            vals = vals.squeeze(0)
+        return vals, [zs]
