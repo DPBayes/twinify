@@ -10,7 +10,7 @@ Twinify implements the differentially private data sharing process introduced by
 
 ## The Differentially Private Data Sharing Workflow
 
-Often data that could be very useful for the scientific community is subject to privacy regulations and cannot be shared. Differentially private data sharing allows to generate synthetic data that is statistically similar to the original data while at the same time satisfying a mathematical privacy formulation known as [differential privacy](https://en.wikipedia.org/wiki/Differential_privacy). Differential privacy measures the level of privacy in terms of positive parameters ε and δ - where smaller values imply stronger privacy - thus giving us concrete knobs to tune the synthetic data generation to our privacy needs and ensuring that private information remains private!
+Often data that could be very useful for the scientific community is subject to privacy regulations and cannot be shared. Differentially private data sharing allows to generate synthetic data that is statistically similar to the original data - the `synthetic twin` - while at the same time satisfying a mathematical privacy formulation known as [differential privacy](https://en.wikipedia.org/wiki/Differential_privacy). Differential privacy measures the level of privacy in terms of positive parameters ε and δ - where smaller values imply stronger privacy - thus giving us concrete knobs to tune the synthetic data generation to our privacy needs and ensuring that private information remains private!
 
 In order to generate data, we rely on [probabilistic modelling](https://en.wikipedia.org/wiki/Category:Probabilistic_models), which means we assume the data follows a probability distribution with some parameters, which we can infer privately. In order to generate the synthetic twin data, we sample from this distribution with the learned parameters, the *posterior predictive distribution*.
 
@@ -47,10 +47,10 @@ Age        : Poisson
 Height (cm): Normal
 ```
 
-A example of such text file for a larger data set is available in PATH. Automatic modelling also automates the encoding of string valued features into suitable domain.
+A example of such text file for a larger data set is available in `examples/covid19_analysis/models/full_model.txt`. Automatic modelling also automates the encoding of string valued features into suitable domain.
 
 ### Building Models in NumPyro
-If you are familiar with NumPyro and want a more flexible way of specifying models, you can provide a Python file containing NumPyro code to Twinify. All you need to do is providing a `model` function that specifies the NumPyro model for a single data instance `x`. You also have to define functions for pre- and postprocessing of data (if required). You can find details on the exact requirements for NumPyro models in the FAQ and an example in PATH.
+If you are familiar with NumPyro and want a more flexible way of specifying models, you can provide a Python file containing NumPyro code to Twinify. All you need to do is providing a `model` function that specifies the NumPyro model for a single data instance `x`. You also have to define functions for pre- and postprocessing of data (if required). You can find details on the exact requirements for NumPyro models in the FAQ and an example in `examples/covid19_analysis/models/numpyro_model_example.py`.
 
 ### How to Run Twinify
 Once you have have set the probabilistic model, you can run Twinify by calling
@@ -60,6 +60,9 @@ python twinify.py input_data_path model_path output_path_prefix
 ```
 
 where the model can be specified either as the text file for automatic modelling or as a python module that contains the NumPyro model.
+
+Twinify will output the generated synthetic data as `output_path_prefix.csv`, a file with learned model parameters as `output_path_prefix.p`
+and, optionally, plots visualizing summary characteristics of the generated data as `output_path_prefix_missing_value_plots.svg`, `output_path_prefix_marginal_plots.svg` and `output_path_prefix_correlation_plots.svg`.
 
 There is a number of optional command line arguments that further influence Twinify's behaviour:
 
