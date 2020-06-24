@@ -9,3 +9,8 @@ logs/
 *.xlsx
 results/
 *.p
+dist/
+build/
+*.svg
+/*.egg-info
+*.pyc

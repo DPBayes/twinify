@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from jax.config import config
 config.update("jax_enable_x64", True)
 
@@ -51,7 +53,10 @@ def initialize_rngs(seed):
     onp.random.seed(seed)
     return jax.random.split(master_rng, 2)
 
-def main(args):
+def main():
+    args = parser.parse_args()
+    print(args)
+
     # read data
     df = pd.read_csv(args.data_path)
 
@@ -239,10 +244,4 @@ def main(args):
             plt.show()
 
 if __name__ == "__main__":
-
-    args = parser.parse_args()
-    print(args)
-
-    main(args)
-
-
+    main()
