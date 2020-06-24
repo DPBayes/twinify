@@ -1,16 +1,13 @@
-import sys
-sys.path.append("../")
-
 from jax.config import config
 config.update("jax_enable_x64", True)
 
 import jax.numpy as np
 
-from dppp.modelling import sample_multi_posterior_predictive, make_observed_model
 from dppp.minibatch import q_to_batch_size, batch_size_to_q
 from dppp.dputil import approximate_sigma_remove_relation
 from numpyro.handlers import seed
 from numpyro.contrib.autoguide import AutoDiagonalNormal
+from numpyro.infer import Predictive
 
 import fourier_accountant
 
@@ -27,13 +24,16 @@ import traceback
 import jax, argparse, pickle
 import secrets
 
+from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
 parser.add_argument('data_path', type=str, help='path to target data')
 parser.add_argument('model_path', type=str, help='path to model')
 parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
-parser.add_argument("--epsilon", default=1., type=float, help="target privacy parameter")
+parser.add_argument("--epsilon", default=1., type=float, help="target multiplicative privacy parameter epsilon")
+parser.add_argument("--delta", default=None, type=float, help="target additive privacy parameter delta")
 parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a unique value.")
 parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
 parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
@@ -41,6 +41,7 @@ parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="su
 parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
 parser.add_argument("--drop_na", default=0, type=int, help="remove missing values from data (yes=1)")
 parser.add_argument("--clipping_threshold", default=1., type=float, help="clipping threshold")
+parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
 
 def initialize_rngs(seed):
     if seed is None:
@@ -50,72 +51,91 @@ def initialize_rngs(seed):
     onp.random.seed(seed)
     return jax.random.split(master_rng, 2)
 
-class ParsingError(Exception):
-    pass
-
 def main(args):
     # read data
     df = pd.read_csv(args.data_path)
 
     # check whether we parse model from txt or whether we have a numpyro module
     try:
-        try:
+        if args.model_path[-3:] == '.py':
             spec = importlib.util.spec_from_file_location("model_module", args.model_path)
             model_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(model_module)
-        except Exception as e:
-            raise ParsingError from e
 
-        model = model_module.model
-        model_args_map = model_module.model_args_map
-        feature_names = model_module.features
+            model = model_module.model
 
-        features = automodel.parse_model_fn(model, feature_names)
+            train_df = df
+            if args.drop_na:
+                train_df = train_df.dropna()
 
-        train_df = df[feature_names]
-        if args.drop_na:
-            train_df = train_df.dropna()
+            ## AUTOMATIC PREPROCESSING CURRENTLY UNAVAILABLE
+            # data preprocessing: determines number of categories for Categorical
+            #   distribution and maps categorical values in the data to ints
+            # for feature in features:
+            #     train_df = feature.preprocess_data(train_df)
 
-        # data preprocessing: determines number of categories for Categorical
-        #   distribution and maps categorical values in the data to ints
-        for feature in features:
-            train_df = feature.preprocess_data(train_df)
+            ## ALTERNATIVE
+            # we do allow the user to specify a preprocess/postprocess function pair
+            # in the numpyro model file
+            try: preprocess_fn = model_module.preprocess
+            except: preprocess_fn = None
+            if preprocess_fn:
+                train_df = preprocess_fn(train_df)
 
-    except ParsingError:
-        print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
-        k = args.k
-        # read model file
-        model_handle = open(args.model_path, 'r')
-        model_str = "".join(model_handle.readlines())
-        model_handle.close()
-        features = automodel.parse_model(model_str)
-        feature_names = [feature.name for feature in features]
+            try: postprocess_fn = model_module.postprocess
+            except: postprocess_fn = None
 
-        # pick features from data according to model file
-        train_df = df.loc[:, feature_names]
-        if args.drop_na:
-            train_df = train_df.dropna()
+            try: guide = model_module.guide
+            except: guide = AutoDiagonalNormal(model)
 
-        # TODO normalize?
+        else:
+            print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
+            k = args.k
+            # read model file
+            with open(args.model_path, 'r') as model_handle:
+                model_str = "".join(model_handle.readlines())
+            features = automodel.parse_model(model_str)
+            feature_names = [feature.name for feature in features]
 
-        # data preprocessing: determines number of categories for Categorical
-        #   distribution and maps categorical values in the data to ints
-        for feature in features:
-            train_df = feature.preprocess_data(train_df)
+            # pick features from data according to model file
+            missing_features = set(feature_names).difference(df.columns)
+            if missing_features:
+                raise automodel.ParsingError(
+                    "The model specifies features that are not present in the data:\n{}".format(
+                        ", ".join(missing_features)
+                    )
+                )
 
-        # build model
-        model = automodel.make_model(features, k)
-        model_args_map = automodel.model_args_map
-    except Exception as e:
-        print("#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
+            train_df = df.loc[:, feature_names]
+            if args.drop_na:
+                train_df = train_df.dropna()
+
+            # TODO normalize?
+
+            # data preprocessing: determines number of categories for Categorical
+            #   distribution and maps categorical values in the data to ints
+            for feature in features:
+                train_df = feature.preprocess_data(train_df)
+
+            # build model
+            model = automodel.make_model(features, k)
+
+            # build variational guide for optimization
+            guide = AutoDiagonalNormal(model)
+
+            # postprocessing for automodel
+            def postprocess_fn(syn_df):
+                for feature in features:
+                    syn_df = feature.postprocess_data(syn_df)
+                return syn_df
+
+    except Exception as e: # handling errors in py-file parsing
+        print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
         print("Here's the technical error description:")
         print(e)
         traceback.print_tb(e.__traceback__)
-        print("Aborting...")
+        print("\nAborting...")
         exit(3)
-
-    # build variational guide for optimization
-    guide = AutoDiagonalNormal(make_observed_model(model, model_args_map))
 
     # pick features from data according to model file
     num_data = train_df.shape[0]
@@ -125,7 +145,20 @@ def main(args):
         print("The data has {} entries with {} features".format(*train_df.shape))
 
     # compute DP values
-    target_delta = 1. / num_data
+    target_delta = args.delta
+    if target_delta is None:
+        target_delta = 1. / num_data
+    if target_delta * num_data > 1.:
+        print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
+            "which the maximum value that is usually considered safe!".format(
+                target_delta, 1. / num_data
+            ))
+        x = input("Continue? (type YES ): ")
+        if x != "YES":
+            print("Aborting...")
+            exit(4)
+        print("Continuing... (YOU HAVE BEEN WARNED!)")
+
     num_compositions = int(args.num_epochs / args.sampling_ratio)
     dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
         args.epsilon, target_delta, args.sampling_ratio, num_compositions
@@ -143,10 +176,12 @@ def main(args):
     try:
         posterior_params = train_model_no_dp(
             inference_rng,
-            model, automodel.model_args_map, guide, None,
+            model, guide,
             train_df.to_numpy(),
             batch_size=int(args.sampling_ratio*len(train_df)),
-            num_epochs=args.num_epochs
+            num_epochs=args.num_epochs,
+            dp_scale=dp_sigma,
+            clipping_threshold=args.clipping_threshold
         )
     except (InferenceException, FloatingPointError):
         print("################################## ERROR ##################################")
@@ -157,9 +192,12 @@ def main(args):
         print("Aborting...")
         exit(2)
 
+    predictive_model = lambda: model(None)
+    posterior_samples = Predictive(predictive_model, guide=guide, params=posterior_params, num_samples=args.num_synthetic).get_samples(sampling_rng)
+
     # sample synthetic data from posterior predictive distribution
-    posterior_samples = sample_multi_posterior_predictive(sampling_rng,
-            args.num_synthetic, model, (1,), guide, (), posterior_params)
+    # posterior_samples = sample_multi_posterior_predictive(sampling_rng,
+    #         args.num_synthetic, model, (None,), guide, (), posterior_params)
     syn_data = posterior_samples['x']
 
     # save results
@@ -167,14 +205,31 @@ def main(args):
 
     # postprocess: if preprocessing involved data mapping, it is mapped back here
     #   so that the synthetic twin looks like the original data
-    for feature in features:
-        syn_df = feature.postprocess_data(syn_df)
+    encoded_syn_df = syn_df.copy()
+    if postprocess_fn:
+        encoded_syn_df = postprocess_fn(encoded_syn_df)
 
-    syn_df.to_csv("{}.csv".format(args.output_path), index=False)
+    encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
 
-    # TODO
-    # illustrate
+    ## illustrate results
+    if args.visualize != 'none':
+        show_popups = args.visualize in ('popup', 'both')
+        save_plots = args.visualize in ('store', 'both')
+        # Missing value rate
+        if not args.drop_na:
+            missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
+            if save_plots:
+                missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
+        # Marginal violins
+        margin_fig = plot_margins(syn_df, train_df, show=show_popups)
+        # Covariance matrices
+        cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
+        if save_plots:
+            margin_fig.savefig(args.output_path + "_marginal_plots.svg")
+            cov_fig.savefig(args.output_path + "_correlation_plots.svg")
+        if show_popups:
+            plt.show()
 
 if __name__ == "__main__":
 

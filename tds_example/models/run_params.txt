@@ -4,3 +4,4 @@
 --sampling_ratio=0.01
 --k=50
 --clipping_threshold=5.0
+--visualize=store
