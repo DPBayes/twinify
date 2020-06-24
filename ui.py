@@ -27,20 +27,20 @@ import secrets
 from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
 import matplotlib.pyplot as plt
 
-parser = argparse.ArgumentParser(description='Script for creating synthetic twins under differential privacy.',\
+parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
-parser.add_argument('data_path', type=str, help='path to target data')
-parser.add_argument('model_path', type=str, help='path to model')
-parser.add_argument("output_path", type=str, help="path to outputs (synthetic data and model)")
-parser.add_argument("--epsilon", default=1., type=float, help="target multiplicative privacy parameter epsilon")
-parser.add_argument("--delta", default=None, type=float, help="target additive privacy parameter delta")
-parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a unique value.")
-parser.add_argument("--k", default=5, type=int, help="mixture components in fit")
-parser.add_argument("--num_epochs", "-e", default=100, type=int, help="number of epochs")
-parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="subsampling ratio for DP-SGD")
-parser.add_argument("--num_synthetic", default=1000, type=int, help="amount of synthetic data to generate")
-parser.add_argument("--drop_na", default=0, type=int, help="remove missing values from data (yes=1)")
-parser.add_argument("--clipping_threshold", default=1., type=float, help="clipping threshold")
+parser.add_argument('data_path', type=str, help='Path to input data.')
+parser.add_argument('model_path', type=str, help='Path to model file (.txt or .py).')
+parser.add_argument("output_path", type=str, help="Path prefix to outputs (synthetic data, model and visuliatzion plots).")
+parser.add_argument("--epsilon", default=1., type=float, help="Target multiplicative privacy parameter epsilon.")
+parser.add_argument("--delta", default=None, type=float, help="Target additive privacy parameter delta.")
+parser.add_argument("--clipping_threshold", default=1., type=float, help="Clipping threshold for DP-SGD.")
+parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a random value.")
+parser.add_argument("--k", default=50, type=int, help="Mixture components in fit (for automatic modelling only).")
+parser.add_argument("--num_epochs", "-e", default=200, type=int, help="Number of training epochs.")
+parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="Subsampling ratio for DP-SGD.")
+parser.add_argument("--num_synthetic", default=None, type=int, help="Amount of synthetic data to generate. By default as many as input data.")
+parser.add_argument("--drop_na", default=0, type=int, help="Remove missing values from data (yes=1)")
 parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
 
 def initialize_rngs(seed):
@@ -89,7 +89,7 @@ def main(args):
             except: guide = AutoDiagonalNormal(model)
 
         else:
-            print("Parsing model from txt file (was unable to read it python module containing numpyro code)")
+            print("Parsing model from txt file (was unable to read it as python module containing numpyro code)")
             k = args.k
             # read model file
             with open(args.model_path, 'r') as model_handle:
@@ -192,8 +192,15 @@ def main(args):
         print("Aborting...")
         exit(2)
 
+    num_synthetic = args.num_synthetic
+    if num_synthetic is None:
+        num_synthetic = train_df.shape[0]
+
     predictive_model = lambda: model(None)
-    posterior_samples = Predictive(predictive_model, guide=guide, params=posterior_params, num_samples=args.num_synthetic).get_samples(sampling_rng)
+    posterior_samples = Predictive(
+        predictive_model, guide=guide, params=posterior_params,
+        num_samples=num_synthetic
+    ).get_samples(sampling_rng)
 
     # sample synthetic data from posterior predictive distribution
     # posterior_samples = sample_multi_posterior_predictive(sampling_rng,
