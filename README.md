@@ -9,7 +9,7 @@ Twinify implements the differentially private data sharing process introduced by
 
 ## The Differentially Private Data Sharing Workflow
 
-Often data that would be very useful for the scientific community is subject to privacy regulations and concerns and cannot be shared. Differentially private data sharing allows to generate synthetic data that is statistically similar to the original data - the `synthetic twin` - while at the same time satisfying a mathematical privacy formulation known as [differential privacy](https://en.wikipedia.org/wiki/Differential_privacy). Differential privacy measures the level of privacy in terms of positive parameters ε and δ - where smaller values imply stronger privacy - thus giving us concrete knobs to tune the synthetic data generation to our privacy needs and ensuring that private information remains private!
+Often data that would be very useful for the scientific community is subject to privacy regulations and concerns and cannot be shared. Differentially private data sharing allows to generate synthetic data that is statistically similar to the original data - the *synthetic twin* - while at the same time satisfying a mathematical privacy formulation known as [differential privacy](https://en.wikipedia.org/wiki/Differential_privacy). Differential privacy measures the level of privacy in terms of positive parameters ε and δ - where smaller values imply stronger privacy - thus giving us concrete knobs to tune the synthetic data generation to our privacy needs and ensuring that private information remains private!
 
 In order to generate data, we rely on [probabilistic modelling](https://en.wikipedia.org/wiki/Category:Probabilistic_models), which means we assume the data follows a probability distribution with some parameters which we can infer privately. In order to generate the synthetic twin data, we sample from this distribution with the learned parameters, the *posterior predictive distribution*.
 
@@ -52,7 +52,7 @@ A example of such text file for a larger data set is available in `examples/covi
 If you are familiar with NumPyro and want a more flexible way of specifying models, you can provide a Python file containing NumPyro code to Twinify. All you need to do is define a `model` function that specifies the NumPyro model for a single data instance `x`. You also have to define functions for pre- and postprocessing of data (if required). You can find details on the exact requirements for NumPyro models in the FAQ and an example in `examples/covid19_analysis/models/numpyro_model_example.py`.
 
 ### How to Run Twinify
-Once you have have set the probabilistic model, you can run Twinify by calling
+Once you have have set the probabilistic model, you can run Twinify by calling from your command line
 
 ```
 twinify input_data_path model_path output_path_prefix
@@ -83,13 +83,13 @@ There is a number of optional command line arguments that further influence Twin
 As an example, say we have data in `my_data.csv` and a model description for automatic modelling in `my_model.txt`. We want 1000 samples of generated data to be stored in `my_twin.csv` and fix Twinify's internal randomness with a seed for reproducibility. We also want to store the plots of summary characteristic visualizations but not display them at runtime. This is how we run Twinify:
 
 ```
-twinify my_data.csv my_model.txt my_data --seed=123 --num_synthetic=1000 --visualize=store
+twinify my_data.csv my_model.txt my_twin --seed=123 --num_synthetic=1000 --visualize=store
 ```
 
 In the case that we wrote a model with NumPyro instead of relying on Twinify's automatic modelling, our call would like like
 
 ```
-twinify my_data.csv my_numpyro_model.py my_data --seed=123 --num_synthetic=1000 --visualize=store
+twinify my_data.csv my_numpyro_model.py my_twin --seed=123 --num_synthetic=1000 --visualize=store
 ```
 
 ## Technical detail FAQ:
