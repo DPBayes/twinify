@@ -56,7 +56,7 @@ If you are familiar with NumPyro and want a more flexible way of specifying mode
 Once you have have set the probabilistic model, you can run Twinify by calling
 
 ```
-python twinify.py input_data_path model_path output_path_prefix
+twinify input_data_path model_path output_path_prefix
 ```
 
 where the model can be specified either as the text file for automatic modelling or as a python module that contains the NumPyro model.
@@ -84,13 +84,13 @@ There is a number of optional command line arguments that further influence Twin
 As an example, say we have data in `my_data.csv` and a model description for automatic modelling in `my_model.txt`. We want 1000 samples of generated data to be stored in `my_twin.csv` and fix Twinify's internal randomness with a seed for reproducibility. We also want to store the plots of summary characteristic visualizations but not display them at runtime. This is how we run Twinify:
 
 ```
-python twinify.py my_data.csv my_model.txt my_data --seed=123 --num_synthetic=1000 --visualize=store
+twinify my_data.csv my_model.txt my_data --seed=123 --num_synthetic=1000 --visualize=store
 ```
 
 In the case that we wrote a model with NumPyro instead of relying on Twinify's automatic modelling, our call would like like
 
 ```
-python twinify.py my_data.csv my_numpyro_model.py my_data --seed=123 --num_synthetic=1000 --visualize=store
+twinify my_data.csv my_numpyro_model.py my_data --seed=123 --num_synthetic=1000 --visualize=store
 ```
 
 ## Technical detail FAQ:
