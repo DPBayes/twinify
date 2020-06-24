@@ -10,11 +10,11 @@ Twinify implements the differentially private data sharing process introduced by
 
 ## The Differentially Private Data Sharing Workflow
 
-Often data that could be very useful for the scientific community is subject to privacy regulations and cannot be shared. Differentially private data sharing allows to generate synthetic data that is statistically similar to the original data - the `synthetic twin` - while at the same time satisfying a mathematical privacy formulation known as [differential privacy](https://en.wikipedia.org/wiki/Differential_privacy). Differential privacy measures the level of privacy in terms of positive parameters ε and δ - where smaller values imply stronger privacy - thus giving us concrete knobs to tune the synthetic data generation to our privacy needs and ensuring that private information remains private!
+Often data that would be very useful for the scientific community is subject to privacy regulations and concerns and cannot be shared. Differentially private data sharing allows to generate synthetic data that is statistically similar to the original data - the `synthetic twin` - while at the same time satisfying a mathematical privacy formulation known as [differential privacy](https://en.wikipedia.org/wiki/Differential_privacy). Differential privacy measures the level of privacy in terms of positive parameters ε and δ - where smaller values imply stronger privacy - thus giving us concrete knobs to tune the synthetic data generation to our privacy needs and ensuring that private information remains private!
 
-In order to generate data, we rely on [probabilistic modelling](https://en.wikipedia.org/wiki/Category:Probabilistic_models), which means we assume the data follows a probability distribution with some parameters, which we can infer privately. In order to generate the synthetic twin data, we sample from this distribution with the learned parameters, the *posterior predictive distribution*.
+In order to generate data, we rely on [probabilistic modelling](https://en.wikipedia.org/wiki/Category:Probabilistic_models), which means we assume the data follows a probability distribution with some parameters which we can infer privately. In order to generate the synthetic twin data, we sample from this distribution with the learned parameters, the *posterior predictive distribution*.
 
-As an example, consider a population of individuals with varying height shown in the first panel of the illustrations above. We present the heights as a histogram in panel (a) of the figure below. We then fit a probabilistic model for this data, the blue curve in in panel (b), and sample new data from this distribution magenta dots in (c).
+As an example, consider a population of individuals with varying height shown in the first panel of the illustrations above. We present the heights as a histogram in panel (a) of the figure below. We then fit a probabilistic model for this data, the blue curve in in panel (b), and sample new data from this distribution, the magenta dots in (c).
 
 ![ProbabilisticModellingStrip](https://dpbayes.github.io/twinify/ProbabilisticModellingStrip.jpg)
 
@@ -36,7 +36,7 @@ pip install .
 ```
 
 ## Using Twinify
-You can use Twinify for arbitrary tabular data sets. The main thing you need to do is to set up the probabilistic model for which we fit the data. Twinify supports automatic model building for users with less experience in programming and probabilistic modelling but you can also implement a full-blown model using NumPyro.
+You can use Twinify for arbitrary tabular data sets. The main thing you need to do is to set up the probabilistic model for which we fit the data. Twinify supports automatic model building for users with less experience in programming and probabilistic modelling but you can also implement a full-fledged model using NumPyro.
 
 ### Automatic Modelling
 Twinifys automatic modelling feature builds a mixture model for user specified feature distributions. You can set up a text file, in which you only need to specify a single distribution for each of your features. A feature is identified by the full column name in the data set csv-file. For a data set containing features `Age` and `Height (cm)` the model file might look like
@@ -50,7 +50,7 @@ Height (cm): Normal
 A example of such text file for a larger data set is available in `examples/covid19_analysis/models/full_model.txt`. Automatic modelling also automates the encoding of string valued features into suitable domain.
 
 ### Building Models in NumPyro
-If you are familiar with NumPyro and want a more flexible way of specifying models, you can provide a Python file containing NumPyro code to Twinify. All you need to do is providing a `model` function that specifies the NumPyro model for a single data instance `x`. You also have to define functions for pre- and postprocessing of data (if required). You can find details on the exact requirements for NumPyro models in the FAQ and an example in `examples/covid19_analysis/models/numpyro_model_example.py`.
+If you are familiar with NumPyro and want a more flexible way of specifying models, you can provide a Python file containing NumPyro code to Twinify. All you need to do is define a `model` function that specifies the NumPyro model for a single data instance `x`. You also have to define functions for pre- and postprocessing of data (if required). You can find details on the exact requirements for NumPyro models in the FAQ and an example in `examples/covid19_analysis/models/numpyro_model_example.py`.
 
 ### How to Run Twinify
 Once you have have set the probabilistic model, you can run Twinify by calling
@@ -66,8 +66,8 @@ and, optionally, plots visualizing summary characteristics of the generated data
 
 There is a number of optional command line arguments that further influence Twinify's behaviour:
 
-- `--epsilon` - Privacy parameter ε (positive real number): Use this argument to specify the $\epsilon$ privacy level. Smaller is better (but may negatively impact utility). In general values less than one are considered strong privacy and values less than 2 still reasonable.
-- `--delta` - Privacy parameter δ (positive real number): Use this argument to override the default choice for $\delta$ (should rarely be required). Smaller is better. Values larger than 1/N, where N is the size of your data set, are typically considered unsafe.
+- `--epsilon` - Privacy parameter ε (positive real number): Use this argument to specify the ε privacy level. Smaller is better (but may negatively impact utility). In general values less than 1 are considered strong privacy and values less than 2 still reasonable.
+- `--delta` - Privacy parameter δ (positive real number): Use this argument to override the default choice for δ (should rarely be required). Smaller is better. Values larger than 1/N, where N is the size of your data set, are typically considered unsafe.
 - `--num_synthetic` - Number of synthetic samples (integer): Use this to set how many samples you want from the generative model. This has no effect on the privacy guarantees for the synthetic data.
 - `--k` - Number of mixture components (integer): Use this argument to set the number of mixture components when automatic modelling is used. A reasonable choice would be of same magnitude as the number of features.
 - `--sampling_ratio`, `-q` - Subsampling ratio (real number): Use this argument to set the relative size of subsets (batches) of data the iteratively private learning is uses. This has privacy implications and is further discussed in FAQ.
@@ -125,14 +125,14 @@ Currently supported feature distributions are shown in the table below with the 
 |--------------|----------------------|-------------------------------|---------------------------------|
 | Normal       | location μ, scale σ  | μ ∼ 𝓝(0,1),σ ∼ LogNormal(0,2) | (symmetric) continuous real numbers |
 | Bernoulli    | logit-probability z  | z ∼ 𝓝(0, 1)                   | binary categories (0/1 integers or "yes"/"no" strings) |
-| Categorical  | probabilities **p**      | **p** ∼ Dirichlet(1, ..., 1)      | arbitrary categories (integer or string data) |
+| Categorical  | probabilities **p**  | **p** ∼ Dirichlet(1, ..., 1)  | arbitrary categories (integer or string data) |
 | Poisson      | rate λ               | λ ∼ Exp(1)                    | ordinal integer data |
 
 ### How does the automatic modelling work? What kind of model does it build?
 
 As already mentioned, Twinify's automatic modelling uses the distributions you specify for each feature (i.e., column in the data) to build a so called *mixture model* consisting of several *components*.  In each mixture component, the features are assumed to be independently modelled by the distributions you specified with component-specific parameters. Each data instance is associated with a single component with a probability given by the mixture's *weight*. During data generation, for each generated data instance, Twinify first randomly picks a component according to the weights and then samples the data point according from the parameterised feature distributions in that component.
 
-While all features are treated as independent in each mixture component, the mixture model as a whole is typically able to captures correlations between features.
+While all features are treated as independent in each mixture component, the mixture model as a whole is typically able to capture correlations between features.
 
 In mathematical terms, the likelihood of the data given the model parameters for the mixture model is
 ![MixtureModelLikelihood](https://render.githubusercontent.com/render/math?math=p%28%5Cmathbf%7BX%7D%20%7C%20%5Cboldsymbol%7B%5Ctheta%7D%29%20%3D%20%5Csum_%7Bk%3D1%7D%5EK%20%5Cpi_k%20%5Cprod_%7Bd%3D1%7D%5ED%20%5Cphi_d%28%5Cmathbf%7BX%7D_%7B%3A%2Cd%7D%20%7C%5Cboldsymbol%7B%5Ctheta%7D_%7Bd%2Ck%7D%29)
