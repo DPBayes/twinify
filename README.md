@@ -121,12 +121,12 @@ where ![](https://render.githubusercontent.com/render/math?math=%5Cphi%28x%20%5C
 ### What distributions are supported in the automatic modelling?
 Currently supported feature distributions are shown in the table below with the corresponding prior choices Twinify uses for the parameters of these distributions.
 
-| Distribution | Parameters           | Priors                        | Use for                         |
-|--------------|----------------------|-------------------------------|---------------------------------|
-| Normal       | location μ, scale σ  | μ ∼ 𝓝(0,1),σ ∼ LogNormal(0,2) | (symmetric) continuous real numbers |
-| Bernoulli    | logit-probability z  | z ∼ 𝓝(0, 1)                   | binary categories (0/1 integers or "yes"/"no" strings) |
-| Categorical  | probabilities **p**  | **p** ∼ Dirichlet(1, ..., 1)  | arbitrary categories (integer or string data) |
-| Poisson      | rate λ               | λ ∼ Exp(1)                    | ordinal integer data |
+| Distribution | Parameters           | Priors                          | Use for                         |
+|--------------|----------------------|---------------------------------|---------------------------------|
+| Normal       | location μ, scale σ  | μ ∼ 𝓝(0, 10),σ ∼ LogNormal(0,2) | (symmetric) continuous real numbers |
+| Bernoulli    | probability p        | p ∼ Beta(1, 1)                  | binary categories (0/1 integers or "yes"/"no" strings) |
+| Categorical  | probabilities **p**  | **p** ∼ Dirichlet(1, ..., 1)    | arbitrary categories (integer or string data) |
+| Poisson      | rate λ               | λ ∼ Exp(1)                      | ordinal integer data |
 
 ### How does the automatic modelling work? What kind of model does it build?
 

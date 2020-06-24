@@ -340,8 +340,8 @@ def parse_model_fn(model: Callable, feature_names: List[str]) -> List[ModelFeatu
 ##################### prior lookup ########################
 
 prior_lookup = {
-    dists.Normal: {'loc': (dists.Normal, (0., 1.)), 'scale': (dists.LogNormal, (0., 2.))},
-    dists.BernoulliLogits: {'logits': (dists.Normal, (0., 1.))},
+    dists.Normal: {'loc': (dists.Normal, (0., 10.)), 'scale': (dists.LogNormal, (0., 2.))},
+    dists.BernoulliProbs: {'probs': (dists.Beta, (1., 1.))},
     dists.CategoricalProbs: {'probs': (dists.Dirichlet, (1.,))},
     dists.Poisson: {'rate': (dists.Exponential, (1.,))}
 }
