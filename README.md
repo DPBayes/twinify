@@ -5,8 +5,7 @@ Twinify relies on [NumPyro](https://github.com/pyro-ppl/numpyro), a versatile pr
 
 Twinify implements the differentially private data sharing process introduced by [Jälkö et al.](https://arxiv.org/pdf/1912.04439.pdf) and offers automatic modelling for easy building of models fitting the data. If you are already experienced with NumPyro you can also implement your own model directly.
 
-![PeopleBeforeImage](https://dpbayes.github.io/twinify/PeopleBefore.jpg)
-![PeopleAfterImage](https://dpbayes.github.io/twinify/PeopleAfter.jpg)
+<img alt="A comic-style illustration of a group of individual people all of different height." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/PeopleBefore.jpg" width="384px" /> <img alt="A comic-style illustration of a group of uniformly looking people of different height, wearing masks to stay anonymous." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/PeopleAfter.jpg" width="384px" />
 
 ## The Differentially Private Data Sharing Workflow
 
@@ -16,7 +15,7 @@ In order to generate data, we rely on [probabilistic modelling](https://en.wikip
 
 As an example, consider a population of individuals with varying height shown in the first panel of the illustrations above. We present the heights as a histogram in panel (a) of the figure below. We then fit a probabilistic model for this data, the blue curve in in panel (b), and sample new data from this distribution, the magenta dots in (c).
 
-![ProbabilisticModellingStrip](https://dpbayes.github.io/twinify/ProbabilisticModellingStrip.jpg)
+<img alt="A three panel illustration of how a model distribution is fit to existing data and new data sampled from it." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/ProbabilisticModellingStrip.jpg" width="2*384px" />
 
 
 As the learning of the model is done under differential privacy, the sampled data preserves the anonymity of individuals while maintaining the statistical properties of the original population. This is shown in the second panel in the illustration above.
