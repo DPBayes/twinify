@@ -14,11 +14,22 @@ class MixtureModel(dist.Distribution):
     }
 
     def __init__(self, dists, pis=1.0, validate_args=None):
+        """
+        dists : a list of NumPyro distributions. For automatic modellling this is the list of feature distributions.
+        pis : the mixture weights. 
+        """
         self.dists = dists
         self._pis = pis
         super(MixtureModel, self).__init__()
 
     def log_prob(self, value):
+        """
+        values : the observations
+
+        the log-likelihood of the K component mixture model
+        $\log p(x | \theta)  =  \log \sum_{k=1}^K \pi_k p(x | \theta_k)$
+        where $p(x | \theta_k)$ denotes the likelihood of the kth mixture cluster
+        """
         log_pis = np.log(self._pis)
         if value.ndim == 2:
             log_phis = np.array([dbn.log_prob(value[:, feat_idx, np.newaxis]) for feat_idx, dbn in \
