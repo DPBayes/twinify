@@ -15,7 +15,7 @@ In order to generate data, we rely on [probabilistic modelling](https://en.wikip
 
 As an example, consider a population of individuals with varying height shown in the first panel of the illustrations above. We present the heights as a histogram in panel (a) of the figure below. We then fit a probabilistic model for this data, the blue curve in in panel (b), and sample new data from this distribution, the magenta dots in (c).
 
-<img alt="A three panel illustration of how a model distribution is fit to existing data and new data sampled from it." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/ProbabilisticModellingStrip.jpg" width="2*384px" />
+<img alt="A three panel illustration of how a model distribution is fit to existing data and new data sampled from it." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/ProbabilisticModellingStrip.jpg" width="768px" />
 
 
 As the learning of the model is done under differential privacy, the sampled data preserves the anonymity of individuals while maintaining the statistical properties of the original population. This is shown in the second panel in the illustration above.
