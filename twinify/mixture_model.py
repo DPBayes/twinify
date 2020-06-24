@@ -1,22 +1,48 @@
+# Copyright 2020 twinify Developers and their Assignees
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Mixture model used by twinify main script and available for modelling.
+"""
+
 import jax.numpy as np
 import jax
 
 import numpyro
 import numpyro.distributions as dist
 
-################ General mixture model attempt
 from jax.scipy.special import logsumexp
 import numpyro.distributions as dist
 
 class MixtureModel(dist.Distribution):
+    """ A general purpose mixture model """
+
     arg_constraints = {
         '_pis' : dist.constraints.simplex
     }
 
     def __init__(self, dists, pis=1.0, validate_args=None):
         """
-        dists : a list of NumPyro distributions. For automatic modellling this is the list of feature distributions.
-        pis : the mixture weights. 
+        Initializes a MixtureModel instance.
+
+        The feature distributions provided by argument `dists` must be in the
+        same order as the features are provided in the `value` vector passed
+        to `log_prob`.
+
+        Args:
+            dists (list of numpyro.distributions.Distribution): The list of feature distributions.
+            pis (array_like): The mixture weights.
         """
         self.dists = dists
         self._pis = pis
@@ -24,11 +50,17 @@ class MixtureModel(dist.Distribution):
 
     def log_prob(self, value):
         """
-        values : the observations
+        Evaluates the log-probabilities for given observations.
 
-        the log-likelihood of the K component mixture model
+        The log-probabilities of the K component mixture model
         $\log p(x | \theta)  =  \log \sum_{k=1}^K \pi_k p(x | \theta_k)$
-        where $p(x | \theta_k)$ denotes the likelihood of the kth mixture cluster
+        where $p(x | \theta_k)$ denotes the probabilities of the k-th mixture cluster
+
+        Args:
+            values (array_like): The observations. Dimension of the last axis must
+                be the number of features (i.e., `len(dists)`).
+        Returns:
+            array_like of shape `values.shape[:-1]`
         """
         log_pis = np.log(self._pis)
         if value.ndim == 2:
@@ -47,6 +79,15 @@ class MixtureModel(dist.Distribution):
         return logsumexp(temp, axis=-1)
 
     def sample(self, key, sample_shape=()):
+        """
+        Samples from the mixture model.
+
+        Args:
+            key (jax.random.PRNGKey): RNG key.
+            sample_shape (tuple): How many samples to draw and how to arrange them
+        Returns:
+            array_like of shape `(*sample_shape, len(dists))`
+        """
         return self.sample_with_intermediates(key, sample_shape)[0]
 
     def sample_with_intermediates(self, key, sample_shape=()):
