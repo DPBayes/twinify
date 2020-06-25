@@ -168,3 +168,19 @@ The private learning algorithm Twinify uses is based on gradient descent optimiz
 Twinify accepts the privacy level ε (and δ, typically determined automatically) as parameters and finds the variance for Gaussian noise to suffice this level of privacy. The noise variance is additionally affected by the number of epochs (Nₑ) and the subsampling ratio (q) as σ² ~= O(q Nₑ) since both affect the number of total iterations the algorithm performs and thus the number of times private data is handled.
 
 Larger noise variance can negatively affect the learning so choosing too large values for q or Nₑ will likely give bad results.
+
+## Citing Twinify
+
+When using Twinify, please cite
+
+```
+@article{jalko19,
+    title={Privacy-preserving data sharing via probabilistic modelling},
+    author={Joonas Jälkö and Eemil Lagerspetz and Jari Haukka and Sasu Tarkoma and Samuel Kaski and Antti Honkela},
+    year={2019},
+    eprint={1912.04439},
+    archivePrefix={arXiv},
+    note = {\url{https://arxiv.org/pdf/1912.04439.pdf}},
+    primaryClass={stat.ML}
+}
+```
