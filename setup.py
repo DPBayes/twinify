@@ -15,14 +15,19 @@ setuptools.setup(
     packages=setuptools.find_packages(include=['twinify', 'twinify.*']),
     install_requires=[
         'pandas',
-        'matplotlib',
+        'matplotlib < 3.5',
         'jaxlib >= 0.1.47',
         'jax >= 0.1.70',
         'numpyro @ git+https://github.com/pyro-ppl/numpyro.git#egg=numpyro',
         'dppp @ git+https://github.com/DPBayes/dppp.git@e168eb4201bd460754defe3638404820cd8fe191#egg=dppp',
     ],
+    extras_require = {
+        'examples': [
+            'xlrd'
+        ],
+    },
     entry_points = {
-        'console_scripts': ['twinify=twinify.twinify:main'],
+        'console_scripts': ['twinify=twinify.__main__:main'],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
