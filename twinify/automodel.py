@@ -276,7 +276,7 @@ categorical_dist_lookup = {
 
 dist_lookup = {
     "normal": Distribution("Normal", dists.Normal),
-    "bernoulli": Distribution("Bernoulli", dists.BernoulliLogits),
+    "bernoulli": Distribution("Bernoulli", dists.BernoulliProbs),
     "categorical": Distribution("Categorical", dists.CategoricalProbs),
     "poisson": Distribution("Poisson", dists.Poisson)
 }
