@@ -7,7 +7,6 @@ logs/
 *__pycache__*
 *.csv
 *.xlsx
-results/
 *.p
 dist/
 build/

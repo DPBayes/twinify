@@ -1,0 +1,4 @@
+results/*
+!results/*.py
+!results/*.R
+!results/*.sh

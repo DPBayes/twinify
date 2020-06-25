@@ -23,7 +23,8 @@ setuptools.setup(
     ],
     extras_require = {
         'examples': [
-            'xlrd'
+            'xlrd',
+            'scikit-learn'
         ],
     },
     entry_points = {
