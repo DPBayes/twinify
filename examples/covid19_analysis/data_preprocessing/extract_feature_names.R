@@ -1,9 +1,12 @@
+# Derived from code of Souza et al.
+# https://github.com/souzatharsis/covid-19-ML-Lab-Test/blob/master/src/COVID-19%20Machine%20Learning-Based%20Rapid%20Diagnosis%20From%20Common%20Laboratory%20Tests.ipynb
+
 # load aux functions
-source("./00-Funcs.R")
+source("../00-Funcs.R")
 
 #load input dataset
 library("readxl");
-data <- as.data.frame(read_excel("dataset.xlsx"), stringAsFactors=F)
+data <- as.data.frame(read_excel("../dataset.xlsx"), stringAsFactors=F)
 
 # make variable names syntactically valid
 names(data) <- make.names(names(data))
@@ -26,9 +29,8 @@ data$Lipase.dosage <- as.factor(data$Lipase.dosage)
 outcome.var<-"SARS.Cov.2.exam.result"
 data[, outcome.var] <- as.integer(data[, outcome.var]) - 1
 
-countNA<-function(x){sum(is.na(x))}
-x<-apply(data, 2, countNA)/nrow(data)
-plot(density(x/nrow(data)), main="Most variables have a high percentage of missing values", xlab="Percentage of NA's per variable")
+#countNA<-function(x){sum(is.na(x))}
+#x<-apply(data, 2, countNA)/nrow(data)
 
 data.saved<-data
 data.size<-nrow(data)
@@ -44,10 +46,6 @@ min.non.na.vars <- 10
 data.neg <- delete.na(data.neg, n = min.non.na.vars)
 
 data <- rbind(data.pos, data.neg)
-
-print(setdiff(names(data.saved), names(data)))
-
-print(names(data))
 
 library(caret)
 set.seed(18101987)
@@ -66,25 +64,15 @@ gbm.model = gbm(myformula, data = train,
                 bag.fraction = BAG.FRACTION,
                 verbose=FALSE)
 
-## extract top 10 features
-model.summary<-summary(gbm.model, cBars=10)
-top_names = as.vector(model.summary[1:10,]$var)
-print(model.summary[1:10,])
-original_data <- as.data.frame(read_excel("dataset.xlsx"), stringAsFactors=F)
-new_names <- rep(NA, 10)
-for (i in 1:10){
-  name <- names(original_data)[make.names(names(original_data))==top_names[i]]
-  new_names[i] <- name
-}
-print(new_names)
-write(as.vector(new_names), "tds_top10_features.txt")
+model.summary <- summary(gbm.model, plotit=FALSE)
 
-## extract all features
+## extract feature names
+original_data <- as.data.frame(read_excel("../dataset.xlsx"), stringAsFactors=F)
 all_names = as.vector(model.summary$var)
 all_new_names <- rep(NA, length(all_names))
 for (i in 1:length(all_names)){
   name <- names(original_data)[make.names(names(original_data))==all_names[i]]
   all_new_names[i] <- name
 }
-print(all_new_names)
-write(as.vector(all_new_names), "tds_all_features.txt")
+all_new_names <- c(names(original_data)[make.names(names(original_data)) == outcome.var], all_new_names)
+write(as.vector(all_new_names), "covid19_features.txt")

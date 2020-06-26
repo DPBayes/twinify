@@ -14,6 +14,6 @@ ARGS=`sed "${n}q;d" seeds_and_eps.txt`
 OUT_FILE_NAME=`echo $ARGS | sed -r 's/--seed=([0-9]+) --epsilon=(.+)/seed\1_eps\2/'`
 
 mkdir -p results/full_model
-COMMAND="python ../twinify.py ../tds_all.csv ../models/full_model.txt ../results/full_model/syn_data_$OUT_FILE_NAME %../models/run_params.txt $ARGS"
+COMMAND="python ../twinify.py ../covid19_data.csv ../models/model.txt ../results/full_model/syn_data_$OUT_FILE_NAME %../models/run_params.txt $ARGS"
 echo $COMMAND
 srun $COMMAND

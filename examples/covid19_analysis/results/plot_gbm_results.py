@@ -5,6 +5,21 @@ import matplotlib.pyplot as plt
 print("now plotting results from gbm predictions")
 
 
+SMALL_SIZE = 8
+MEDIUM_SIZE = 10
+BIGGER_SIZE = 12
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE, figsize=(3.14, 3), autolayout=True)  # fontsize of the figure title
+
+#'font.size': 9,
+# plt.rcParams.update({'figure.figsize': (3.14, 3), 'figure.autolayout': True})
+
 epsilons = [1., 2., 4.]
 #read results
 basic_auc = pd.read_csv("./python_outputs/basic_auc_full_model.csv")
@@ -95,7 +110,7 @@ plt.hlines(nondp_basic_auc.mean()+nondp_basic_auc_std, xmin, xmax, ls="--", alph
 
 plt.xlabel(r"$\epsilon$")
 plt.ylabel("AUC")
-plt.legend(loc="lower right")
+plt.legend(loc="lower right", bbox_to_anchor=(1., .6))
 plt.title("AUC of ROC curve")
 
 #plt.show()
@@ -115,11 +130,11 @@ plt.hlines(nondp_bal_acc.mean()+nondp_bal_acc_std, xmin, xmax, ls="--", alpha=0.
 
 plt.xlabel(r"$\epsilon$")
 plt.ylabel("Accuracy")
-plt.legend(loc="lower right")
+plt.legend(loc="lower right", bbox_to_anchor=(1., .1))
 plt.title("Classification accuracy (optimized threshold)")
 
 #plt.show()
-plt.savefig("./figures/bal_acc_box_plot_from_python.pdf", format="pdf", tight_layout=True)
+plt.savefig("./figures/bal_acc_box_plot_from_python.pdf", format="pdf")
 plt.close()
 
 print("all done")

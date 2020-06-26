@@ -1,3 +1,6 @@
+# Derived from code of Souza et al.
+# https://github.com/souzatharsis/covid-19-ML-Lab-Test/blob/master/src/COVID-19%20Machine%20Learning-Based%20Rapid%20Diagnosis%20From%20Common%20Laboratory%20Tests.ipynb
+
 print("splitting train and test set for gbm analysis")
 
 # load aux functions
@@ -13,9 +16,6 @@ original.data <- as.data.frame(read_excel("../dataset.xlsx"), stringAsFactors=F)
 # make variable names syntactically valid
 names(original.data) <- make.names(names(original.data))
 original.data$Patient.ID <- NULL
-
-## Pick features that match synthetic data
-#original.data <- original.data[, features]
 
 # Replace column values that should be empty for NA
 original.data[original.data=='Não Realizado'] <- NA
