@@ -5,7 +5,7 @@ Twinify relies on [NumPyro](https://github.com/pyro-ppl/numpyro), a versatile pr
 
 Twinify implements the differentially private data sharing process introduced by [Jälkö et al.](https://arxiv.org/pdf/1912.04439.pdf) and offers automatic modelling for easy building of models fitting the data. If you are already experienced with NumPyro you can also implement your own model directly.
 
-<img alt="A comic-style illustration of a group of individual people all of different height." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/PeopleBefore.jpg" width="384px" /> <img alt="A comic-style illustration of a group of uniformly looking people of different height, wearing masks to stay anonymous." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/PeopleAfter.jpg" width="384px" />
+<img alt="A comic-style illustration of a group of individual people all of different height being turned into by a group of uniformly looking people of different height, wearing masks to stay anonymous" width="768px" src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/Illustration.jpg" />
 
 ## The Differentially Private Data Sharing Workflow
 
