@@ -1,3 +1,4 @@
 #!/bin/bash
 
-mkdir -p ../results/{full_model, full_model_nonprivate}
+mkdir -p ../results/full_model ../results/full_model_nonprivate
+
