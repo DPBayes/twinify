@@ -169,6 +169,17 @@ Twinify accepts the privacy level ε (and δ, typically determined automatically
 
 Larger noise variance can negatively affect the learning so choosing too large values for q or Nₑ will likely give bad results.
 
+
+## Versioning
+
+Twinify version numbers adhere to [Semantic Versioning](https://semver.org/). Changes
+between releases are tracked in `ChangeLog.txt`.
+
+## License
+
+Twinify is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+You can find the full license text in `LICENSE.txt`.
+
 ## Citing Twinify
 
 When using Twinify, please cite
