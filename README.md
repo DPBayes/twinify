@@ -22,11 +22,13 @@ As the learning of the model is done under differential privacy, the sampled dat
 
 ## Installing Twinify
 
-Install Twinify from the Python Package Index using `pip`
+Twinify will appear on the Python Package Index soon. Until then, install directly from github via `pip`
+```
+pip install git+https://github.com/DPBayes/twinify.git@v0.1.0#egg=twinify-0.1.0
+```
 
-```pip install twinify```
 
-or clone the repository
+or from the cloned repository:
 
 ```
 git clone https://github.com/DPBayes/twinify
