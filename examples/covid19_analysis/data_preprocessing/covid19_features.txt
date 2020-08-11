@@ -1,0 +1,45 @@
+SARS-Cov-2 exam result
+Rhinovirus/Enterovirus
+Leukocytes
+Inf A H1N1 2009
+Eosinophils
+Platelets
+Monocytes
+Patient addmited to regular ward (1=yes, 0=no)
+Red blood Cells
+Respiratory Syncytial Virus
+Patient age quantile
+Influenza B
+Proteina C reativa mg/dL
+Basophils
+Patient addmited to intensive care unit (1=yes, 0=no)
+Potassium
+Mean corpuscular volume (MCV)
+Influenza A, rapid test
+Creatinine
+Mean corpuscular hemoglobin concentration (MCHC)
+Sodium
+Patient addmited to semi-intensive unit (1=yes, 0=no)
+Hematocrit
+Urea
+Neutrophils
+Mean platelet volume
+CoronavirusNL63
+Mean corpuscular hemoglobin (MCH)
+Coronavirus HKU1
+Hemoglobin
+Lymphocytes
+Red blood cell distribution width (RDW)
+Influenza A
+Influenza B, rapid test
+Parainfluenza 1
+Parainfluenza 3
+Chlamydophila pneumoniae
+Adenovirus
+Parainfluenza 4
+Coronavirus229E
+CoronavirusOC43
+Bordetella pertussis
+Metapneumovirus
+Parainfluenza 2
+Strepto A
