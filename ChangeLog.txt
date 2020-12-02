@@ -1,1 +1,2 @@
+- 0.1.1: Fix: Constrained dependency versions to address incompatability issues.
 - 0.1.0: Initial release
