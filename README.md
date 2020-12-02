@@ -22,9 +22,12 @@ As the learning of the model is done under differential privacy, the sampled dat
 
 ## Installing Twinify
 
+**NOTE**: Twinify *currently is not available for Python 3.9*. Please **use Python 3.7 or 3.8** for now.
+This is due to some dependencies not being available in the required versions there. We are hoping to resolve this issue soon.
+
 Twinify will appear on the Python Package Index soon. Until then, install directly from github via `pip`
 ```
-pip install git+https://github.com/DPBayes/twinify.git@v0.1.0#egg=twinify-0.1.0
+pip install git+https://github.com/DPBayes/twinify.git@v0.1.0
 ```
 
 
