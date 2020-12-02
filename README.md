@@ -27,7 +27,7 @@ This is due to some dependencies not being available in the required versions th
 
 Twinify will appear on the Python Package Index soon. Until then, install directly from github via `pip`
 ```
-pip install git+https://github.com/DPBayes/twinify.git@v0.1.0
+pip install git+https://github.com/DPBayes/twinify.git@v0.1.1
 ```
 
 
