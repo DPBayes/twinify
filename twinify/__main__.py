@@ -223,7 +223,7 @@ def main():
     posterior_samples = Predictive(
         predictive_model, guide=guide, params=posterior_params,
         num_samples=num_synthetic
-    ).get_samples(sampling_rng)
+    )(sampling_rng)
 
     # sample synthetic data from posterior predictive distribution
     # posterior_samples = sample_multi_posterior_predictive(sampling_rng,
