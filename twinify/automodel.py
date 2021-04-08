@@ -26,8 +26,8 @@ import numpyro
 import numpyro.distributions as dists
 from numpyro.primitives import sample, param, deterministic
 from numpyro.handlers import seed, trace
-from dppp.minibatch import minibatch
-from dppp.util import unvectorize_shape_2d
+from d3p.minibatch import minibatch
+from d3p.util import unvectorize_shape_2d
 
 from .mixture_model import MixtureModel
 from .na_model import NAModel

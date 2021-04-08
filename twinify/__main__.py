@@ -23,8 +23,8 @@ config.update("jax_enable_x64", True)
 
 import jax.numpy as np
 
-from dppp.minibatch import q_to_batch_size, batch_size_to_q
-from dppp.dputil import approximate_sigma_remove_relation
+from d3p.minibatch import q_to_batch_size, batch_size_to_q
+from d3p.dputil import approximate_sigma_remove_relation
 from numpyro.handlers import seed
 from numpyro.infer.autoguide import AutoDiagonalNormal
 from numpyro.infer import Predictive
