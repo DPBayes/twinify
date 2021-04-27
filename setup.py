@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='twinify',
-    version='0.1.1',
+    version='0.1.2',
     author="twinify Developers",
     author_email="lukas.m.prediger@aalto.fi",
     description="A software package for privacy-preserving generation of a synthetic twin to a given sensitive data set.",
@@ -17,7 +17,7 @@ setuptools.setup(
     install_requires=[
         'pandas',
         'matplotlib < 3.5',
-        'jaxlib >= 0.1.48',
+        'jaxlib >= 0.1.48, <0.1.57',
         'jax >= 0.1.70, <0.1.77',
         'numpyro @ git+https://github.com/pyro-ppl/numpyro.git@b74167942cf0364b21a54f4e14ab6bb3673d18c2#egg=numpyro',
         'dppp @ git+https://github.com/DPBayes/dppp.git@e168eb4201bd460754defe3638404820cd8fe191#egg=dppp',
