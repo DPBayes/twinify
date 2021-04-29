@@ -356,13 +356,16 @@ def create_feature_prior_dists(feature: ModelFeature, k: int) -> Dict[str, dists
 
 ################### typed dist ##########################
 class TypedDistribution(dists.Distribution):
+
     def __init__(self, base_dist, dtype, validate_args=None):
         super(TypedDistribution, self).__init__(base_dist.batch_shape, base_dist.event_shape, validate_args=validate_args)
         self.dtype = dtype
         self.base_dist = base_dist
+
     def log_prob(self, value):
         log_prob = self.base_dist.log_prob(value.astype(self.dtype))
         return log_prob
+
     def sample(self, key, sample_shape=()):
         return self.base_dist.sample(key, sample_shape=sample_shape)
 

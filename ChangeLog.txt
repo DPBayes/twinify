@@ -1,2 +1,4 @@
+- pending: API CHANGE: Custom numpy model's postprocess function now is
+expected to have additional argument for the original data frame.
 - 0.1.1: Fix: Constrained dependency versions to address incompatability issues.
 - 0.1.0: Initial release

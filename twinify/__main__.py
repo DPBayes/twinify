@@ -87,7 +87,7 @@ def main():
 
             model = model_module.model
 
-            train_df = df
+            train_df = df.copy()
             if args.drop_na:
                 train_df = train_df.dropna()
 
@@ -147,7 +147,7 @@ def main():
             guide = AutoDiagonalNormal(model)
 
             # postprocessing for automodel
-            def postprocess_fn(syn_df):
+            def postprocess_fn(syn_df, ori_df):
                 for feature in features:
                     syn_df = feature.postprocess_data(syn_df)
                 return syn_df
@@ -237,7 +237,7 @@ def main():
     #   so that the synthetic twin looks like the original data
     encoded_syn_df = syn_df.copy()
     if postprocess_fn:
-        encoded_syn_df = postprocess_fn(encoded_syn_df)
+        encoded_syn_df = postprocess_fn(encoded_syn_df, df)
 
     encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
