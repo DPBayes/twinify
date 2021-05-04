@@ -80,7 +80,7 @@ def train_model(rng, model, guide, data, batch_size, num_data, dp_scale, num_epo
 
 	return _train_model(rng, svi, data, batch_size, num_data, num_epochs)
 
-def train_model_no_dp(rng, model, guide, data, batch_size, num_epochs, **kwargs):
+def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs, **kwargs):
 	""" trains a given model using SVI (no DP!) and the globally defined parameters and data """
 
 	optimizer = Adam(1e-3)
@@ -88,7 +88,7 @@ def train_model_no_dp(rng, model, guide, data, batch_size, num_epochs, **kwargs)
 	svi = SVI(
 		model, guide,
 		optimizer, Trace_ELBO(),
-		num_obs_total=data.shape[0]
+		num_obs_total = num_data
 	)
 
-	return _train_model(rng, svi, data, batch_size, num_epochs)
+	return _train_model(rng, svi, data, batch_size, num_data, num_epochs)

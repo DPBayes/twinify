@@ -77,6 +77,8 @@ def main():
 
     # read data
     df = pd.read_csv(args.data_path)
+    print("Loaded data set has {} rows (entries) and {} columns (features).".format(*df.shape))
+    num_data = len(df)
 
     # check whether we parse model from txt or whether we have a numpyro module
     try:
@@ -91,22 +93,19 @@ def main():
             if args.drop_na:
                 train_df = train_df.dropna()
 
-            ## AUTOMATIC PREPROCESSING CURRENTLY UNAVAILABLE
-            # data preprocessing: determines number of categories for Categorical
-            #   distribution and maps categorical values in the data to ints
-            # for feature in features:
-            #     train_df = feature.preprocess_data(train_df)
-
             ## ALTERNATIVE
             # we do allow the user to specify a preprocess/postprocess function pair
             # in the numpyro model file
             try: preprocess_fn = model_module.preprocess
             except: preprocess_fn = None
             if preprocess_fn:
-                train_df, num_data = preprocess_fn(train_df)
+                train_data, num_data = preprocess_fn(train_df)
 
             try: postprocess_fn = model_module.postprocess
-            except: postprocess_fn = None
+            except:
+                print("Warning: Your model does not specify a postprocessing function for generated samples.")
+                print("     Using default, which assumes that your model only produces samples at sample site 'x' and outputs samples as they are.")
+                postprocess_fn = automodel.postprocess_function_factory([])
 
             try: guide = model_module.guide
             except: guide = AutoDiagonalNormal(model)
@@ -129,9 +128,10 @@ def main():
                     )
                 )
 
-            train_df = df.loc[:, feature_names]
+            df = df.loc[:, feature_names]
             if args.drop_na:
-                train_df = train_df.dropna()
+                df = train_df.dropna()
+            train_df = df.copy()
 
             # TODO normalize?
 
@@ -147,11 +147,9 @@ def main():
             guide = AutoDiagonalNormal(model)
 
             # postprocessing for automodel
-            def postprocess_fn(syn_df, ori_df):
-                for feature in features:
-                    syn_df = feature.postprocess_data(syn_df)
-                return syn_df
+            postprocess_fn = automodel.postprocess_function_factory(features)
             num_data = train_df.shape[0]
+            train_data = (train_df,)
 
     except Exception as e: # handling errors in py-file parsing
         print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
@@ -161,15 +159,16 @@ def main():
         print("\nAborting...")
         exit(3)
 
-    # pick features from data according to model file
-    #num_data = train_df.shape[0]
-    #if args.drop_na: # NOTE fix this later
-    #    print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
-    #else:
-    #    print("The data has {} entries with {} features".format(*train_df.shape))
+    assert isinstance(train_data, tuple)
+    if len(train_data) == 1:
+        print("After preprocssing, the data has {} entries with {} features each.".format(*train_data[0].shape))
+    else:
+        print("After preprocessing, the data was split into {} splits:".format(len(train_data)))
+        for i, x in enumerate(train_data):
+            print("\tSplit {} has {} entries with {} features each.".format(i, x.shape[0], 1 if x.ndim == 1 else x.shape[1]))
 
     # compute DP values
-    # NOTE need to make this fail safely
+    # TODO need to make this fail safely
     target_delta = args.delta
     if target_delta is None:
         target_delta = 1. / num_data
@@ -202,8 +201,7 @@ def main():
         posterior_params = train_model(
             inference_rng,
             model, guide,
-            #train_df.to_numpy(),
-            train_df,
+            train_data,
             batch_size=batch_size,
             num_data=num_data,
             num_epochs=args.num_epochs,
@@ -219,6 +217,7 @@ def main():
         print("Aborting...")
         exit(2)
 
+    # sample synthetic data
     num_synthetic = args.num_synthetic
     if num_synthetic is None:
         num_synthetic = num_data
@@ -228,29 +227,16 @@ def main():
         num_samples=num_synthetic
     )(sampling_rng)
 
-    ## sample synthetic data from posterior predictive distribution
-    ## posterior_samples = sample_multi_posterior_predictive(sampling_rng,
-    ##         args.num_synthetic, model, (None,), guide, (), posterior_params)
-    #syn_data = posterior_samples['x']
+    # postprocess: so that the synthetic twin looks like the original data
+    #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
+    #   - if preprocessing involved data mapping, it is mapped back here
+    syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
 
-    ## save results
-    #syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
-
-    # postprocess: if preprocessing involved data mapping, it is mapped back here
-    #   so that the synthetic twin looks like the original data
-    #encoded_syn_df = syn_df.copy()
-    if postprocess_fn:
-        syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
-    else:
-        syn_data = posterior_samples['x']
-        syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
-        encoded_syn_df = syn_df.copy()
-
-
+    # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
     encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
 
-    ### illustrate results NOTE need to adopt new way of handing train_df
+    ### illustrate results TODO need to adopt new way of handing train_df
     #if args.visualize != 'none':
     #    show_popups = args.visualize in ('popup', 'both')
     #    save_plots = args.visualize in ('store', 'both')

@@ -379,8 +379,9 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
         features: list of ModelFeature instances, specifying the feature distributions
         k: number of mixture components
     """
-    def model(x, num_obs_total=None):
-        N = unvectorize_shape_2d(x)[0]
+    def model(x=None, num_obs_total=None):
+        N = unvectorize_shape_2d(x)[0] # todo: double check, is this still required?
+        # there were changes to d3p, so that model should always see x as 2d now
         mixture_dists = []
         dtypes = []
         for feature in features:
@@ -410,3 +411,13 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
             return x
     return model
 
+####################### postprocessing ###########################
+def postprocess_function_factory(features):
+    def postprocess_fn(posterior_samples, ori_df):
+        syn_data = posterior_samples['x']
+        syn_df = pd.DataFrame(syn_data, columns = ori_df.columns)
+        encoded_syn_df = syn_df.copy()
+        for feature in features:
+            encoded_syn_df = feature.postprocess_data(encoded_syn_df)
+        return syn_df, encoded_syn_df
+    return postprocess_fn
