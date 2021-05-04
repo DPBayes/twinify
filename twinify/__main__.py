@@ -103,7 +103,7 @@ def main():
             try: preprocess_fn = model_module.preprocess
             except: preprocess_fn = None
             if preprocess_fn:
-                train_df = preprocess_fn(train_df)
+                train_df, num_data = preprocess_fn(train_df)
 
             try: postprocess_fn = model_module.postprocess
             except: postprocess_fn = None
@@ -151,6 +151,7 @@ def main():
                 for feature in features:
                     syn_df = feature.postprocess_data(syn_df)
                 return syn_df
+            num_data = train_df.shape[0]
 
     except Exception as e: # handling errors in py-file parsing
         print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
@@ -161,13 +162,14 @@ def main():
         exit(3)
 
     # pick features from data according to model file
-    num_data = train_df.shape[0]
-    if args.drop_na:
-        print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
-    else:
-        print("The data has {} entries with {} features".format(*train_df.shape))
+    #num_data = train_df.shape[0]
+    #if args.drop_na: # NOTE fix this later
+    #    print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
+    #else:
+    #    print("The data has {} entries with {} features".format(*train_df.shape))
 
     # compute DP values
+    # NOTE need to make this fail safely
     target_delta = args.delta
     if target_delta is None:
         target_delta = 1. / num_data
@@ -200,8 +202,10 @@ def main():
         posterior_params = train_model(
             inference_rng,
             model, guide,
-            train_df.to_numpy(),
-            batch_size=int(args.sampling_ratio*len(train_df)),
+            #train_df.to_numpy(),
+            train_df,
+            batch_size=batch_size,
+            num_data=num_data,
             num_epochs=args.num_epochs,
             dp_scale=dp_sigma,
             clipping_threshold=args.clipping_threshold
@@ -217,11 +221,10 @@ def main():
 
     num_synthetic = args.num_synthetic
     if num_synthetic is None:
-        num_synthetic = train_df.shape[0]
+        num_synthetic = num_data
 
-    predictive_model = lambda: model(None)
     posterior_samples = Predictive(
-        predictive_model, guide=guide, params=posterior_params,
+        model, guide=guide, params=posterior_params,
         num_samples=num_synthetic
     )(sampling_rng)
 
@@ -247,24 +250,24 @@ def main():
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
     encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
 
-    ## illustrate results
-    if args.visualize != 'none':
-        show_popups = args.visualize in ('popup', 'both')
-        save_plots = args.visualize in ('store', 'both')
-        # Missing value rate
-        if not args.drop_na:
-            missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
-            if save_plots:
-                missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
-        # Marginal violins
-        margin_fig = plot_margins(syn_df, train_df, show=show_popups)
-        # Covariance matrices
-        cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
-        if save_plots:
-            margin_fig.savefig(args.output_path + "_marginal_plots.svg")
-            cov_fig.savefig(args.output_path + "_correlation_plots.svg")
-        if show_popups:
-            plt.show()
+    ### illustrate results NOTE need to adopt new way of handing train_df
+    #if args.visualize != 'none':
+    #    show_popups = args.visualize in ('popup', 'both')
+    #    save_plots = args.visualize in ('store', 'both')
+    #    # Missing value rate
+    #    if not args.drop_na:
+    #        missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
+    #        if save_plots:
+    #            missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
+    #    # Marginal violins
+    #    margin_fig = plot_margins(syn_df, train_df, show=show_popups)
+    #    # Covariance matrices
+    #    cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
+    #    if save_plots:
+    #        margin_fig.savefig(args.output_path + "_marginal_plots.svg")
+    #        cov_fig.savefig(args.output_path + "_correlation_plots.svg")
+    #    if show_popups:
+    #        plt.show()
 
 if __name__ == "__main__":
     main()
