@@ -225,22 +225,27 @@ def main():
         num_samples=num_synthetic
     )(sampling_rng)
 
-    # sample synthetic data from posterior predictive distribution
-    # posterior_samples = sample_multi_posterior_predictive(sampling_rng,
-    #         args.num_synthetic, model, (None,), guide, (), posterior_params)
-    syn_data = posterior_samples['x']
+    ## sample synthetic data from posterior predictive distribution
+    ## posterior_samples = sample_multi_posterior_predictive(sampling_rng,
+    ##         args.num_synthetic, model, (None,), guide, (), posterior_params)
+    #syn_data = posterior_samples['x']
 
-    # save results
-    syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
+    ## save results
+    #syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
 
     # postprocess: if preprocessing involved data mapping, it is mapped back here
     #   so that the synthetic twin looks like the original data
-    encoded_syn_df = syn_df.copy()
+    #encoded_syn_df = syn_df.copy()
     if postprocess_fn:
-        encoded_syn_df = postprocess_fn(encoded_syn_df, df)
+        syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
+    else:
+        syn_data = posterior_samples['x']
+        syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
+        encoded_syn_df = syn_df.copy()
 
-    encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
+
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
+    encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
 
     ## illustrate results
     if args.visualize != 'none':
