@@ -62,6 +62,7 @@ parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="Su
 parser.add_argument("--num_synthetic", default=None, type=int, help="Amount of synthetic data to generate. By default as many as input data.")
 parser.add_argument("--drop_na", default=0, type=int, help="Remove missing values from data (yes=1)")
 parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
+parser.add_argument("--no-privacy", default=False, action='store_true', help="Turn off all privacy features. Intended FOR DEBUGGING ONLY")
 
 def initialize_rngs(seed):
     if seed is None:
@@ -170,36 +171,33 @@ def main():
 
     # compute DP values
     # TODO need to make this fail safely
-    target_delta = args.delta
-    if target_delta is None:
-        target_delta = 1. / num_data
-    if target_delta * num_data > 1.:
-        print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
-            "which the maximum value that is usually considered safe!".format(
-                target_delta, 1. / num_data
-            ))
-        x = input("Continue? (type YES ): ")
-        if x != "YES":
-            print("Aborting...")
-            exit(4)
-        print("Continuing... (YOU HAVE BEEN WARNED!)")
-
-    num_compositions = int(args.num_epochs / args.sampling_ratio)
-    dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
-        args.epsilon, target_delta, args.sampling_ratio, num_compositions
-    )
     batch_size = q_to_batch_size(args.sampling_ratio, num_data)
-    sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
-    print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
-        "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
 
-    # TODO: warn for high noise? but when is it too high? what is a good heuristic?
+    if not args.no_privacy:
+        target_delta = args.delta
+        if target_delta is None:
+            target_delta = 1. / num_data
+        if target_delta * num_data > 1.:
+            print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
+                "which the maximum value that is usually considered safe!".format(
+                    target_delta, 1. / num_data
+                ))
+            x = input("Continue? (type YES ): ")
+            if x != "YES":
+                print("Aborting...")
+                exit(4)
+            print("Continuing... (YOU HAVE BEEN WARNED!)")
 
-    inference_rng, sampling_rng = initialize_rngs(args.seed)
+        num_compositions = int(args.num_epochs / args.sampling_ratio)
+        dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
+            args.epsilon, target_delta, args.sampling_ratio, num_compositions
+        )
+        sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
+        print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+            "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
+        # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
-    # learn posterior distributions
-    try:
-        posterior_params = train_model(
+        do_training = lambda inference_rng: train_model(
             inference_rng,
             model, guide,
             train_data,
@@ -209,6 +207,22 @@ def main():
             dp_scale=dp_sigma,
             clipping_threshold=args.clipping_threshold
         )
+    else:
+        print("!!!!! WARNING !!!!! PRIVACY FEATURES HAVE BEEN DISABLED!")
+        do_training = lambda inference_rng: train_model_no_dp(
+            inference_rng,
+            model, guide,
+            train_data,
+            batch_size=batch_size,
+            num_data=num_data,
+            num_epochs=args.num_epochs
+        )
+
+    inference_rng, sampling_rng = initialize_rngs(args.seed)
+
+    # learn posterior distributions
+    try:
+        posterior_params = do_training(inference_rng)
     except (InferenceException, FloatingPointError):
         print("################################## ERROR ##################################")
         print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
