@@ -94,13 +94,19 @@ def main():
             if args.drop_na:
                 train_df = train_df.dropna()
 
-            ## ALTERNATIVE
-            # we do allow the user to specify a preprocess/postprocess function pair
-            # in the numpyro model file
+            # try to obtain and apply preprocessing function from custom model
             try: preprocess_fn = model_module.preprocess
             except: preprocess_fn = None
             if preprocess_fn:
                 train_data, num_data = preprocess_fn(train_df)
+
+                if isinstance(train_data, pd.DataFrame):
+                    train_data = (train_data,)
+
+                if not isinstance(train_data, tuple):
+                    print(f"ERROR: Custom preprocessing functions must return a (tuple of) pandas.DataFrame as first returned value, but returned a {type(train_data)} instead.")
+                    exit(4)
+
 
             try: postprocess_fn = model_module.postprocess
             except:
