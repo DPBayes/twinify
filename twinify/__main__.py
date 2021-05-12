@@ -25,14 +25,12 @@ import jax.numpy as np
 
 from d3p.minibatch import q_to_batch_size, batch_size_to_q
 from d3p.dputil import approximate_sigma_remove_relation
-from numpyro.handlers import seed
 from numpyro.infer.autoguide import AutoDiagonalNormal
 from numpyro.infer import Predictive
 
-import fourier_accountant
-
 from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
+from twinify.model_loading import load_custom_numpyro_model
 
 import numpy as onp
 
@@ -84,39 +82,13 @@ def main():
     # check whether we parse model from txt or whether we have a numpyro module
     try:
         if args.model_path[-3:] == '.py':
-            spec = importlib.util.spec_from_file_location("model_module", args.model_path)
-            model_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(model_module)
-
-            model = model_module.model
+            model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path)
 
             train_df = df.copy()
             if args.drop_na:
                 train_df = train_df.dropna()
 
-            # try to obtain and apply preprocessing function from custom model
-            try: preprocess_fn = model_module.preprocess
-            except: preprocess_fn = None
-            if preprocess_fn:
-                train_data, num_data = preprocess_fn(train_df)
-
-                if isinstance(train_data, pd.DataFrame):
-                    train_data = (train_data,)
-
-                if not isinstance(train_data, tuple):
-                    print(f"ERROR: Custom preprocessing functions must return a (tuple of) pandas.DataFrame as first returned value, but returned a {type(train_data)} instead.")
-                    exit(4)
-
-
-            try: postprocess_fn = model_module.postprocess
-            except:
-                print("Warning: Your model does not specify a postprocessing function for generated samples.")
-                print("     Using default, which assumes that your model only produces samples at sample site 'x' and outputs samples as they are.")
-                postprocess_fn = automodel.postprocess_function_factory([])
-
-            try: guide = model_module.guide
-            except: guide = AutoDiagonalNormal(model)
-
+            train_data, num_data = preprocess_fn(train_df)
         else:
             print("Parsing model from txt file (was unable to read it as python module containing numpyro code)")
             k = args.k
