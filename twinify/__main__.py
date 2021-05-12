@@ -129,9 +129,10 @@ def main():
                 )
 
             df = df.loc[:, feature_names]
-            if args.drop_na:
-                df = train_df.dropna()
+
             train_df = df.copy()
+            if args.drop_na:
+                train_df = train_df.dropna()
 
             # TODO normalize?
 
