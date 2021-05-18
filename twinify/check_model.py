@@ -25,14 +25,12 @@ from numpyro.infer import Predictive
 
 from twinify.infer import train_model_no_dp, InferenceException
 import twinify.automodel as automodel
-from twinify.model_loading import load_custom_numpyro_model
+from twinify.model_loading import ModelException, NumpyroModelParsingException, load_custom_numpyro_model
 
 import pandas as pd
 
-import jax, argparse, pickle
-import secrets
+import jax, argparse
 
-from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
 import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
@@ -45,43 +43,74 @@ def main():
     args = parser.parse_args()
 
     # read data
-    df = pd.read_csv(args.data_path)
+    try:
+        df = pd.read_csv(args.data_path)
+    except Exception as e:
+        print("#### UNABLE TO READ DATA FILE ####")
+        print(e)
+        exit(1)
 
     train_df = df.copy()
     if args.drop_na:
         train_df = train_df.dropna()
     num_data = 100
 
-    # loading the model
-    if args.model_path[-3:] == '.py':
-        model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path)
-    else:
-        assert False, "loading txt file model currently not supported"
+    try:
 
-    try: prior_samples = Predictive(model, num_samples = num_data)(jax.random.PRNGKey(0))
-    except Exception as e: raise Exception("Error obtaining prior samples from model") from e
+        # loading the model
+        if args.model_path[-3:] == '.py':
+            try:
+                model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path)
+            except (ModuleNotFoundError, FileNotFoundError) as e:
+                print("#### COULD NOT FIND THE MODEL FILE ####")
+                raise e
+            except NumpyroModelParsingException as e:
+                raise e
+        else:
+            print("#### loading txt file model currently not supported ####")
+            exit(2)
 
-    _, syn_prior_encoded = postprocess_fn(prior_samples, df)
+        try: prior_samples = Predictive(model, num_samples = num_data)(jax.random.PRNGKey(0))
+        except Exception as e: raise ModelException("Error while obtaining prior samples from model", base_exception=e)
 
-    train_data, num_train_data = preprocess_fn(syn_prior_encoded)
+        _, syn_prior_encoded = postprocess_fn(prior_samples, df)
 
-    assert isinstance(train_data, tuple)
-    assert num_train_data == num_data # TODO: maybe not?
+        train_data, num_train_data = preprocess_fn(syn_prior_encoded)
 
-    posterior_params = train_model_no_dp(jax.random.PRNGKey(0),
-        model, guide,
-        train_data,
-        batch_size = num_train_data//2,
-        num_data = num_train_data,
-        num_epochs = 3,
-        silent = True
-    )
+        assert isinstance(train_data, tuple)
+        assert num_train_data == num_data # TODO: maybe not?
 
-    posterior_samples = Predictive(
-        model, guide = guide, params = posterior_params,
-        num_samples = num_train_data
-    )(jax.random.PRNGKey(0))
+        try:
+            posterior_params = train_model_no_dp(jax.random.PRNGKey(0),
+                model, guide,
+                train_data,
+                batch_size = num_train_data//2,
+                num_data = num_train_data,
+                num_epochs = 3,
+                silent = True
+            )
+        except Exception as e:
+            raise ModelException("Error while performing inference", base_exception=e)
 
+        try:
+            posterior_samples = Predictive(
+                model, guide = guide, params = posterior_params,
+                num_samples = num_train_data
+            )(jax.random.PRNGKey(0))
+        except Exception as e:
+            raise ModelException("Error while obtaining posterior samples from model", base_exception=e)
+
+        print("Everything okay!")
+        return 0
+
+    except ModelException as e:
+        print(e.format_message(args.model_path))
+    except AssertionError as e:
+        raise e
+    except Exception as e:
+        print("#### AN UNCATEGORISED ERROR OCCURRED ####")
+        raise e
+    return 1
 
 if __name__ == "__main__":
-    main()
+    exit(main())
