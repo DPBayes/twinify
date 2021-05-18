@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e # stop on error
 
 # download data and extracting relevant features
 cd data_preprocessing
