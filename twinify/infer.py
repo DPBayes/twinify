@@ -31,7 +31,7 @@ from numpyro.infer.svi import SVIState
 class InferenceException(Exception):
 	pass
 
-def _train_model(rng, svi, data, batch_size, num_data, num_epochs):
+def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False):
 	rng, svi_rng, init_batch_rng = jax.random.split(rng, 3)
 
 	#init_batching, get_batch = subsample_batchify_data((data,), batch_size)
@@ -63,7 +63,7 @@ def _train_model(rng, svi, data, batch_size, num_data, num_epochs):
 		if np.isnan(loss):
 			raise InferenceException
 		loss /= num_data
-		print("epoch {}: loss {}".format(i, loss))
+		if not silent: print("epoch {}: loss {}".format(i, loss))
 
 	return svi.get_params(svi_state)
 
@@ -80,7 +80,7 @@ def train_model(rng, model, guide, data, batch_size, num_data, dp_scale, num_epo
 
 	return _train_model(rng, svi, data, batch_size, num_data, num_epochs)
 
-def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs, **kwargs):
+def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs, silent=False, **kwargs):
 	""" trains a given model using SVI (no DP!) and the globally defined parameters and data """
 
 	optimizer = Adam(1e-3)
@@ -91,4 +91,4 @@ def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs,
 		num_obs_total = num_data
 	)
 
-	return _train_model(rng, svi, data, batch_size, num_data, num_epochs)
+	return _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent)
