@@ -28,7 +28,7 @@ from numpyro.infer import Predictive
 
 from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
-from twinify.model_loading import load_custom_numpyro_model
+from twinify.model_loading import ModelException, load_custom_numpyro_model
 
 import numpy as onp
 
@@ -72,14 +72,24 @@ def main():
     print(args)
 
     # read data
-    df = pd.read_csv(args.data_path)
+    try:
+        df = pd.read_csv(args.data_path)
+    except Exception as e:
+        print("#### UNABLE TO READ DATA FILE ####")
+        print(e)
+        exit(1)
     print("Loaded data set has {} rows (entries) and {} columns (features).".format(*df.shape))
     num_data = len(df)
 
-    # check whether we parse model from txt or whether we have a numpyro module
     try:
+    # check whether we parse model from txt or whether we have a numpyro module
         if args.model_path[-3:] == '.py':
-            model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path)
+            try:
+                model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path)
+            except (ModuleNotFoundError, FileNotFoundError) as e:
+                print("#### COULD NOT FIND THE MODEL FILE ####")
+                print(e)
+                exit(1)
 
             train_df = df.copy()
             if args.drop_na:
@@ -128,122 +138,123 @@ def main():
             num_data = train_df.shape[0]
             train_data = (train_df,)
 
-    except Exception as e: # handling errors in py-file parsing
-        print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
-        print("Here's the technical error description:")
-        print(e)
-        traceback.print_tb(e.__traceback__)
-        print("\nAborting...")
-        exit(3)
+        assert isinstance(train_data, tuple)
+        if len(train_data) == 1:
+            print("After preprocessing, the data has {} entries with {} features each.".format(*train_data[0].shape))
+        else:
+            print("After preprocessing, the data was split into {} splits:".format(len(train_data)))
+            for i, x in enumerate(train_data):
+                print("\tSplit {} has {} entries with {} features each.".format(i, x.shape[0], 1 if x.ndim == 1 else x.shape[1]))
 
-    assert isinstance(train_data, tuple)
-    if len(train_data) == 1:
-        print("After preprocssing, the data has {} entries with {} features each.".format(*train_data[0].shape))
-    else:
-        print("After preprocessing, the data was split into {} splits:".format(len(train_data)))
-        for i, x in enumerate(train_data):
-            print("\tSplit {} has {} entries with {} features each.".format(i, x.shape[0], 1 if x.ndim == 1 else x.shape[1]))
+        # compute DP values
+        # TODO need to make this fail safely
+        batch_size = q_to_batch_size(args.sampling_ratio, num_data)
 
-    # compute DP values
-    # TODO need to make this fail safely
-    batch_size = q_to_batch_size(args.sampling_ratio, num_data)
+        if not args.no_privacy:
+            target_delta = args.delta
+            if target_delta is None:
+                target_delta = 1. / num_data
+            if target_delta * num_data > 1.:
+                print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
+                    "which the maximum value that is usually considered safe!".format(
+                        target_delta, 1. / num_data
+                    ))
+                x = input("Continue? (type YES ): ")
+                if x != "YES":
+                    print("Aborting...")
+                    exit(4)
+                print("Continuing... (YOU HAVE BEEN WARNED!)")
 
-    if not args.no_privacy:
-        target_delta = args.delta
-        if target_delta is None:
-            target_delta = 1. / num_data
-        if target_delta * num_data > 1.:
-            print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
-                "which the maximum value that is usually considered safe!".format(
-                    target_delta, 1. / num_data
-                ))
-            x = input("Continue? (type YES ): ")
-            if x != "YES":
-                print("Aborting...")
-                exit(4)
-            print("Continuing... (YOU HAVE BEEN WARNED!)")
+            num_compositions = int(args.num_epochs / args.sampling_ratio)
+            dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
+                args.epsilon, target_delta, args.sampling_ratio, num_compositions
+            )
+            sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
+            print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+                "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
+            # TODO: warn for high noise? but when is it too high? what is a good heuristic?
 
-        num_compositions = int(args.num_epochs / args.sampling_ratio)
-        dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
-            args.epsilon, target_delta, args.sampling_ratio, num_compositions
-        )
-        sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
-        print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
-            "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
-        # TODO: warn for high noise? but when is it too high? what is a good heuristic?
+            do_training = lambda inference_rng: train_model(
+                inference_rng,
+                model, guide,
+                train_data,
+                batch_size=batch_size,
+                num_data=num_data,
+                num_epochs=args.num_epochs,
+                dp_scale=dp_sigma,
+                clipping_threshold=args.clipping_threshold
+            )
+        else:
+            print("!!!!! WARNING !!!!! PRIVACY FEATURES HAVE BEEN DISABLED!")
+            do_training = lambda inference_rng: train_model_no_dp(
+                inference_rng,
+                model, guide,
+                train_data,
+                batch_size=batch_size,
+                num_data=num_data,
+                num_epochs=args.num_epochs
+            )
 
-        do_training = lambda inference_rng: train_model(
-            inference_rng,
-            model, guide,
-            train_data,
-            batch_size=batch_size,
-            num_data=num_data,
-            num_epochs=args.num_epochs,
-            dp_scale=dp_sigma,
-            clipping_threshold=args.clipping_threshold
-        )
-    else:
-        print("!!!!! WARNING !!!!! PRIVACY FEATURES HAVE BEEN DISABLED!")
-        do_training = lambda inference_rng: train_model_no_dp(
-            inference_rng,
-            model, guide,
-            train_data,
-            batch_size=batch_size,
-            num_data=num_data,
-            num_epochs=args.num_epochs
-        )
+        inference_rng, sampling_rng = initialize_rngs(args.seed)
 
-    inference_rng, sampling_rng = initialize_rngs(args.seed)
+        # learn posterior distributions
+        try:
+            posterior_params = do_training(inference_rng)
+        except (InferenceException, FloatingPointError):
+            print("################################## ERROR ##################################")
+            print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
+            print("This means the model has major difficulties in capturing the data and is")
+            print("likely to happen when the dataset is very small and/or sparse.")
+            print("Try adapting (simplifying) the model.")
+            print("Aborting...")
+            exit(2)
 
-    # learn posterior distributions
-    try:
-        posterior_params = do_training(inference_rng)
-    except (InferenceException, FloatingPointError):
-        print("################################## ERROR ##################################")
-        print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
-        print("This means the model has major difficulties in capturing the data and is")
-        print("likely to happen when the dataset is very small and/or sparse.")
-        print("Try adapting (simplifying) the model.")
-        print("Aborting...")
-        exit(2)
+        # sample synthetic data
+        num_synthetic = args.num_synthetic
+        if num_synthetic is None:
+            num_synthetic = num_data
 
-    # sample synthetic data
-    num_synthetic = args.num_synthetic
-    if num_synthetic is None:
-        num_synthetic = num_data
+        posterior_samples = Predictive(
+            model, guide=guide, params=posterior_params,
+            num_samples=num_synthetic
+        )(sampling_rng)
 
-    posterior_samples = Predictive(
-        model, guide=guide, params=posterior_params,
-        num_samples=num_synthetic
-    )(sampling_rng)
+        # postprocess: so that the synthetic twin looks like the original data
+        #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
+        #   - if preprocessing involved data mapping, it is mapped back here
+        syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
 
-    # postprocess: so that the synthetic twin looks like the original data
-    #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
-    #   - if preprocessing involved data mapping, it is mapped back here
-    syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
+        # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
+        pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
+        encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
 
-    # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
-    pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
-    encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
-
-    ### illustrate results TODO need to adopt new way of handing train_df
-    #if args.visualize != 'none':
-    #    show_popups = args.visualize in ('popup', 'both')
-    #    save_plots = args.visualize in ('store', 'both')
-    #    # Missing value rate
-    #    if not args.drop_na:
-    #        missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
-    #        if save_plots:
-    #            missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
-    #    # Marginal violins
-    #    margin_fig = plot_margins(syn_df, train_df, show=show_popups)
-    #    # Covariance matrices
-    #    cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
-    #    if save_plots:
-    #        margin_fig.savefig(args.output_path + "_marginal_plots.svg")
-    #        cov_fig.savefig(args.output_path + "_correlation_plots.svg")
-    #    if show_popups:
-    #        plt.show()
+        ### illustrate results TODO need to adopt new way of handing train_df
+        #if args.visualize != 'none':
+        #    show_popups = args.visualize in ('popup', 'both')
+        #    save_plots = args.visualize in ('store', 'both')
+        #    # Missing value rate
+        #    if not args.drop_na:
+        #        missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
+        #        if save_plots:
+        #            missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
+        #    # Marginal violins
+        #    margin_fig = plot_margins(syn_df, train_df, show=show_popups)
+        #    # Covariance matrices
+        #    cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
+        #    if save_plots:
+        #        margin_fig.savefig(args.output_path + "_marginal_plots.svg")
+        #        cov_fig.savefig(args.output_path + "_correlation_plots.svg")
+        #    if show_popups:
+        #        plt.show()
+        return 0
+    except ModelException as e:
+        print(e.format_message(args.model_path))
+    except AssertionError as e:
+        raise e
+    except Exception as e:
+        print("#### AN UNCATEGORISED ERROR OCCURRED ####")
+        raise e
+    return 1
 
 if __name__ == "__main__":
     main()

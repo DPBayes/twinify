@@ -57,7 +57,8 @@ def main(args: argparse.Namespace):
                 model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path)
             except (ModuleNotFoundError, FileNotFoundError) as e:
                 print("#### COULD NOT FIND THE MODEL FILE ####")
-                raise e
+                print(e)
+                exit(1)
             except NumpyroModelParsingException as e:
                 raise e
         else:
