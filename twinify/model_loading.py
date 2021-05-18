@@ -67,7 +67,6 @@ def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TPreprocessFunction:
     def wrapped_preprocess(train_df):
         try:
             retval = preprocess_fn(train_df)
-            print("NO ERROR IN PREPROCESS")
         except TypeError as e:
             if str(e).find('positional argument') != -1:
                 raise ModelException("FAILED DURING PREPROCESSING DATA", "Custom preprocessing functions must accept a single pandas.DataFrame as argument.")
