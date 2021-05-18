@@ -26,7 +26,10 @@ setuptools.setup(
         ],
     },
     entry_points = {
-        'console_scripts': ['twinify=twinify.__main__:main'],
+        'console_scripts': [
+            'twinify=twinify.__main__:main',
+            'twinify-tools=twinify.tools.__main__:main'
+        ],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

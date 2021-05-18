@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2020 twinify Developers and their Assignees
+# Copyright 2020, 2021 twinify Developers and their Assignees
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ Twinify main script.
 from jax.config import config
 config.update("jax_enable_x64", True)
 
-import jax.numpy as np
-
 from d3p.minibatch import q_to_batch_size, batch_size_to_q
 from d3p.dputil import approximate_sigma_remove_relation
 from numpyro.infer.autoguide import AutoDiagonalNormal
@@ -36,7 +34,6 @@ import numpy as onp
 
 import pandas as pd
 
-import importlib.util
 import traceback
 
 import jax, argparse, pickle

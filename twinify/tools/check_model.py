@@ -15,33 +15,27 @@
 # limitations under the License.
 
 """
-Twinify main script.
+Twinify custom model checking mode script.
 """
+
+import argparse
 
 from jax.config import config
 config.update("jax_enable_x64", True)
-
-from numpyro.infer import Predictive
-
-from twinify.infer import train_model_no_dp, InferenceException
-import twinify.automodel as automodel
-from twinify.model_loading import ModelException, NumpyroModelParsingException, load_custom_numpyro_model
+import jax
 
 import pandas as pd
+from numpyro.infer import Predictive
+from twinify.infer import train_model_no_dp
+from twinify.model_loading import ModelException, NumpyroModelParsingException, load_custom_numpyro_model
 
-import jax, argparse
+def setup_argument_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('data_path', type=str, help='Path to input data.')
+    parser.add_argument('model_path', type=str, help='Path to model file (.txt or .py).')
+    parser.add_argument("--drop_na", default=False, action='store_true', help="Remove missing values from data.")
 
-import matplotlib.pyplot as plt
 
-parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
-        fromfile_prefix_chars="%")
-parser.add_argument('data_path', type=str, help='Path to input data.')
-parser.add_argument('model_path', type=str, help='Path to model file (.txt or .py).')
-parser.add_argument("--drop_na", default=False, action='store_true', help="Remove missing values from data.")
-
-def main():
-    args = parser.parse_args()
-
+def main(args: argparse.Namespace):
     # read data
     try:
         df = pd.read_csv(args.data_path)
@@ -113,4 +107,9 @@ def main():
     return 1
 
 if __name__ == "__main__":
-    exit(main())
+    parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
+        fromfile_prefix_chars="%")
+    setup_argument_parser(parser)
+    exit(
+        main(parser.parse_args())
+    )
