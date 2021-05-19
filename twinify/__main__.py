@@ -34,8 +34,6 @@ import numpy as onp
 
 import pandas as pd
 
-import traceback
-
 import jax, argparse, pickle
 import secrets
 
@@ -68,8 +66,10 @@ def initialize_rngs(seed):
     return jax.random.split(master_rng, 2)
 
 def main():
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
     print(args)
+    if unknown_args:
+        print(f"Additional received arguments: {unknown_args}")
 
     # read data
     try:
@@ -84,16 +84,17 @@ def main():
     try:
     # check whether we parse model from txt or whether we have a numpyro module
         if args.model_path[-3:] == '.py':
-            try:
-                model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path)
-            except (ModuleNotFoundError, FileNotFoundError) as e:
-                print("#### COULD NOT FIND THE MODEL FILE ####")
-                print(e)
-                exit(1)
 
             train_df = df.copy()
             if args.drop_na:
                 train_df = train_df.dropna()
+
+            try:
+                model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args, train_df)
+            except (ModuleNotFoundError, FileNotFoundError) as e:
+                print("#### COULD NOT FIND THE MODEL FILE ####")
+                print(e)
+                exit(1)
 
             train_data, num_data = preprocess_fn(train_df)
         else:
@@ -116,7 +117,7 @@ def main():
 
             df = df.loc[:, feature_names]
 
-            train_df = df.copy()
+            train_df = df.copy() # TODO: this duplicates code with the other branch but cannot currently pull it out because we are manipulating df above
             if args.drop_na:
                 train_df = train_df.dropna()
 

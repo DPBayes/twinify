@@ -26,10 +26,10 @@ subparsers = parser.add_subparsers(dest='command')
 twinify.tools.check_model.setup_argument_parser(subparsers.add_parser('check-model', help='Checks whether a given model works with twinify.'))
 
 def main():
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
 
     if args.command =='check-model':
-        return twinify.tools.check_model.main(args)
+        return twinify.tools.check_model.main(args, unknown_args)
     else:
         print('#### UNKNOWN OPERATING MODE ####')
         print(f'## twinify-tools does not know the command {args.command}')

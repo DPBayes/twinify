@@ -103,3 +103,28 @@ class CheckModelTests(unittest.TestCase):
         retcode, output = self.run_check_model('simple_gauss_model.py')
         self.verify_output(output, "okay")
         self.assertEqual(retcode, 0)
+
+    def test_model_not_a_function(self):
+        retcode, output = self.run_check_model('model_not_a_function.py')
+        self.verify_output(output, "MODEL", "PARSE", "must be a function")
+        self.assertNotEqual(retcode, 0)
+
+    def test_model_factory(self):
+        retcode, output = self.run_check_model('model_factory.py')
+        self.verify_output(output, "okay")
+        self.assertEqual(retcode, 0)
+
+    def test_model_factory_broken(self):
+        retcode, output = self.run_check_model('model_factory_broken.py')
+        self.verify_output(output, "FACTORY", "AttributeError", "unspecified_arg")
+        self.assertNotEqual(retcode, 0)
+
+    def test_model_factory_wrong_signature(self):
+        retcode, output = self.run_check_model('model_factory_wrong_signature.py')
+        self.verify_output(output, "FACTORY", "as argument")
+        self.assertNotEqual(retcode, 0)
+
+    def test_model_factory_wrong_returns(self):
+        retcode, output = self.run_check_model('model_factory_wrong_returns.py')
+        self.verify_output(output, "MODEL", "must be a function")
+        self.assertNotEqual(retcode, 0)

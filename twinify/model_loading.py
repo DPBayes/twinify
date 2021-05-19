@@ -8,6 +8,7 @@ from typing import Any, Callable, Tuple, Iterable, Dict, Union, Optional
 from twinify import automodel
 from numpyro.infer.autoguide import AutoDiagonalNormal
 import os
+import argparse
 
 __all__ = ['load_custom_numpyro_model', 'ModelException', 'NumpyroModelParsingUnknownException', 'NumpyroModelParsingException']
 
@@ -16,6 +17,7 @@ TPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame], Tuple[pd.
 TOldPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
 TModelFunction = Callable
 TGuideFunction = Callable
+TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], pd.DataFrame], TModelFunction]
 
 
 class ModelException(Exception):
@@ -148,7 +150,10 @@ def guard_model(model_fn: TModelFunction) -> TModelFunction:
             raise ModelException("FAILED IN MODEL", base_exception=e) from e
     return wrapped_model
 
-def load_custom_numpyro_model(model_path: str) -> Tuple[TModelFunction, TGuideFunction, TPreprocessFunction, TPostprocessFunction]:
+def load_custom_numpyro_model(
+        model_path: str, args: argparse.Namespace, unknown_args: Iterable[str], orig_data: pd.DataFrame
+    ) -> Tuple[TModelFunction, TGuideFunction, TPreprocessFunction, TPostprocessFunction]:
+
     if not os.path.exists(model_path):
         raise FileNotFoundError(model_path)
 
@@ -160,9 +165,25 @@ def load_custom_numpyro_model(model_path: str) -> Tuple[TModelFunction, TGuideFu
         raise NumpyroModelParsingException("Unable to read the specified file as a Python module.", e) from e
 
     # load the model function from the module
-    try: model = guard_model(model_module.model)
-    except AttributeError: raise NumpyroModelParsingException("Model module does not specify a 'model' function.")
+    try: model = model_module.model
+    except AttributeError:
+        try:
+            model_factory = model_module.model_factory
+        except AttributeError:
+            raise NumpyroModelParsingException("Model module does neither specify a 'model' nor a 'model_factory' function.")
+        try:
+            model = model_factory(args, unknown_args, orig_data)
+        except TypeError as e:
+            if str(e).find('positional argument') != -1:
+                raise ModelException("FAILED IN MODEL FACTORY", f"Custom model_factory functions must accept a namespace of parsed arguments, an iterable of unparsed arguments and a pandas.DataFrame as arguments.")
+            raise e
+        except Exception as e:
+            raise ModelException('FAILED IN MODEL FACTORY', base_exception=e) from e
     except Exception as e: raise NumpyroModelParsingUnknownException('model', e) from e
+
+    if not isinstance(model, Callable):
+        raise NumpyroModelParsingException(f"'model' must be a function; got {type(model)}")
+    model = guard_model(model)
 
     try: guide = model_module.guide
     except AttributeError: guide = AutoDiagonalNormal(model)
