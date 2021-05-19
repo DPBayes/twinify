@@ -17,10 +17,7 @@ setuptools.setup(
     install_requires=[
         'pandas',
         'matplotlib < 3.5',
-        'jaxlib >= 0.1.48, <0.1.57',
-        'jax >= 0.1.70, <0.1.77',
-        'numpyro @ git+https://github.com/pyro-ppl/numpyro.git@b74167942cf0364b21a54f4e14ab6bb3673d18c2#egg=numpyro',
-        'dppp @ git+https://github.com/DPBayes/dppp.git@e168eb4201bd460754defe3638404820cd8fe191#egg=dppp',
+        'd3p @ git+https://github.com/DPBayes/d3p.git@2391b030b0410b45bfa5a1939a01c8879ce9cd5f#egg=d3p',
     ],
     extras_require = {
         'examples': [

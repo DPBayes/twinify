@@ -77,10 +77,6 @@ dependencies:
   - zlib=1.2.11=h7b6447c_3
   - pip:
     - absl-py==0.9.0
-    - git+https://github.com/DPBayes/dppp.git@e168eb4201bd460754defe3638404820cd8fe191#egg=dppp
-    - fourier-accountant==0.12.0
-    - jax==0.1.70
-    - jaxlib==0.1.48
-    - git+https://github.com/pyro-ppl/numpyro.git@b74167942cf0364b21a54f4e14ab6bb3673d18c2#egg=numpyro
+    - git+https://github.com/DPBayes/d3p.git@2391b030b0410b45bfa5a1939a01c8879ce9cd5f#egg=d3p
     - opt-einsum==3.2.1
     - tqdm==4.46.1
