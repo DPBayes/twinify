@@ -67,6 +67,12 @@ def initialize_rngs(seed):
     onp.random.seed(seed)
     return jax.random.split(master_rng, 2)
 
+from collections import namedtuple
+
+TwinifyRunResult = namedtuple('TwinifyRunResult',
+    ('model_params', 'twinify_args', 'unknown_args', 'twinify_version')
+)
+
 def main():
     args, unknown_args = parser.parse_known_args()
     print(args)
@@ -228,7 +234,10 @@ def main():
         syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
 
         # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
-        pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
+        result = TwinifyRunResult(
+            posterior_params, args, unknown_args, __version__
+        )
+        pickle.dump(result, open("{}.p".format(args.output_path), "wb"))
         encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
 
         ### illustrate results TODO need to adopt new way of handing train_df
