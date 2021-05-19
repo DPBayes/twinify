@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='twinify',
-    version='0.1.1',
+    version='0.1.2',
     author="twinify Developers",
     author_email="lukas.m.prediger@aalto.fi",
     description="A software package for privacy-preserving generation of a synthetic twin to a given sensitive data set.",
