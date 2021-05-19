@@ -10,7 +10,7 @@ class CheckModelTests(unittest.TestCase):
     @staticmethod
     def run_check_model(model_file: str, data_file: str = 'gauss_data.csv') -> Tuple[int, str]:
         run_result = subprocess.run(
-            ['python', 'twinify/check_model.py', './tests/models/' + data_file, './tests/models/' + model_file],
+            ['twinify-tools', 'check-model', './tests/models/' + data_file, './tests/models/' + model_file],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         output = run_result.stdout.decode('utf8')
@@ -19,7 +19,7 @@ class CheckModelTests(unittest.TestCase):
     def verify_output(self, output: str, *args) -> bool:
         try:
             for s in args:
-                self.assertNotEqual(output.find(s), -1, f"output does not contain '{s}'")
+                self.assertNotEqual(output.find(s), -1, f"output does not contain '{s}'; got:\n{output}")
         except AssertionError:
             print(output)
             raise
