@@ -65,7 +65,7 @@ def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False)
 		loss /= num_data
 		if not silent: print("epoch {}: loss {}".format(i, loss))
 
-	return svi.get_params(svi_state)
+	return svi.get_params(svi_state), loss
 
 def train_model(rng, model, guide, data, batch_size, num_data, dp_scale, num_epochs, clipping_threshold=1.):
 	""" trains a given model using DPSVI and the globally defined parameters and data """

@@ -70,7 +70,7 @@ def initialize_rngs(seed):
 from collections import namedtuple
 
 TwinifyRunResult = namedtuple('TwinifyRunResult',
-    ('model_params', 'twinify_args', 'unknown_args', 'twinify_version')
+    ('model_params', 'elbo', 'twinify_args', 'unknown_args', 'twinify_version')
 )
 
 def main():
@@ -208,7 +208,7 @@ def main():
 
         # learn posterior distributions
         try:
-            posterior_params = do_training(inference_rng)
+            posterior_params, elbo = do_training(inference_rng)
         except (InferenceException, FloatingPointError):
             print("################################## ERROR ##################################")
             print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
@@ -235,7 +235,7 @@ def main():
 
         # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
         result = TwinifyRunResult(
-            posterior_params, args, unknown_args, __version__
+            posterior_params, elbo, args, unknown_args, __version__
         )
         pickle.dump(result, open("{}.p".format(args.output_path), "wb"))
         encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
