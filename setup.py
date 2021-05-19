@@ -1,11 +1,17 @@
 import setuptools
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+with open("README.md", "r") as f:
+    long_description = f.read()
+
+# read version number
+import importlib
+spec = importlib.util.spec_from_file_location("version_module", "twinify/version.py")
+version_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(version_module)
 
 setuptools.setup(
     name='twinify',
-    version='0.1.1',
+    version = version_module.VERSION,
     author="twinify Developers",
     author_email="lukas.m.prediger@aalto.fi",
     description="A software package for privacy-preserving generation of a synthetic twin to a given sensitive data set.",

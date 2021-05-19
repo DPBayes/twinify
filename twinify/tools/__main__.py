@@ -20,8 +20,10 @@ Twinify tools main script.
 
 import argparse
 import twinify.tools.check_model
+from twinify import __version__
 
 parser = argparse.ArgumentParser(description='Twinify tools: Various twinify utility scripts.')
+parser.add_argument("--version", action='version', version=__version__)
 subparsers = parser.add_subparsers(dest='command')
 twinify.tools.check_model.setup_argument_parser(subparsers.add_parser('check-model', help='Checks whether a given model works with twinify.'))
 
@@ -36,4 +38,4 @@ def main():
         return 1
 
 if __name__ == "__main__":
-    main()
+    exit(main())

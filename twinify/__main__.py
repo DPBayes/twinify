@@ -38,6 +38,7 @@ import jax, argparse, pickle
 import secrets
 
 from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
+from twinify import __version__
 import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
@@ -56,6 +57,7 @@ parser.add_argument("--num_synthetic", default=None, type=int, help="Amount of s
 parser.add_argument("--drop_na", default=0, type=int, help="Remove missing values from data (yes=1)")
 parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
 parser.add_argument("--no-privacy", default=False, action='store_true', help="Turn off all privacy features. Intended FOR DEBUGGING ONLY")
+parser.add_argument("--version", action='version', version=__version__)
 
 def initialize_rngs(seed):
     if seed is None:
@@ -77,7 +79,7 @@ def main():
     except Exception as e:
         print("#### UNABLE TO READ DATA FILE ####")
         print(e)
-        exit(1)
+        return 1
     print("Loaded data set has {} rows (entries) and {} columns (features).".format(*df.shape))
     num_data = len(df)
 
@@ -94,7 +96,7 @@ def main():
             except (ModuleNotFoundError, FileNotFoundError) as e:
                 print("#### COULD NOT FIND THE MODEL FILE ####")
                 print(e)
-                exit(1)
+                return 1
 
             train_data, num_data = preprocess_fn(train_df)
         else:
@@ -163,7 +165,7 @@ def main():
                 x = input("Continue? (type YES ): ")
                 if x != "YES":
                     print("Aborting...")
-                    exit(4)
+                    return 4
                 print("Continuing... (YOU HAVE BEEN WARNED!)")
 
             num_compositions = int(args.num_epochs / args.sampling_ratio)
@@ -208,7 +210,7 @@ def main():
             print("likely to happen when the dataset is very small and/or sparse.")
             print("Try adapting (simplifying) the model.")
             print("Aborting...")
-            exit(2)
+            return 2
 
         # sample synthetic data
         num_synthetic = args.num_synthetic
@@ -258,4 +260,4 @@ def main():
     return 1
 
 if __name__ == "__main__":
-    main()
+    exit(main())
