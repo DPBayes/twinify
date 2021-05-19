@@ -1,15 +1,20 @@
-- 0.2.0-pending:
-    - made interfaces for custom NumPyro models more expressive
+- 1.0.0-dev:
+    - made interfaces for custom NumPyro models more expressive:
         - model function may take more than one data argument and produce
-            arbitary sample sites
+            arbitary sample sites.
         - preprocess function may return more than one data frame
-            which are passed into model (see above)
+            which are passed into model (see above).
         - postprocess function now gets a dictionary of sample sites produced by
-            model and the original data frame (see above)
-        - twinify remains backward-compatible to old models
-    - added twinify-tools command as entry point for various utilites
+            model and the original data frame (see above).
+        - instead of a model function, custom models may define a model_factory
+            function that is provided arguments from the command line and returns
+            a model function.
+        - twinify remains backward-compatible to old models.
+    - added twinify-tools command as entry point for various utilites.
     - added check-model subcommand for twinify-tools to check whether a given
-        NumPyro model works with twinify
+        NumPyro model works with twinify.
+    - twinify main script now stores all arguments received for a run alongside
+        the learned model parameters.
 
 - 0.1.1: Fix: Constrained dependency versions to address incompatability issues.
 - 0.1.0: Initial release
