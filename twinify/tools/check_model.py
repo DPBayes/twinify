@@ -34,6 +34,7 @@ def setup_argument_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('data_path', type=str, help='Path to input data.')
     parser.add_argument('model_path', type=str, help='Path to model file (.txt or .py).')
     parser.add_argument("--drop_na", default=False, action='store_true', help="Remove missing values from data.")
+    parser.add_argument("--full_traceback", default=False, action='store_true', help="Print a full traceback when errors occur, instead of filtering for custom model code.")
 
     # we mirror all arguments of the twinify main script here as models may now use any of these
     # in the model_factory method. They are not used by the check-model script.
@@ -113,7 +114,10 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
         return 0
 
     except ModelException as e:
-        print(e.format_message(args.model_path))
+        if args.full_traceback:
+            print(e)
+        else:
+            print(e.format_message(args.model_path))
     except AssertionError as e:
         raise e
     except Exception as e:

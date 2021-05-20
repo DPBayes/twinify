@@ -24,6 +24,7 @@ class ModelException(Exception):
 
     @staticmethod
     def filter_traceback(tb: Iterable[traceback.StackSummary], model_file_path: str) -> Iterable[traceback.StackSummary]:
+        assert model_file_path is not None
         model_file_name = os.path.basename(model_file_path)
         encountered_model = False
         for frame in tb:
@@ -37,14 +38,16 @@ class ModelException(Exception):
         self.base = base_exception
         self.title = title
 
-        super().__init__(self.format_message(''))
+        super().__init__(self.format_message())
 
-    def format_message(self, model_file_path: str) -> str:
+    def format_message(self, model_file_path: Optional[str]=None) -> str:
         full_message = f"\n#### {self.title.upper()} ####\n##   {self.msg}"
         if self.base is not None:
             full_message += f"\nTechnical error description below:\n"
             tb = traceback.extract_tb(self.base.__traceback__)
-            full_message += "\n".join(traceback.format_list(self.filter_traceback(tb, model_file_path)))
+            if model_file_path is not None:
+                tb = self.filter_traceback(tb, model_file_path)
+            full_message += "\n".join(traceback.format_list(tb))
             full_message += "\n".join(traceback.format_exception_only(type(self.base), self.base))
 
         return full_message
@@ -61,7 +64,7 @@ class NumpyroModelParsingException(ModelException):
 
 class NumpyroModelParsingUnknownException(NumpyroModelParsingException):
 
-    def __init__(self, str, function_name: str, base_exception: Exception) -> None:
+    def __init__(self, function_name: str, base_exception: Exception) -> None:
         self.__init__(f"Uncategorised error while trying to access function '{function_name}' from model module.", base_exception)
 
 
