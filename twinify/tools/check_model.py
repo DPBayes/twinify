@@ -90,7 +90,7 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
         assert num_train_data == num_data # TODO: maybe not?
 
         try:
-            posterior_params = train_model_no_dp(jax.random.PRNGKey(0),
+            posterior_params, _ = train_model_no_dp(jax.random.PRNGKey(0),
                 model, guide,
                 train_data,
                 batch_size = num_train_data//2,
