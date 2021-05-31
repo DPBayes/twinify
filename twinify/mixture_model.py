@@ -45,6 +45,9 @@ class MixtureModel(dist.Distribution):
             pis (array_like): The mixture weights.
         """
         self.dists = dists
+        for dist in dists:
+            if not isinstance(dist, numpyro.distributions.Distribution):
+                raise ValueError("MixtureModel got an argument that is not a distribution.")
         self._pis = pis
         super(MixtureModel, self).__init__()
 

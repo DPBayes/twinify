@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2020 twinify Developers and their Assignees
+# Copyright 2020, 2021 twinify Developers and their Assignees
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,30 +21,24 @@ Twinify main script.
 from jax.config import config
 config.update("jax_enable_x64", True)
 
-import jax.numpy as np
-
 from d3p.minibatch import q_to_batch_size, batch_size_to_q
 from d3p.dputil import approximate_sigma_remove_relation
-from numpyro.handlers import seed
 from numpyro.infer.autoguide import AutoDiagonalNormal
 from numpyro.infer import Predictive
 
-import fourier_accountant
-
 from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
+from twinify.model_loading import ModelException, load_custom_numpyro_model
 
 import numpy as onp
 
 import pandas as pd
 
-import importlib.util
-import traceback
-
 import jax, argparse, pickle
 import secrets
 
 from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
+from twinify import __version__
 import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
@@ -62,6 +56,8 @@ parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="Su
 parser.add_argument("--num_synthetic", default=None, type=int, help="Amount of synthetic data to generate. By default as many as input data.")
 parser.add_argument("--drop_na", default=0, type=int, help="Remove missing values from data (yes=1)")
 parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
+parser.add_argument("--no-privacy", default=False, action='store_true', help="Turn off all privacy features. Intended FOR DEBUGGING ONLY")
+parser.add_argument("--version", action='version', version=__version__)
 
 def initialize_rngs(seed):
     if seed is None:
@@ -71,46 +67,44 @@ def initialize_rngs(seed):
     onp.random.seed(seed)
     return jax.random.split(master_rng, 2)
 
+from collections import namedtuple
+
+TwinifyRunResult = namedtuple('TwinifyRunResult',
+    ('model_params', 'elbo', 'twinify_args', 'unknown_args', 'twinify_version')
+)
+
 def main():
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
     print(args)
+    if unknown_args:
+        print(f"Additional received arguments: {unknown_args}")
 
     # read data
-    df = pd.read_csv(args.data_path)
-
-    # check whether we parse model from txt or whether we have a numpyro module
     try:
+        df = pd.read_csv(args.data_path)
+    except Exception as e:
+        print("#### UNABLE TO READ DATA FILE ####")
+        print(e)
+        return 1
+    print("Loaded data set has {} rows (entries) and {} columns (features).".format(*df.shape))
+    num_data = len(df)
+
+    try:
+    # check whether we parse model from txt or whether we have a numpyro module
         if args.model_path[-3:] == '.py':
-            spec = importlib.util.spec_from_file_location("model_module", args.model_path)
-            model_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(model_module)
 
-            model = model_module.model
-
-            train_df = df
+            train_df = df.copy()
             if args.drop_na:
                 train_df = train_df.dropna()
 
-            ## AUTOMATIC PREPROCESSING CURRENTLY UNAVAILABLE
-            # data preprocessing: determines number of categories for Categorical
-            #   distribution and maps categorical values in the data to ints
-            # for feature in features:
-            #     train_df = feature.preprocess_data(train_df)
+            try:
+                model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args, train_df)
+            except (ModuleNotFoundError, FileNotFoundError) as e:
+                print("#### COULD NOT FIND THE MODEL FILE ####")
+                print(e)
+                return 1
 
-            ## ALTERNATIVE
-            # we do allow the user to specify a preprocess/postprocess function pair
-            # in the numpyro model file
-            try: preprocess_fn = model_module.preprocess
-            except: preprocess_fn = None
-            if preprocess_fn:
-                train_df = preprocess_fn(train_df)
-
-            try: postprocess_fn = model_module.postprocess
-            except: postprocess_fn = None
-
-            try: guide = model_module.guide
-            except: guide = AutoDiagonalNormal(model)
-
+            train_data, num_data = preprocess_fn(train_df)
         else:
             print("Parsing model from txt file (was unable to read it as python module containing numpyro code)")
             k = args.k
@@ -129,7 +123,9 @@ def main():
                     )
                 )
 
-            train_df = df.loc[:, feature_names]
+            df = df.loc[:, feature_names]
+
+            train_df = df.copy() # TODO: this duplicates code with the other branch but cannot currently pull it out because we are manipulating df above
             if args.drop_na:
                 train_df = train_df.dropna()
 
@@ -147,119 +143,130 @@ def main():
             guide = AutoDiagonalNormal(model)
 
             # postprocessing for automodel
-            def postprocess_fn(syn_df):
-                for feature in features:
-                    syn_df = feature.postprocess_data(syn_df)
-                return syn_df
+            postprocess_fn = automodel.postprocess_function_factory(features)
+            num_data = train_df.shape[0]
+            train_data = (train_df,)
 
-    except Exception as e: # handling errors in py-file parsing
-        print("\n#### FAILED TO PARSE THE MODEL SPECIFICATION ####")
-        print("Here's the technical error description:")
-        print(e)
-        traceback.print_tb(e.__traceback__)
-        print("\nAborting...")
-        exit(3)
+        assert isinstance(train_data, tuple)
+        if len(train_data) == 1:
+            print("After preprocessing, the data has {} entries with {} features each.".format(*train_data[0].shape))
+        else:
+            print("After preprocessing, the data was split into {} splits:".format(len(train_data)))
+            for i, x in enumerate(train_data):
+                print("\tSplit {} has {} entries with {} features each.".format(i, x.shape[0], 1 if x.ndim == 1 else x.shape[1]))
 
-    # pick features from data according to model file
-    num_data = train_df.shape[0]
-    if args.drop_na:
-        print("After removing missing values, the data has {} entries with {} features".format(*train_df.shape))
-    else:
-        print("The data has {} entries with {} features".format(*train_df.shape))
+        # compute DP values
+        # TODO need to make this fail safely
+        batch_size = q_to_batch_size(args.sampling_ratio, num_data)
 
-    # compute DP values
-    target_delta = args.delta
-    if target_delta is None:
-        target_delta = 1. / num_data
-    if target_delta * num_data > 1.:
-        print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
-            "which the maximum value that is usually considered safe!".format(
-                target_delta, 1. / num_data
-            ))
-        x = input("Continue? (type YES ): ")
-        if x != "YES":
+        if not args.no_privacy:
+            target_delta = args.delta
+            if target_delta is None:
+                target_delta = 1. / num_data
+            if target_delta * num_data > 1.:
+                print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
+                    "which the maximum value that is usually considered safe!".format(
+                        target_delta, 1. / num_data
+                    ))
+                x = input("Continue? (type YES ): ")
+                if x != "YES":
+                    print("Aborting...")
+                    return 4
+                print("Continuing... (YOU HAVE BEEN WARNED!)")
+
+            num_compositions = int(args.num_epochs / args.sampling_ratio)
+            dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
+                args.epsilon, target_delta, args.sampling_ratio, num_compositions
+            )
+            sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
+            print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+                "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
+            # TODO: warn for high noise? but when is it too high? what is a good heuristic?
+
+            do_training = lambda inference_rng: train_model(
+                inference_rng,
+                model, guide,
+                train_data,
+                batch_size=batch_size,
+                num_data=num_data,
+                num_epochs=args.num_epochs,
+                dp_scale=dp_sigma,
+                clipping_threshold=args.clipping_threshold
+            )
+        else:
+            print("!!!!! WARNING !!!!! PRIVACY FEATURES HAVE BEEN DISABLED!")
+            do_training = lambda inference_rng: train_model_no_dp(
+                inference_rng,
+                model, guide,
+                train_data,
+                batch_size=batch_size,
+                num_data=num_data,
+                num_epochs=args.num_epochs
+            )
+
+        inference_rng, sampling_rng = initialize_rngs(args.seed)
+
+        # learn posterior distributions
+        try:
+            posterior_params, elbo = do_training(inference_rng)
+        except (InferenceException, FloatingPointError):
+            print("################################## ERROR ##################################")
+            print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
+            print("This means the model has major difficulties in capturing the data and is")
+            print("likely to happen when the dataset is very small and/or sparse.")
+            print("Try adapting (simplifying) the model.")
             print("Aborting...")
-            exit(4)
-        print("Continuing... (YOU HAVE BEEN WARNED!)")
+            return 2
 
-    num_compositions = int(args.num_epochs / args.sampling_ratio)
-    dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
-        args.epsilon, target_delta, args.sampling_ratio, num_compositions
-    )
-    batch_size = q_to_batch_size(args.sampling_ratio, num_data)
-    sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
-    print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
-        "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
+        # sample synthetic data
+        num_synthetic = args.num_synthetic
+        if num_synthetic is None:
+            num_synthetic = num_data
 
-    # TODO: warn for high noise? but when is it too high? what is a good heuristic?
+        posterior_samples = Predictive(
+            model, guide=guide, params=posterior_params,
+            num_samples=num_synthetic
+        )(sampling_rng)
 
-    inference_rng, sampling_rng = initialize_rngs(args.seed)
+        # postprocess: so that the synthetic twin looks like the original data
+        #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
+        #   - if preprocessing involved data mapping, it is mapped back here
+        syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
 
-    # learn posterior distributions
-    try:
-        posterior_params = train_model(
-            inference_rng,
-            model, guide,
-            train_df.to_numpy(),
-            batch_size=int(args.sampling_ratio*len(train_df)),
-            num_epochs=args.num_epochs,
-            dp_scale=dp_sigma,
-            clipping_threshold=args.clipping_threshold
+        # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
+        result = TwinifyRunResult(
+            posterior_params, elbo, args, unknown_args, __version__
         )
-    except (InferenceException, FloatingPointError):
-        print("################################## ERROR ##################################")
-        print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
-        print("This means the model has major difficulties in capturing the data and is")
-        print("likely to happen when the dataset is very small and/or sparse.")
-        print("Try adapting (simplifying) the model.")
-        print("Aborting...")
-        exit(2)
+        pickle.dump(result, open("{}.p".format(args.output_path), "wb"))
+        encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
 
-    num_synthetic = args.num_synthetic
-    if num_synthetic is None:
-        num_synthetic = train_df.shape[0]
-
-    predictive_model = lambda: model(None)
-    posterior_samples = Predictive(
-        predictive_model, guide=guide, params=posterior_params,
-        num_samples=num_synthetic
-    )(sampling_rng)
-
-    # sample synthetic data from posterior predictive distribution
-    # posterior_samples = sample_multi_posterior_predictive(sampling_rng,
-    #         args.num_synthetic, model, (None,), guide, (), posterior_params)
-    syn_data = posterior_samples['x']
-
-    # save results
-    syn_df = pd.DataFrame(syn_data, columns = train_df.columns)
-
-    # postprocess: if preprocessing involved data mapping, it is mapped back here
-    #   so that the synthetic twin looks like the original data
-    encoded_syn_df = syn_df.copy()
-    if postprocess_fn:
-        encoded_syn_df = postprocess_fn(encoded_syn_df)
-
-    encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
-    pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
-
-    ## illustrate results
-    if args.visualize != 'none':
-        show_popups = args.visualize in ('popup', 'both')
-        save_plots = args.visualize in ('store', 'both')
-        # Missing value rate
-        if not args.drop_na:
-            missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
-            if save_plots:
-                missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
-        # Marginal violins
-        margin_fig = plot_margins(syn_df, train_df, show=show_popups)
-        # Covariance matrices
-        cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
-        if save_plots:
-            margin_fig.savefig(args.output_path + "_marginal_plots.svg")
-            cov_fig.savefig(args.output_path + "_correlation_plots.svg")
-        if show_popups:
-            plt.show()
+        ### illustrate results TODO need to adopt new way of handing train_df
+        #if args.visualize != 'none':
+        #    show_popups = args.visualize in ('popup', 'both')
+        #    save_plots = args.visualize in ('store', 'both')
+        #    # Missing value rate
+        #    if not args.drop_na:
+        #        missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
+        #        if save_plots:
+        #            missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
+        #    # Marginal violins
+        #    margin_fig = plot_margins(syn_df, train_df, show=show_popups)
+        #    # Covariance matrices
+        #    cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
+        #    if save_plots:
+        #        margin_fig.savefig(args.output_path + "_marginal_plots.svg")
+        #        cov_fig.savefig(args.output_path + "_correlation_plots.svg")
+        #    if show_popups:
+        #        plt.show()
+        return 0
+    except ModelException as e:
+        print(e.format_message(args.model_path))
+    except AssertionError as e:
+        raise e
+    except Exception as e:
+        print("#### AN UNCATEGORISED ERROR OCCURRED ####")
+        raise e
+    return 1
 
 if __name__ == "__main__":
-    main()
+    exit(main())
