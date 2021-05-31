@@ -27,7 +27,7 @@ setuptools.setup(
     ],
     extras_require = {
         'examples': [
-            'xlrd',
+            'xlrd < 2.0',
             'scikit-learn'
         ],
     },

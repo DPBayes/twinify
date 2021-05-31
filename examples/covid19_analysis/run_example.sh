@@ -1,10 +1,17 @@
 #!/bin/bash
-set -e # stop on error
+set -e # stop on errors
 
 # download data and extracting relevant features
 cd data_preprocessing
 python download_dataset.py
-Rscript extract_feature_names.R
+set +e
+#Rscript extract_feature_names.R
+if ! Rscript extract_feature_names.R ;
+then
+    echo "The examples require Rscript version 3.4.4 or comparable."
+    exit 1
+fi
+set -e
 cd ../
 
 # creating the model.txt file for Twinify

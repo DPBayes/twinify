@@ -16,5 +16,7 @@
     - twinify main script now stores all arguments received for a run alongside
         the learned model parameters.
 
+- 0.1.2: Fix: jaxlib version now constrained for working installation (no
+further changes from 0.1.1).
 - 0.1.1: Fix: Constrained dependency versions to address incompatability issues.
 - 0.1.0: Initial release
