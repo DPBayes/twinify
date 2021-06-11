@@ -134,8 +134,10 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
     else:
         def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
             try:
-                # Predictive produces (num_data, 1, num_features) for samples in plate; (num_data, num_features) otherwise
+                # numpyro.Predictive produces (num_data, 1, num_features) for samples in plate
                 # -> squeeze out intermediate 1 if necessary
+                # note: if sample site samples a scalar, its event shape is () and numpyro.Predictive
+                # produces (num_data, 1), which is already what we want for this case
                 posterior_samples = {
                     site: np.squeeze(samples, 1) if len(samples.shape) == 3 else samples
                     for site, samples in posterior_samples.items()

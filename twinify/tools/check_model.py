@@ -19,7 +19,6 @@ Twinify custom model checking mode script.
 """
 
 import argparse
-from examples.covid19_analysis.models.numpyro_model_example import preprocess
 from typing import Iterable
 
 from jax.config import config
@@ -27,6 +26,8 @@ config.update("jax_enable_x64", True)
 import jax
 
 import pandas as pd
+import numpy as np
+from numpyro.handlers import trace, seed
 from numpyro.infer import Predictive
 from twinify.infer import train_model_no_dp
 from twinify.model_loading import ModelException, load_custom_numpyro_model
@@ -82,11 +83,24 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
             exit(2)
 
         print("Extracting relevant features from data (using preprocess)")
-        _, _, feature_names = preprocess_fn(df)
+        zeroed_train_data, _, feature_names = preprocess_fn(train_df.iloc[:2])
+        zeroed_train_data = tuple(np.zeros_like(df) for df in zeroed_train_data)
 
-        print("Sampling from prior distribution (using model)")
-        try: prior_samples = Predictive(model, num_samples = num_data)(jax.random.PRNGKey(0))
+        print("Sampling from prior distribution (using model, guide)")
+        # We use Preditive with model to sample from the prior predictive distribution. Since this does not inolve guide,
+        # Predictive has no clue about which of the samples are for observations and which are for parameter values.
+        # Since we expect postprocess_fn to deal only with observations, we trace through guide to identify
+        # parameter sample sites and filter those out. (To invoke guide we need a small batch of data, for which we
+        # use whatever preprocess_fn returned to get the right shapes, but zero it out to prevent information leakage).
+        try:
+            prior_samples = Predictive(model, num_samples = num_data)(jax.random.PRNGKey(0))
         except Exception as e: raise ModelException("Error while obtaining prior samples from model", base_exception=e)
+
+        try:
+            parameter_sites = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(*zeroed_train_data)
+        except Exception as e: raise ModelException("Error while determining the sampling sites of parameter priors")
+        parameter_sites = parameter_sites.keys()
+        prior_samples = {site: samples for site, samples in prior_samples.items() if site not in parameter_sites}
 
         print("Transforming prior samples to output domain to obtain dummy data (using postprocess)")
         _, syn_prior_encoded = postprocess_fn(prior_samples, df, feature_names)
