@@ -104,7 +104,7 @@ def main():
                 print(e)
                 return 1
 
-            train_data, num_data = preprocess_fn(train_df)
+            train_data, num_data, feature_names = preprocess_fn(train_df)
         else:
             print("Parsing model from txt file (was unable to read it as python module containing numpyro code)")
             k = args.k
@@ -219,6 +219,7 @@ def main():
             return 2
 
         # sample synthetic data
+        print("Model learning complete; now sampling data!")
         num_synthetic = args.num_synthetic
         if num_synthetic is None:
             num_synthetic = num_data
@@ -231,7 +232,7 @@ def main():
         # postprocess: so that the synthetic twin looks like the original data
         #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
         #   - if preprocessing involved data mapping, it is mapped back here
-        syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df)
+        syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df, feature_names)
 
         # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
         result = TwinifyRunResult(

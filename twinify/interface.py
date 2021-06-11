@@ -32,7 +32,7 @@ def get_feature(x, i):
     Returns:
         x[i] if x is not None; otherwise None
     """
-    return None if x is None else x[i]
+    return None if x is None else np.take(x, i, -1)
 
 def sample_combined(*feature_samples):
     """
@@ -46,4 +46,4 @@ def sample_combined(*feature_samples):
     Returns:
         jax.numpy.ndarray: sampled values
     """
-    return deterministic('x', np.array(feature_samples))
+    return deterministic('x', np.stack(feature_samples, axis=1))

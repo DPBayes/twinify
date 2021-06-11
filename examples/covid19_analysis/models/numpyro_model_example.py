@@ -1,8 +1,7 @@
 import jax.numpy as np
 import numpyro.distributions as dist
-from numpyro.primitives import sample, param
+from numpyro.primitives import sample, plate
 
-from dppp.minibatch import minibatch
 from twinify.na_model import NAModel
 from twinify.interface import get_feature, sample_combined
 
@@ -27,7 +26,7 @@ def postprocess(df):
     df["Rhinovirus/Enterovirus"] = df["Rhinovirus/Enterovirus"].map(lambda v: "detected" if v == 1 else "not detected")
     return df
 
-def model(x, num_obs_total=None):
+def model(x=None, num_obs_total=None):
     """
     Args:
         x (jax.numpy.array): Array holding all features of a single data instance.
@@ -35,6 +34,17 @@ def model(x, num_obs_total=None):
     Samples:
         site `x` similar to input x; array holding all features of a single data instance.
     """
+    assert x is None or len(np.shape(x)) == 2
+    if x is None:
+        N = 1
+    else:
+        N = np.shape(x)[0]
+    if num_obs_total is None:
+        num_obs_total = N
+
+    assert isinstance(num_obs_total, int) and num_obs_total > 0
+    assert N <= num_obs_total
+
     leuko_mus = sample('Leukocytes_mus', dist.Normal(0., 1.))
     leuko_sig = sample('Leukocytes_sig', dist.Gamma(2., 2.))
     leuko_dist = dist.Normal(leuko_mus, leuko_sig)
@@ -48,9 +58,10 @@ def model(x, num_obs_total=None):
     rhino_test_na_prob = sample('Rhinovirus/Enterovirus_na_prob', dist.Beta(1., 1.))
     rhino_test_na_dist = NAModel(rhino_test_dist, rhino_test_na_prob)
 
-    with minibatch(1, num_obs_total):
+    with plate("batch", num_obs_total, N):
         x_leuko = get_feature(x, 0)
         x_rhino = get_feature(x, 1)
+
         y_leuko = sample('Leukocytes', leuko_na_dist, obs=x_leuko)
         y_rhino = sample('Rhinovirus/Enterovirus', rhino_test_na_dist, obs=x_rhino)
-        x = sample_combined(y_leuko, y_rhino)
+        y = sample_combined(y_leuko, y_rhino)

@@ -19,6 +19,7 @@ Twinify custom model checking mode script.
 """
 
 import argparse
+from examples.covid19_analysis.models.numpyro_model_example import preprocess
 from typing import Iterable
 
 from jax.config import config
@@ -80,16 +81,23 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
             print("#### loading txt file model currently not supported ####")
             exit(2)
 
+        print("Extracting relevant features from data (using preprocess)")
+        _, _, feature_names = preprocess_fn(df)
+
+        print("Sampling from prior distribution (using model)")
         try: prior_samples = Predictive(model, num_samples = num_data)(jax.random.PRNGKey(0))
         except Exception as e: raise ModelException("Error while obtaining prior samples from model", base_exception=e)
 
-        _, syn_prior_encoded = postprocess_fn(prior_samples, df)
+        print("Transforming prior samples to output domain to obtain dummy data (using postprocess)")
+        _, syn_prior_encoded = postprocess_fn(prior_samples, df, feature_names)
 
-        train_data, num_train_data = preprocess_fn(syn_prior_encoded)
+        print("Preprocessing dummy data (using preprocess)")
+        train_data, num_train_data, feature_names = preprocess_fn(syn_prior_encoded)
 
         assert isinstance(train_data, tuple)
         assert num_train_data == num_data # TODO: maybe not?
 
+        print("Inferring model parameters (using model, guide)")
         try:
             posterior_params, _ = train_model_no_dp(jax.random.PRNGKey(0),
                 model, guide,
@@ -102,6 +110,7 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
         except Exception as e:
             raise ModelException("Error while performing inference", base_exception=e)
 
+        print("Sampling from posterior distribution (using model, guide)")
         try:
             posterior_samples = Predictive(
                 model, guide = guide, params = posterior_params,
@@ -109,6 +118,8 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
             )(jax.random.PRNGKey(0))
         except Exception as e:
             raise ModelException("Error while obtaining posterior samples from model", base_exception=e)
+        print("Postprocessing (using postprocess)")
+        _, _ = postprocess_fn(posterior_samples, df, feature_names)
 
         print("Everything okay!")
         return 0
@@ -123,7 +134,6 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
     except Exception as e:
         print("#### AN UNCATEGORISED ERROR OCCURRED ####")
         raise e
-        # print(ModelException("#### AN UNCATEGORISED ERROR OCCURRED ####", base_exception=e).format_message(args.model_path))
     return 1
 
 if __name__ == "__main__":

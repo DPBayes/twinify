@@ -19,14 +19,10 @@ DP-SVI inference routines used by twinify main script.
 import jax.numpy as np
 import jax
 
-import numpyro
-import numpyro.distributions as dist
 from numpyro.optim import Adam
 from numpyro.infer import Trace_ELBO, SVI
 from d3p.svi import DPSVI
-from d3p.minibatch import minibatch, subsample_batchify_data
-
-from numpyro.infer.svi import SVIState
+from d3p.minibatch import subsample_batchify_data
 
 class InferenceException(Exception):
 	pass

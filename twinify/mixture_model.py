@@ -45,11 +45,32 @@ class MixtureModel(dist.Distribution):
             pis (array_like): The mixture weights.
         """
         self.dists = dists
+        event_shape = None
+        batch_shape = None
         for dist in dists:
             if not isinstance(dist, numpyro.distributions.Distribution):
                 raise ValueError("MixtureModel got an argument that is not a distribution.")
+            if event_shape is None:
+                event_shape = dist.event_shape
+            else:
+                if event_shape != dist.event_shape:
+                    raise ValueError(f"Feature distribution event shape deviates from mixture event shape {event_shape}; got {dist.event_shape} from {dist}.")
+            if batch_shape is None:
+                batch_shape = dist.batch_shape
+            else:
+                if batch_shape != dist.batch_shape:
+                    raise ValueError(f"Feature distribution batch shape deviates from mixture batch shape {batch_shape}; got {dist.batch_shape} from {dist}.")
+        self._mixture_components = batch_shape[-1]
+        batch_shape = batch_shape[:-1] if len(batch_shape) > 0 else 1
+        event_shape = (len(dists),) + event_shape
+        if len(pis) != self._mixture_components:
+            raise ValueError(f"Mixture model has {self._mixture_components} components but only got {len(pis)} mixture weights.")
         self._pis = pis
-        super(MixtureModel, self).__init__()
+        super(MixtureModel, self).__init__(batch_shape, event_shape, validate_args)
+
+    @property
+    def mixture_components(self):
+        return self._mixture_components
 
     def log_prob(self, value):
         """

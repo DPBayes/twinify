@@ -18,23 +18,22 @@ Automatic modelling routines used by twinify main script.
 
 from collections import OrderedDict
 
-import jax.numpy as np
+import jax.numpy as jnp
 import jax
 from jax.dtypes import canonicalize_dtype, issubdtype
 
 import numpyro
 import numpyro.distributions as dists
-from numpyro.primitives import sample, param, deterministic
+from numpyro.primitives import sample, param, deterministic, plate
 from numpyro.handlers import seed, trace
-from d3p.minibatch import minibatch
 from d3p.util import unvectorize_shape_2d
 
 from .mixture_model import MixtureModel
 from .na_model import NAModel
 
-import numpy as onp
+import numpy as np
 
-from typing import Type, Dict, Optional, Union, Tuple, List, Callable
+from typing import Type, Dict, Optional, Union, Tuple, List, Callable, Sequence
 from abc import ABCMeta, abstractmethod
 
 import pandas as pd
@@ -90,18 +89,18 @@ class Distribution:
         }
         return param_transforms
 
-    def instantiate(self, parameters: Optional[Dict[str, np.array]] = None) -> dists.Distribution:
+    def instantiate(self, parameters: Optional[Dict[str, jnp.array]] = None) -> dists.Distribution:
 
         if parameters is None:
             parameters = self._make_zero_parameters()
         return self._numpyro_class(**parameters)
 
-    def __call__(self, **parameters: Dict[str, np.array]) -> dists.Distribution:
+    def __call__(self, **parameters: Dict[str, jnp.array]) -> dists.Distribution:
         return self.instantiate(parameters)
 
     def _make_zero_parameters(self):
         zero_params = {
-            param: transform(np.zeros(1))
+            param: transform(jnp.zeros(1))
             for param, transform in self.parameter_transforms.items()
         }
         return zero_params
@@ -138,7 +137,7 @@ class Distribution:
     @property
     def has_data_dependent_shape(self) -> bool:
         try:
-            return not isinstance(self.numpyro_class.support, dists.constraints.Constraint)
+            return dists.constraints.is_dependent(self.numpyro_class.support)
         except AttributeError:
             return True
 
@@ -148,9 +147,7 @@ class Distribution:
 
     @property
     def is_discrete(self) -> bool:
-        # return self.numpyro_class.is_discrete # only available in later numpyro versions
-        return (issubdtype(self.support_dtype, np.integer) or
-                issubdtype(self.support_dtype, onp.bool))
+        return self.numpyro_class.is_discrete
 
 
 class ModelFeature:
@@ -223,7 +220,7 @@ class ModelFeature:
         assert(isinstance(column, pd.Series))
 
         # detect whether there are missing values in the data
-        if onp.any(column.isna()):
+        if np.any(column.isna()):
             self._missing_values = True
 
         # if the distribution is a categorical, we need to determine the number
@@ -349,7 +346,7 @@ prior_lookup = {
 def create_feature_prior_dists(feature: ModelFeature, k: int) -> Dict[str, dists.Distribution]:
     shape = (k,) + feature.shape
     prior_dists = {
-        parameter: prior_dist(*[np.ones(shape) * prior_param for prior_param in prior_params])
+        parameter: prior_dist(*[jnp.ones(shape) * prior_param for prior_param in prior_params])
         for parameter, (prior_dist, prior_params) in prior_lookup[feature.distribution.numpyro_class].items()
     }
     return prior_dists
@@ -369,6 +366,9 @@ class TypedDistribution(dists.Distribution):
     def sample(self, key, sample_shape=()):
         return self.base_dist.sample(key, sample_shape=sample_shape)
 
+    def __repr__(self) -> str:
+        return f"TypedDistribution({self.base_dist})"
+
 
 ################### automatically build mixture model ##########################
 
@@ -380,8 +380,17 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
         k: number of mixture components
     """
     def model(x=None, num_obs_total=None):
-        N = unvectorize_shape_2d(x)[0] # todo: double check, is this still required?
-        # there were changes to d3p, so that model should always see x as 2d now
+        assert x is None or len(jnp.shape(x)) == 2
+        if x is None:
+            N = 1
+        else:
+            N = jnp.shape(x)[0]
+        if num_obs_total is None:
+            num_obs_total = N
+
+        assert isinstance(num_obs_total, int) and num_obs_total > 0
+        assert N <= num_obs_total
+
         mixture_dists = []
         dtypes = []
         for feature in features:
@@ -394,18 +403,20 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
                 )
 
             dtypes.append(feature.distribution.support_dtype)
-            feature_dist = TypedDistribution(feature.instantiate(**prior_values), dtypes[-1])
+            feature_dist = feature.instantiate(**prior_values)
+            feature_dist = TypedDistribution(feature_dist, dtypes[-1])
             if feature._missing_values:
                 feature_na_prob = sample(
                     "{}_na_prob".format(feature.name),
-                    dists.Beta(2.*np.ones(k), 2.*np.ones(k))
+                    dists.Beta(2.*jnp.ones(k), 2.*jnp.ones(k))
                 )
                 feature_dist = NAModel(feature_dist, feature_na_prob)
 
             mixture_dists.append(feature_dist)
 
-        pis = sample('pis', dists.Dirichlet(np.ones(k)))
-        with minibatch(N, num_obs_total=num_obs_total):
+        pis = sample('pis', dists.Dirichlet(jnp.ones(k)))
+        with plate('batch', num_obs_total, N):
+        # with minibatch(N, num_obs_total=num_obs_total):
             mixture_model_dist = MixtureModel(mixture_dists, pis)
             x = sample('x', mixture_model_dist, obs=x)
             return x
@@ -413,9 +424,11 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
 
 ####################### postprocessing ###########################
 def postprocess_function_factory(features):
-    def postprocess_fn(posterior_samples, ori_df):
-        syn_data = posterior_samples['x']
-        syn_df = pd.DataFrame(syn_data, columns = ori_df.columns)
+    def postprocess_fn(
+            posterior_samples: Dict[str, np.array], ori_df: pd.DataFrame, feature_names: Sequence[int]
+        ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        syn_data = np.squeeze(posterior_samples['x'], 1)
+        syn_df = pd.DataFrame(syn_data, columns = feature_names)
         encoded_syn_df = syn_df.copy()
         for feature in features:
             encoded_syn_df = feature.postprocess_data(encoded_syn_df)

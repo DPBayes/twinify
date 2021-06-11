@@ -30,35 +30,38 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     #### TESTS FOR POSTPROCESS LOADING AND ERROR WRAPPING
     def test_load_numpyro_model_with_postprocess(self):
-        samples = {'x': np.zeros((10,2))}
+        samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess.py', Namespace(), [], orig_data)
-        syn_data, encoded_syn_data = postprocess(samples, orig_data)
+        syn_data, encoded_syn_data = postprocess(samples, orig_data, feature_names)
         self.assertIsInstance(syn_data, pd.DataFrame)
-        self.assertTrue(np.allclose(samples['x'][:,0], syn_data['first']))
-        self.assertTrue(np.allclose(samples['x'][:,1], syn_data['second']))
+        self.assertTrue(np.allclose(samples['x'][:,:,0], syn_data['first']))
+        self.assertTrue(np.allclose(samples['x'][:,:,1], syn_data['second']))
         self.assertIsInstance(encoded_syn_data, pd.DataFrame)
-        self.assertTrue(np.allclose(samples['x'][:,0] + 2, encoded_syn_data['first']))
-        self.assertTrue(np.allclose(samples['x'][:,1] + 2, encoded_syn_data['second']))
+        self.assertTrue(np.allclose(samples['x'][:,:,0] + 2, encoded_syn_data['first']))
+        self.assertTrue(np.allclose(samples['x'][:,:,1] + 2, encoded_syn_data['second']))
 
     def test_load_numpyro_model_with_old_style_postprocess(self):
-        samples = {'x': np.zeros((10,2))}
+        samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style.py', Namespace(), [], orig_data)
-        syn_data, encoded_syn_data = postprocess(samples, orig_data)
+        syn_data, encoded_syn_data = postprocess(samples, orig_data, feature_names)
         self.assertIsInstance(syn_data, pd.DataFrame)
-        self.assertTrue(np.allclose(samples['x'][:,0], syn_data['first']))
-        self.assertTrue(np.allclose(samples['x'][:,1], syn_data['second']))
+        self.assertTrue(np.allclose(samples['x'][:,:,0], syn_data['first']))
+        self.assertTrue(np.allclose(samples['x'][:,:,1], syn_data['second']))
         self.assertIsInstance(encoded_syn_data, pd.DataFrame)
-        self.assertTrue(np.allclose(samples['x'][:,0] + 2, encoded_syn_data['first']))
-        self.assertTrue(np.allclose(samples['x'][:,1] + 2, encoded_syn_data['second']))
+        self.assertTrue(np.allclose(samples['x'][:,:,0] + 2, encoded_syn_data['first']))
+        self.assertTrue(np.allclose(samples['x'][:,:,1] + 2, encoded_syn_data['second']))
 
     def test_load_numpyro_model_with_broken_postprocess(self):
-        samples = {'x': np.zeros((10,2))}
+        samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_broken.py', Namespace(), [], orig_data)
         try:
-            postprocess(samples, orig_data)
+            postprocess(samples, orig_data, feature_names)
         except ModelException as e: # check exception is raised
             # and original exception is passed on correctly
             if isinstance(e.base, KeyError) and e.title.find('postprocessing data'.upper()) != -1:
@@ -67,11 +70,12 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.fail("load_custom_numpyro_model did not raise for error in postprocess")
 
     def test_load_numpyro_model_with_broken_old_style_postprocess(self):
-        samples = {'x': np.zeros((10,2))}
+        samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style_broken.py', Namespace(), [], orig_data)
         try:
-            postprocess(samples, orig_data)
+            postprocess(samples, orig_data, feature_names)
         except ModelException as e: # check exception is raised
             # and original exception is passed on correctly
             if isinstance(e.base, KeyError) and e.title.find('postprocessing data'.upper()) != -1:
@@ -82,9 +86,10 @@ class NumpyroModelLoadingTests(unittest.TestCase):
     def test_load_numpyro_model_with_old_postprocess_but_assumed_new_model(self):
         samples = {'first': np.zeros((10,)), 'second': np.zeros((10,))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style.py', Namespace(), [], orig_data)
         try:
-            postprocess(samples, orig_data)
+            postprocess(samples, orig_data, feature_names)
         except ModelException as e:
             if e.title.find('postprocessing data'.upper()) != -1 and e.msg.find('postprocessing function with a single argument') != -1:
                 return
@@ -92,11 +97,12 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.fail("load_custom_numpyro_model did no raise for wrong sample sites for old-style postprocess")
 
     def test_load_numpyro_model_with_postprocess_wrong_signature(self):
-        samples = {'x': np.zeros((10,2))}
+        samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_wrong_signature.py', Namespace(), [], orig_data)
         try:
-            postprocess(samples, orig_data)
+            postprocess(samples, orig_data, feature_names)
         except ModelException as e: # check exception is raised
             # and original exception is passed on correctly
             if e.title.find('postprocessing data'.upper()) != -1 and e.msg.find('as argument') != -1:
@@ -105,11 +111,12 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.fail("load_custom_numpyro_model did not raise for wrong signature in postprocess")
 
     def test_load_numpyro_model_with_postprocess_wrong_returns(self):
-        samples = {'x': np.zeros((10,2))}
+        samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_wrong_returns.py', Namespace(), [], orig_data)
         try:
-            postprocess(samples, orig_data)
+            postprocess(samples, orig_data, feature_names)
         except ModelException as e:
             if e.title.find('postprocessing data'.upper()) != -1 and e.msg.find('must return') != -1:
                 return
@@ -117,11 +124,12 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.fail("load_custom_numpyro_model did not raise for wrong return value in postprocess")
 
     def test_load_numpyro_model_with_postprocess_old_style_wrong_returns(self):
-        samples = {'x': np.zeros((10,2))}
+        samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
         _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style_wrong_returns.py', Namespace(), [], orig_data)
         try:
-            postprocess(samples, orig_data)
+            postprocess(samples, orig_data, feature_names)
         except ModelException as e:
             if e.title.find('postprocessing data'.upper()) != -1 and e.msg.find('must return') != -1:
                 return
@@ -143,35 +151,38 @@ class NumpyroModelLoadingTests(unittest.TestCase):
     def test_load_numpyro_model_old_style_preprocess(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
         _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_old_style.py', Namespace(), [], orig_data)
-        train_data, num_data = preprocess(orig_data)
+        train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
         self.assertEqual(1, len(train_data))
         self.assertIsInstance(train_data[0], pd.DataFrame)
         self.assertTrue(np.allclose(orig_data['first'] + 2, train_data[0]['new_first']))
         self.assertTrue(np.allclose(orig_data['second'], train_data[0]['new_second']))
+        self.assertEqual(['new_first', 'new_second'], feature_names)
 
     def test_load_numpyro_model_preprocess_single_return(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
         _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_single_return.py', Namespace(), [], orig_data)
-        train_data, num_data = preprocess(orig_data)
+        train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
         self.assertEqual(1, len(train_data))
         self.assertIsInstance(train_data[0], pd.DataFrame)
         self.assertTrue(np.allclose(orig_data['first'] + 2, train_data[0]['new_first']))
         self.assertTrue(np.allclose(orig_data['second'], train_data[0]['new_second']))
+        self.assertEqual(['new_first', 'new_second'], feature_names)
 
     def test_load_numpyro_model_preprocess(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
         _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess.py', Namespace(), [], orig_data)
-        train_data, num_data = preprocess(orig_data)
+        train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
         self.assertEqual(1, len(train_data))
         self.assertIsInstance(train_data[0], pd.DataFrame)
         self.assertTrue(np.allclose(orig_data['first'] + 2, train_data[0]['new_first']))
         self.assertTrue(np.allclose(orig_data['second'], train_data[0]['new_second']))
+        self.assertEqual(['new_first', 'new_second'], feature_names)
 
     def test_load_numpyro_model_with_preprocess_wrong_returns(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
@@ -207,7 +218,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples_with_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
         self.assertTrue(np.allclose(samples_with_obs['x']['value'], z))
         samples_no_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(num_obs_total=10)
-        self.assertEqual(samples_no_obs['x']['value'].shape, (2, ))
+        self.assertEqual(samples_no_obs['x']['value'].shape, (1, 2))
         self.assertFalse(np.allclose(samples_no_obs['x']['value'], z))
 
     def test_load_numpyro_model_broken_model(self):
@@ -266,7 +277,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples_with_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
         self.assertTrue(np.allclose(samples_with_obs['x']['value'], z))
         samples_no_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(num_obs_total=10)
-        self.assertEqual(samples_no_obs['x']['value'].shape, (2, ))
+        self.assertEqual(samples_no_obs['x']['value'].shape, (1, 2))
         self.assertFalse(np.allclose(samples_no_obs['x']['value'], z))
 
     def test_load_numpyro_model_model_factory_broken(self):

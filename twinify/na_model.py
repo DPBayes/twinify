@@ -39,7 +39,7 @@ class NAModel(dist.Distribution):
         """
         self._base_dist = base_dist
         self._na_prob = na_prob
-        super(NAModel, self).__init__()
+        super(NAModel, self).__init__(base_dist.batch_shape, base_dist.event_shape, validate_args)
 
     @property
     def base_distribution(self):
@@ -98,3 +98,6 @@ class NAModel(dist.Distribution):
         if len(sample_shape) == 0:
             vals = vals.squeeze(0)
         return vals, ()
+
+    def __repr__(self) -> str:
+        return f"NAModel({repr(self.base_distribution)}"

@@ -1,10 +1,11 @@
 
 import importlib.util
 import inspect
+from re import A
 import traceback
 import pandas as pd
 import numpy as np
-from typing import Any, Callable, Tuple, Iterable, Dict, Union, Optional
+from typing import Any, Callable, Tuple, Iterable, Dict, Union, Optional, Sequence
 from twinify import automodel
 from numpyro.infer.autoguide import AutoDiagonalNormal
 import os
@@ -13,6 +14,8 @@ import argparse
 __all__ = ['load_custom_numpyro_model', 'ModelException', 'NumpyroModelParsingUnknownException', 'NumpyroModelParsingException']
 
 TPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int]]
+TWrappedPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int, Sequence[str]]]
+TWrappedPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame, Sequence[str]], Tuple[pd.DataFrame, pd.DataFrame]]
 TPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame], Tuple[pd.DataFrame, pd.DataFrame]]
 TOldPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
 TModelFunction = Callable
@@ -68,7 +71,7 @@ class NumpyroModelParsingUnknownException(NumpyroModelParsingException):
         self.__init__(f"Uncategorised error while trying to access function '{function_name}' from model module.", base_exception)
 
 
-def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TPreprocessFunction:
+def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TWrappedPreprocessFunction:
     def wrapped_preprocess(train_df):
         try:
             retval = preprocess_fn(train_df)
@@ -94,7 +97,11 @@ def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TPreprocessFunction:
         if not isinstance(train_data, Iterable):
             raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (interable of) pandas.DataFrame as first returned value, but returned a {type(train_data)} instead.")
 
-        return train_data, num_data
+        all_feature_names = []
+        for df in train_data:
+            all_feature_names += list(df.columns)
+
+        return train_data, num_data, all_feature_names
 
     return wrapped_preprocess
 
@@ -103,19 +110,20 @@ def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TPreprocessFunction:
 def default_preprocess(train_df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     return train_df, len(train_df)
 
-def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostprocessFunction]) -> TPostprocessFunction:
+def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostprocessFunction]) -> TWrappedPostprocessFunction:
     num_parameters = len(inspect.signature(postprocess_fn).parameters)
     if num_parameters == 1:
         print("WARNING: Custom postprocessing function using old signature, which is deprecated!")
-        def wrapped_postprocess_old(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        def wrapped_postprocess_old(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
             try:
                 if 'x' not in posterior_samples:
                     raise ModelException("FAILED DURING POSTPROCESSING DATA", f"For the specified postprocessing function with a single argument, the 'model'  function must combine all features at sample site 'x'.")
                 syn_data = posterior_samples['x']
-                if len(syn_data.shape) == 1: syn_data = np.expand_dims(syn_data, -1)
-                if syn_data.shape[-1] != len(orig_df.columns):
-                    raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Number of features in synthetic data ({syn_data.shape[-1]}) does not match number of features in original data ({len(orig_df.columns)}).")
-                syn_data = pd.DataFrame(syn_data, columns = orig_df.columns)
+                syn_data = np.squeeze(syn_data, 1)  # Predictive produces (num_data, 1, num_features)
+                if len(syn_data.shape) == 1: syn_data = np.expand_dims(syn_data, -1)  # in case num_features = 1 results in () sample shape
+                if syn_data.shape[-1] != len(feature_names):
+                    raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Number of features in synthetic data ({syn_data.shape[-1]}) does not match number of features used in training ({len(feature_names)}).")
+                syn_data = pd.DataFrame(syn_data, columns = feature_names)
                 encoded_syn_data = postprocess_fn(syn_data)
                 if not isinstance(encoded_syn_data, pd.DataFrame):
                     raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Custom postprocessing functions must return a pd.DataFrame, got {type(encoded_syn_data)}")
@@ -124,8 +132,14 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
             except Exception as e: raise ModelException("FAILED DURING POSTPROCESSING DATA", base_exception=e) from e
         return wrapped_postprocess_old
     else:
-        def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
             try:
+                # Predictive produces (num_data, 1, num_features) for samples in plate; (num_data, num_features) otherwise
+                # -> squeeze out intermediate 1 if necessary
+                posterior_samples = {
+                    site: np.squeeze(samples, 1) if len(samples.shape) == 3 else samples
+                    for site, samples in posterior_samples.items()
+                }
                 retval = postprocess_fn(posterior_samples, orig_df)
             except TypeError as e:
                 if str(e).find('positional argument') != -1:
@@ -155,7 +169,7 @@ def guard_model(model_fn: TModelFunction) -> TModelFunction:
 
 def load_custom_numpyro_model(
         model_path: str, args: argparse.Namespace, unknown_args: Iterable[str], orig_data: pd.DataFrame
-    ) -> Tuple[TModelFunction, TGuideFunction, TPreprocessFunction, TPostprocessFunction]:
+    ) -> Tuple[TModelFunction, TGuideFunction, TWrappedPreprocessFunction, TWrappedPostprocessFunction]:
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(model_path)

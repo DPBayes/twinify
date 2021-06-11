@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import jax.numpy as jnp
 import numpyro.distributions as dists
-from numpyro.primitives import sample
+from numpyro.primitives import sample, plate
 from twinify.model_loading import TModelFunction
 import argparse
 from typing import Iterable
@@ -16,9 +16,16 @@ def model_factory(twinify_args: argparse.Namespace, unparsed_args: Iterable[str]
     print(f"Model using prior mu = {args.unspecified_arg}")
 
     def model(z = None, num_obs_total = None) -> None:
+        batch_size = 1
+        if z is not None:
+            batch_size = z.shape[0]
+        if num_obs_total is None:
+            num_obs_total = batch_size
+
         mu = sample('mu', dists.Normal(args.prior_mu).expand_by((d,)).to_event(1))
         sigma = sample('sigma', dists.InverseGamma(1.).expand_by((d,)).to_event(1))
-        sample('x', dists.Normal(mu, sigma), obs=z)
+        with plate('batch', num_obs_total, batch_size):
+            sample('x', dists.Normal(mu, sigma).to_event(1), obs=z)
 
     return model
 

@@ -17,7 +17,7 @@ Potassium
 Mean corpuscular volume (MCV)
 Influenza A, rapid test
 Creatinine
-Mean corpuscular hemoglobin concentration<U+00A0>(MCHC)
+Mean corpuscular hemoglobin concentration (MCHC)
 Sodium
 Patient addmited to semi-intensive unit (1=yes, 0=no)
 Hematocrit
