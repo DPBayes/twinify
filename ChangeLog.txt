@@ -15,6 +15,7 @@
         NumPyro model works with twinify.
     - twinify main script now stores all arguments received for a run alongside
         the learned model parameters.
+    - twinify is now compatible with Python 3.9.
 
 - 0.1.2: Fix: jaxlib version now constrained for working installation (no
 further changes from 0.1.1).
