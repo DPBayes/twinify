@@ -13,3 +13,4 @@ build/
 *.svg
 /*.egg-info
 *.pyc
+.coverage*
