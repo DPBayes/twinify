@@ -20,6 +20,7 @@ Twinify main script.
 
 from jax.config import config
 config.update("jax_enable_x64", True)
+import jax.numpy as jnp
 
 from d3p.minibatch import q_to_batch_size, batch_size_to_q
 from d3p.dputil import approximate_sigma_remove_relation
@@ -29,8 +30,9 @@ from numpyro.infer import Predictive
 from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
 from twinify.model_loading import ModelException, load_custom_numpyro_model
+from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
 
-import numpy as onp
+import numpy as np
 
 import pandas as pd
 
@@ -53,10 +55,12 @@ parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in mo
 parser.add_argument("--k", default=50, type=int, help="Mixture components in fit (for automatic modelling only).")
 parser.add_argument("--num_epochs", "-e", default=200, type=int, help="Number of training epochs.")
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="Subsampling ratio for DP-SGD.")
-parser.add_argument("--num_synthetic", default=None, type=int, help="Amount of synthetic data to generate. By default as many as input data.")
+parser.add_argument("--num_synthetic", "--n", default=None, type=int, help="Amount of synthetic data to generate in total. By default as many as input data.")
+parser.add_argument("--num_synthetic_records_per_parameter_sample", "--m", default=1, type=int, help="Amount of synthetic samples to sample per parameter value drawn from the learned parameter posterior.")
 parser.add_argument("--drop_na", default=0, type=int, help="Remove missing values from data (yes=1)")
 parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
-parser.add_argument("--no-privacy", default=False, action='store_true', help="Turn off all privacy features. Intended FOR DEBUGGING ONLY")
+parser.add_argument("--no-privacy", default=False, action='store_true', help="Turn off all privacy features. Intended FOR DEBUGGING ONLY!")
+parser.add_argument("--separate_output", default=False, action='store_true', help="Store synthetic data in separate files per parameter sample.")
 parser.add_argument("--version", action='version', version=__version__)
 
 def initialize_rngs(seed):
@@ -64,7 +68,7 @@ def initialize_rngs(seed):
         seed = secrets.randbelow(2**32)
     print("RNG seed: {}".format(seed))
     master_rng = jax.random.PRNGKey(seed)
-    onp.random.seed(seed)
+    np.random.seed(seed)
     return jax.random.split(master_rng, 2)
 
 from collections import namedtuple
@@ -218,28 +222,43 @@ def main():
             print("Aborting...")
             return 2
 
+        # Store learned model parameters
+        # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
+        result = TwinifyRunResult(
+            posterior_params, elbo, args, unknown_args, __version__
+        )
+        pickle.dump(result, open(f"{args.output_path}.p", "wb"))
+
         # sample synthetic data
         print("Model learning complete; now sampling data!")
         num_synthetic = args.num_synthetic
         if num_synthetic is None:
             num_synthetic = num_data
 
-        posterior_samples = Predictive(
-            model, guide=guide, params=posterior_params,
-            num_samples=num_synthetic
-        )(sampling_rng)
+        num_parameter_samples = int(np.ceil(num_synthetic / args.num_synthetic_records_per_parameter_sample))
+        num_synthetic = num_parameter_samples * args.num_synthetic_records_per_parameter_sample
+        print(f"Will sample {args.num_synthetic_records_per_parameter_sample} synthetic data records for each of "
+              f"{num_parameter_samples} samples from the parameter posterior for a total of {num_synthetic} records.")
+        if args.separate_output:
+            print("They will be stored in separate data sets for each parameter posterior sample.")
+        else:
+            print("They will be stored in a single large data set.")
+        posterior_samples = sample_synthetic_data(
+            model, guide, posterior_params, sampling_rng, num_parameter_samples, args.num_synthetic_records_per_parameter_sample
+        )
 
         # postprocess: so that the synthetic twin looks like the original data
         #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
         #   - if preprocessing involved data mapping, it is mapped back here
-        syn_df, encoded_syn_df = postprocess_fn(posterior_samples, df, feature_names)
-
-        # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
-        result = TwinifyRunResult(
-            posterior_params, elbo, args, unknown_args, __version__
-        )
-        pickle.dump(result, open("{}.p".format(args.output_path), "wb"))
-        encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
+        conditioned_postprocess_fn = lambda posterior_samples: postprocess_fn(posterior_samples, df, feature_names)
+        for i, (syn_df, encoded_syn_df) in enumerate(reshape_and_postprocess_synthetic_data(
+            posterior_samples, conditioned_postprocess_fn, args.separate_output, num_parameter_samples
+        )):
+            if args.separate_output:
+                filename = f"{args.output_path}.{i}.csv"
+            else:
+                filename = f"{args.output_path}.csv"
+            encoded_syn_df.to_csv(filename, index=False)
 
         ### illustrate results TODO need to adopt new way of handing train_df
         #if args.visualize != 'none':

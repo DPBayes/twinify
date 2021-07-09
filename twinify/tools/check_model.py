@@ -31,6 +31,7 @@ from numpyro.handlers import trace, seed
 from numpyro.infer import Predictive
 from twinify.infer import train_model_no_dp
 from twinify.model_loading import ModelException, load_custom_numpyro_model
+from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
 
 def setup_argument_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('data_path', type=str, help='Path to input data.')
@@ -47,7 +48,8 @@ def setup_argument_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--k", default=50, type=int, help="[UNUSED] Mixture components in fit (for automatic modelling only).")
     parser.add_argument("--num_epochs", "-e", default=200, type=int, help="[UNUSED] Number of training epochs.")
     parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="[UNUSED] Subsampling ratio for DP-SGD.")
-    parser.add_argument("--num_synthetic", default=None, type=int, help="[UNUSED] Amount of synthetic data to generate. By default as many as input data.")
+    parser.add_argument("--num_synthetic", "--n", default=None, type=int, help="Amount of synthetic data to generate in total. By default as many as input data.")
+    parser.add_argument("--num_synthetic_records_per_parameter_sample", "--m", default=1, type=int, help="Amount of synthetic samples to sample per parameter value drawn from the learned parameter posterior.")
     parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="[UNUSED] Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
     parser.add_argument("--no-privacy", default=False, action='store_true', help="[UNUSED] Turn off all privacy features. Intended FOR DEBUGGING ONLY")
 
@@ -126,14 +128,18 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
 
         print("Sampling from posterior distribution (using model, guide)")
         try:
-            posterior_samples = Predictive(
-                model, guide = guide, params = posterior_params,
-                num_samples = num_train_data
-            )(jax.random.PRNGKey(0))
+            # posterior_samples = Predictive(
+            #     model, guide = guide, params = posterior_params,
+            #     num_samples = num_train_data
+            # )(jax.random.PRNGKey(0))
+            posterior_samples = sample_synthetic_data(model, guide, posterior_params, jax.random.PRNGKey(0), num_train_data, num_train_data)
         except Exception as e:
             raise ModelException("Error while obtaining posterior samples from model", base_exception=e)
         print("Postprocessing (using postprocess)")
-        _, _ = postprocess_fn(posterior_samples, df, feature_names)
+        conditioned_postprocess_fn = lambda samples: postprocess_fn(samples, df, feature_names)
+        reshape_and_postprocess_synthetic_data(
+            posterior_samples, conditioned_postprocess_fn, separate_output=True, num_parameter_samples=num_train_data#
+        )
 
         print("Everything okay!")
         return 0
