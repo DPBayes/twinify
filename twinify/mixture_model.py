@@ -16,14 +16,56 @@
 Mixture model used by twinify main script and available for modelling.
 """
 
-import jax.numpy as np
+import numpy as np
+import jax.numpy as jnp
 import jax
 
 import numpyro
 import numpyro.distributions as dist
 
 from jax.scipy.special import logsumexp
-import numpyro.distributions as dist
+from numpyro.distributions.constraints import Constraint
+import typing
+
+
+class _CombinedConstraint(Constraint):
+    """
+    Wraps a constraint by aggregating over ``reinterpreted_batch_ndims``-many
+    dims in :meth:`check`, so that an event is valid only if all its
+    independent entries are valid.
+    """
+
+    def __init__(self, base_constraints: typing.List[Constraint]) -> None:
+        assert np.all([isinstance(base_constraint, Constraint) for base_constraint in base_constraints])
+
+        self.base_constraints = base_constraints
+        super().__init__()
+
+    def __call__(self, value: jnp.ndarray) -> jnp.ndarray:
+        if jnp.shape(value)[-1] != len(self.base_constraints):
+            raise ValueError(f"Size of last dimension of value ({jnp.shape(value)[-1]})"\
+                f"does match the number of constraints ({len(self.base_constraints)})!")
+
+        results = [None] * len(self.base_constraints)
+        for i, constraint in enumerate(self.base_constraints):
+            results[i] = constraint(value[..., i])
+        results = jnp.all(jnp.stack(results, axis=-1), axis=-1)
+        return results
+
+    def feasible_like(self, prototype: jnp.ndarray) -> jnp.ndarray:
+        if jnp.shape(prototype)[-1] != len(self.base_constraints):
+            raise ValueError(f"Size of last dimension of prototype ({jnp.shape(prototype)[-1]})"\
+                f"does match the number of constraints ({len(self.base_constraints)})!")
+
+        results = [None] * len(self.base_constraints)
+        for i, constraint in enumerate(self.base_constraints):
+            results[i] = constraint.feasible_like(prototype[..., i])
+
+        results = jnp.stack(results, axis=-1)
+        return results
+
+combined_constraint = _CombinedConstraint
+
 
 class MixtureModel(dist.Distribution):
     """ A general purpose mixture model """
@@ -31,6 +73,10 @@ class MixtureModel(dist.Distribution):
     arg_constraints = {
         '_pis' : dist.constraints.simplex
     }
+
+    @property
+    def support(self) -> Constraint:
+        return self._constraint
 
     def __init__(self, dists, pis=1.0, validate_args=None):
         """
@@ -66,6 +112,10 @@ class MixtureModel(dist.Distribution):
         if len(pis) != self._mixture_components:
             raise ValueError(f"Mixture model has {self._mixture_components} components but only got {len(pis)} mixture weights.")
         self._pis = pis
+
+        constraints = [dist.support for dist in self.dists]
+        self._constraint = combined_constraint(constraints)
+
         super(MixtureModel, self).__init__(batch_shape, event_shape, validate_args)
 
     @property
@@ -86,17 +136,11 @@ class MixtureModel(dist.Distribution):
         Returns:
             array_like of shape `values.shape[:-1]`
         """
-        log_pis = np.log(self._pis)
-        if value.ndim == 2:
-            log_phis = np.array([dbn.log_prob(value[:, feat_idx, np.newaxis]) for feat_idx, dbn in \
-                    enumerate(self.dists)]).sum(axis=0)
-            assert(value.ndim == 2)
-            assert(log_phis.shape == (value.shape[0], len(log_pis)))
-        else:
-            log_phis = np.array([dbn.log_prob(value[feat_idx, np.newaxis]) for feat_idx, dbn in \
-                    enumerate(self.dists)]).sum(axis=0)
-            assert(value.ndim == 1)
-            assert(log_phis.shape == (len(log_pis),))
+        log_phis = jnp.array([
+                dbn.log_prob(value[..., feat_idx, jnp.newaxis])
+                for feat_idx, dbn in enumerate(self.dists)
+            ]).sum(axis=0)
+        log_pis = jnp.log(self._pis)
 
         temp = log_pis + log_phis
 
@@ -115,11 +159,7 @@ class MixtureModel(dist.Distribution):
         return self.sample_with_intermediates(key, sample_shape)[0]
 
     def sample_with_intermediates(self, key, sample_shape=()):
-        assert(len(sample_shape) <= 1)
-
-        num_samples = 1
-        if len(sample_shape) > 0:
-            num_samples = sample_shape[0]
+        num_samples = int(np.prod(sample_shape))
 
         keys = jax.random.split(key, num_samples)
 
@@ -130,9 +170,13 @@ class MixtureModel(dist.Distribution):
             rng_keys = jax.random.split(vals_rng_key, len(self.dists))
             vals = [dbn.sample(rng_keys[feat_idx])[z] \
                     for feat_idx, dbn in enumerate(self.dists)]
-            return np.stack(vals).T, z
+            return jnp.stack(vals).T, z
 
         vals, zs = sample_single(keys)
         if len(sample_shape) == 0:
             vals = vals.squeeze(0)
+
+        zs = jnp.reshape(zs, sample_shape)
+        final_vals_shape = sample_shape + jnp.shape(jnp.atleast_2d(vals))[1:]
+        vals = jnp.reshape(vals, final_vals_shape)
         return vals, [zs]
