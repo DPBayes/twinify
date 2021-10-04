@@ -26,7 +26,8 @@ setuptools.setup(
         'd3p @ git+https://github.com/DPBayes/d3p.git@7774f011ee24d33524fe68ae0179fdf9846bdc7e#egg=d3p',
         # need to fix numpyro to this commit >0.6.0, < 0.7.0 to get an essential bugfix but avoid future breaking changes
         # todo: reevaluate this with the next numpyro release
-        'numpyro @ git+https://github.com/pyro-ppl/numpyro.git@048d2c80d9f4087aa9614225568bb88e1f74d669#egg=numpyro'
+        'numpyro @ git+https://github.com/pyro-ppl/numpyro.git@048d2c80d9f4087aa9614225568bb88e1f74d669#egg=numpyro',
+        'jax < 0.2.21'
     ],
     extras_require = {
         'examples': [
