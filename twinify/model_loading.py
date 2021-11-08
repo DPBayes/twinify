@@ -95,10 +95,12 @@ def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TWrappedPreprocessFu
                 train_data = (train_data,)
 
         if not isinstance(train_data, Iterable):
-            raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (interable of) pandas.DataFrame as first returned value, but returned a {type(train_data)} instead.")
+            raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame as first returned value, but returned a {type(train_data)} instead.")
 
         all_feature_names = []
         for df in train_data:
+            if not isinstance(df, pd.DataFrame):
+                raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame as first returned value, but at least one {type(df)} was returned.")
             all_feature_names += list(df.columns)
 
         return train_data, num_data, all_feature_names

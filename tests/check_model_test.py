@@ -74,6 +74,11 @@ class CheckModelTests(unittest.TestCase):
         self.verify_output(output, "PREPROCESSING", "as argument")
         self.assertNotEqual(retcode, 0)
 
+    def test_preprocess_returns_array(self):
+        retcode, output = self.run_check_model('preprocess_returns_array.py')
+        self.verify_output(output, "PREPROCESSING", "must return")
+        self.assertNotEqual(retcode, 0)
+
     def test_broken_model(self):
         retcode, output = self.run_check_model('simple_gauss_model_broken.py')
         self.verify_output(output, "MODEL", "NameError")

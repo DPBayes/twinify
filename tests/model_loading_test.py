@@ -206,6 +206,17 @@ class NumpyroModelLoadingTests(unittest.TestCase):
             self.fail(f"load_custom_numpyro_model did raise for wrong signature in preprocess, but did not give expected explanation; got:\n{e.format_message('')}")
         self.fail("load_custom_numpyro_model did not raise for wrong signature in preprocess")
 
+    def test_load_numpyro_model_with_preprocess_returns_array(self):
+        orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_returns_array.py', Namespace(), [], orig_data)
+        try:
+            preprocess(orig_data)
+        except ModelException as e:
+            if e.title.find('preprocessing data'.upper()) != -1 and e.msg.find('must return') != -1:
+                return
+            self.fail(f"load_custom_numpyro_model did raise for non-dataframe returns, but did not give expected explanation; got:\n{e.format_message('')}")
+        self.fail("load_custom_numpyro_model did not raise for non-dataframe returns in preprocess")
+
     #### TESTING MODEL LOADING AND ERROR WRAPPING
     def test_load_numpyro_model_simple_working_model(self):
         """ only verifies that no errors occur and all returned functions are not None """
