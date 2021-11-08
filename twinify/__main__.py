@@ -39,9 +39,9 @@ import pandas as pd
 import jax, argparse, pickle
 import secrets
 
-from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
 from twinify import __version__
-import matplotlib.pyplot as plt
+# from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
+# import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
