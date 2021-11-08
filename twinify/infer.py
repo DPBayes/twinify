@@ -16,8 +16,10 @@
 DP-SVI inference routines used by twinify main script.
 """
 
+from argparse import ArgumentError
 import jax.numpy as np
 import jax
+import pandas as pd
 
 from numpyro.optim import Adam
 from numpyro.infer import Trace_ELBO, SVI
@@ -27,10 +29,22 @@ from d3p.minibatch import subsample_batchify_data
 class InferenceException(Exception):
 	pass
 
+def _cast_data_tuple(data_tuple):
+	def _cast_data(df):
+		if isinstance(df, pd.DataFrame):
+			return df.values
+		else:
+			raise ArgumentError(f"Inference got non pd.DataFrame argument {type(df)}.")
+
+	return tuple(_cast_data(x) for x in data_tuple)
+
+
 def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False):
 	rng, svi_rng, init_batch_rng = jax.random.split(rng, 3)
 
 	#init_batching, get_batch = subsample_batchify_data((data,), batch_size)
+	assert(type(data) == tuple)
+	data = _cast_data_tuple(data)
 	init_batching, get_batch = subsample_batchify_data(data, batch_size)
 	_, batchify_state = init_batching(init_batch_rng)
 
