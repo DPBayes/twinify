@@ -25,6 +25,7 @@ from numpyro.optim import Adam
 from numpyro.infer import Trace_ELBO, SVI
 from d3p.svi import DPSVI
 from d3p.minibatch import subsample_batchify_data
+import d3p.random
 
 class InferenceException(Exception):
     pass
@@ -39,12 +40,13 @@ def _cast_data_tuple(data_tuple):
     return tuple(_cast_data(x) for x in data_tuple)
 
 
-def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False):
-    rng, svi_rng, init_batch_rng = jax.random.split(rng, 3)
+def _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs, silent=False):
+    rng, svi_rng, init_batch_rng = rng_suite.split(rng, 3)
 
+    #init_batching, get_batch = subsample_batchify_data((data,), batch_size)
     assert(type(data) == tuple)
     data = _cast_data_tuple(data)
-    init_batching, get_batch = subsample_batchify_data(data, batch_size)
+    init_batching, get_batch = subsample_batchify_data(data, batch_size, rng_suite=rng_suite)
     _, batchify_state = init_batching(init_batch_rng)
 
     batch = get_batch(0, batchify_state)
@@ -60,10 +62,10 @@ def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False)
 
         return jax.lax.fori_loop(0, num_epoch_iter, train_iteration, (svi_state, 0.))
 
-    rng, epochs_rng = jax.random.split(rng)
+    rng, epochs_rng = rng_suite.split(rng)
 
     for i in range(num_epochs):
-        batchify_rng = jax.random.fold_in(epochs_rng, i)
+        batchify_rng = rng_suite.fold_in(epochs_rng, i)
         num_batches, batchify_state = init_batching(batchify_rng)
 
         svi_state, loss = train_epoch(num_batches, svi_state, batchify_state)
@@ -74,7 +76,7 @@ def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False)
 
     return svi.get_params(svi_state), loss
 
-def train_model(rng, model, guide, data, batch_size, num_data, dp_scale, num_epochs, clipping_threshold=1.):
+def train_model(rng, rng_suite, model, guide, data, batch_size, num_data, dp_scale, num_epochs, clipping_threshold=1.):
     """ trains a given model using DPSVI and the globally defined parameters and data """
 
     optimizer = Adam(1e-3)
@@ -82,10 +84,10 @@ def train_model(rng, model, guide, data, batch_size, num_data, dp_scale, num_epo
     svi = DPSVI(
         model, guide, optimizer, Trace_ELBO(),
         num_obs_total=num_data, clipping_threshold=clipping_threshold,
-        dp_scale=dp_scale
+        dp_scale=dp_scale, rng_suite=rng_suite
     )
 
-    return _train_model(rng, svi, data, batch_size, num_data, num_epochs)
+    return _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs)
 
 def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs, silent=False, **kwargs):
     """ trains a given model using SVI (no DP!) and the globally defined parameters and data """
@@ -98,4 +100,5 @@ def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs,
         num_obs_total = num_data
     )
 
-    return _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent)
+    import d3p.random.debug
+    return _train_model(d3p.random.convert_to_jax_rng_key(rng), d3p.random.debug, svi, data, batch_size, num_data, num_epochs, silent)

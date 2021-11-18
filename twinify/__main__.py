@@ -20,12 +20,10 @@ Twinify main script.
 
 from jax.config import config
 config.update("jax_enable_x64", True)
-import jax.numpy as jnp
 
-from d3p.minibatch import q_to_batch_size, batch_size_to_q
+from d3p.minibatch import q_to_batch_size
 from d3p.dputil import approximate_sigma_remove_relation
 from numpyro.infer.autoguide import AutoDiagonalNormal
-from numpyro.infer import Predictive
 
 from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
@@ -36,7 +34,9 @@ import numpy as np
 
 import pandas as pd
 
-import jax, argparse, pickle
+import argparse, pickle
+import d3p.random
+import chacha.defs
 import secrets
 
 from twinify import __version__
@@ -65,11 +65,17 @@ parser.add_argument("--version", action='version', version=__version__)
 
 def initialize_rngs(seed):
     if seed is None:
-        seed = secrets.randbelow(2**32)
-    print("RNG seed: {}".format(seed))
-    master_rng = jax.random.PRNGKey(seed)
-    np.random.seed(seed)
-    return jax.random.split(master_rng, 2)
+        seed = secrets.randbits(chacha.defs.ChaChaKeySizeInBits)
+    master_rng = d3p.random.PRNGKey(seed)
+    print(f"RNG seed: {seed}")
+
+    inference_rng, sampling_rng, numpyro_seed = d3p.random.split(master_rng, 3)
+    sampling_rng = d3p.random.convert_to_jax_rng_key(sampling_rng)
+
+    numpyro_seed = int(d3p.random.random_bits(numpyro_seed, 32, (1,)))
+    np.random.seed(numpyro_seed)
+
+    return inference_rng, sampling_rng
 
 from collections import namedtuple
 
@@ -189,6 +195,7 @@ def main():
 
             do_training = lambda inference_rng: train_model(
                 inference_rng,
+                d3p.random,
                 model, guide,
                 train_data,
                 batch_size=batch_size,

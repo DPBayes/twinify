@@ -29,6 +29,7 @@ import pandas as pd
 import numpy as np
 from numpyro.handlers import trace, seed
 from numpyro.infer import Predictive
+import d3p.random
 from twinify.infer import train_model_no_dp
 from twinify.model_loading import ModelException, load_custom_numpyro_model
 from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
@@ -114,7 +115,7 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
 
         print("Inferring model parameters (using model, guide)")
         try:
-            posterior_params, _ = train_model_no_dp(jax.random.PRNGKey(0),
+            posterior_params, _ = train_model_no_dp(d3p.random.PRNGKey(0),
                 model, guide,
                 train_data,
                 batch_size = num_train_data//2,
