@@ -41,6 +41,7 @@ def sample_synthetic_data(
 
     def _reshape_parameter_value(v: jnp.ndarray) -> jnp.ndarray:
         original_shape = jnp.shape(v)
+        assert(original_shape[0] == num_parameter_samples)
         new_shape = (original_shape[0], num_record_samples_per_parameter_sample, *original_shape[1:])
         v = jnp.repeat(v, num_record_samples_per_parameter_sample, axis=0)
         v = jnp.reshape(v, new_shape)

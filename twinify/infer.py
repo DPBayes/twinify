@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 
-#      http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,10 +31,10 @@ class InferenceException(Exception):
 
 def _cast_data_tuple(data_tuple):
     def _cast_data(df):
-        if isinstance(df, pd.DataFrame):
+        if isinstance(df, (pd.DataFrame, pd.Series)):
             return df.values
         else:
-            raise ArgumentError(f"Inference got non pd.DataFrame argument {type(df)}.")
+          raise ArgumentError(f"Inference got non pd.DataFrame/pd.Series argument {type(df)}.")
 
     return tuple(_cast_data(x) for x in data_tuple)
 
@@ -42,7 +42,6 @@ def _cast_data_tuple(data_tuple):
 def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False):
     rng, svi_rng, init_batch_rng = jax.random.split(rng, 3)
 
-    #init_batching, get_batch = subsample_batchify_data((data,), batch_size)
     assert(type(data) == tuple)
     data = _cast_data_tuple(data)
     init_batching, get_batch = subsample_batchify_data(data, batch_size)
@@ -55,9 +54,7 @@ def _train_model(rng, svi, data, batch_size, num_data, num_epochs, silent=False)
     def train_epoch(num_epoch_iter, svi_state, batchify_state):
         def train_iteration(i, state_and_loss):
             svi_state, loss = state_and_loss
-            #batch_x, = get_batch(i, batchify_state)
             batch = get_batch(i, batchify_state)
-            #svi_state, iter_loss = svi.update(svi_state, batch_x)
             svi_state, iter_loss = svi.update(svi_state, *batch)
             return (svi_state, loss + iter_loss / num_epoch_iter)
 

@@ -42,6 +42,21 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.assertTrue(np.allclose(samples['x'][:,:,0] + 2, encoded_syn_data['first']))
         self.assertTrue(np.allclose(samples['x'][:,:,1] + 2, encoded_syn_data['second']))
 
+    def test_load_numpyro_model_with_postprocess_multiple_sample_sites(self):
+        samples = {'x': np.zeros((10,1,2)), 'y': np.zeros((10,1))}
+        orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        feature_names = ['first', 'second']
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_multiple_sample_sites.py', Namespace(), [], orig_data)
+        syn_data, encoded_syn_data = postprocess(samples, orig_data, feature_names)
+        self.assertIsInstance(syn_data, pd.DataFrame)
+        self.assertTrue(np.allclose(samples['x'][:,:,0], syn_data['first']))
+        self.assertTrue(np.allclose(samples['x'][:,:,1], syn_data['second']))
+        self.assertTrue(np.allclose(samples['y'], syn_data['foo']))
+        self.assertIsInstance(encoded_syn_data, pd.DataFrame)
+        self.assertTrue(np.allclose(samples['x'][:,:,0] + 2, encoded_syn_data['first']))
+        self.assertTrue(np.allclose(samples['x'][:,:,1] + 2, encoded_syn_data['second']))
+        self.assertTrue(np.allclose(samples['y'] + 2, encoded_syn_data['foo']))
+
     def test_load_numpyro_model_with_old_style_postprocess(self):
         samples = {'x': np.zeros((10,1,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
@@ -172,17 +187,30 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.assertTrue(np.allclose(orig_data['second'], train_data[0]['new_second']))
         self.assertEqual(['new_first', 'new_second'], feature_names)
 
+    def test_load_numpyro_model_preprocess_single_return_series(self):
+        orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_single_return_series.py', Namespace(), [], orig_data)
+        train_data, num_data, feature_names = preprocess(orig_data)
+        self.assertEqual(10, num_data)
+        self.assertIsInstance(train_data, tuple)
+        self.assertEqual(1, len(train_data))
+        self.assertIsInstance(train_data[0], pd.Series)
+        self.assertTrue(np.allclose(orig_data['first'] + 2, train_data[0]))
+        self.assertEqual(['new_first'], feature_names)
+
     def test_load_numpyro_model_preprocess(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
         _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess.py', Namespace(), [], orig_data)
         train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
-        self.assertEqual(1, len(train_data))
+        self.assertEqual(2, len(train_data))
         self.assertIsInstance(train_data[0], pd.DataFrame)
+        self.assertIsInstance(train_data[1], pd.Series)
         self.assertTrue(np.allclose(orig_data['first'] + 2, train_data[0]['new_first']))
         self.assertTrue(np.allclose(orig_data['second'], train_data[0]['new_second']))
-        self.assertEqual(['new_first', 'new_second'], feature_names)
+        self.assertTrue(np.allclose(orig_data['first'], train_data[1]))
+        self.assertEqual(['new_first', 'new_second', 'y2'], feature_names)
 
     def test_load_numpyro_model_with_preprocess_wrong_returns(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
