@@ -19,7 +19,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/DPBayes/twinify",
     packages=setuptools.find_packages(include=['twinify', 'twinify.*']),
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     install_requires=[
         'pandas',
         'd3p @ git+https://github.com/DPBayes/d3p.git@29ac628f3039cf7eb4bc80b9e8f77db27f7f4f57#egg=d3p',
