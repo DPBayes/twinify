@@ -83,25 +83,29 @@ def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TWrappedPreprocessFu
         except Exception as e:
             raise ModelException("FAILED DURING PREPROCESSING DATA", base_exception=e) from e
 
-        if isinstance(retval, pd.DataFrame):
+        if isinstance(retval, (pd.DataFrame, pd.Series)):
             train_data = (retval,)
             num_data = len(retval)
         else:
             try:
                 train_data, num_data = retval
             except:
-                raise ModelException("FAILED DURING PREPROCESSING DATA", "Custom preprocessing functions must return (train_data, num_data), where train_data is a tuple of pandas.DataFrame and num_data is the number of data points.")
-            if isinstance(train_data, pd.DataFrame):
+                raise ModelException("FAILED DURING PREPROCESSING DATA", "Custom preprocessing functions must return (train_data, num_data), where train_data is a tuple of pandas.DataFrame or pandas.Series and num_data is the number of data points.")
+            if isinstance(train_data, (pd.DataFrame, pd.Series)):
                 train_data = (train_data,)
 
         if not isinstance(train_data, Iterable):
-            raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame as first returned value, but returned a {type(train_data)} instead.")
+            raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame or pandas.Series as first returned value, but returned a {type(train_data)} instead.")
 
         all_feature_names = []
         for df in train_data:
-            if not isinstance(df, pd.DataFrame):
-                raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame as first returned value, but at least one {type(df)} was returned.")
-            all_feature_names += list(df.columns)
+            if isinstance(df, pd.DataFrame):
+                all_feature_names += list(df.columns)
+            elif isinstance(df, pd.Series):
+                all_feature_names.append(df.name)
+            else:
+                raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame or pandas.Series as first returned value, but at least one {type(df)} was returned.")
+
 
         return train_data, num_data, all_feature_names
 
@@ -136,13 +140,10 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
     else:
         def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
             try:
-                # numpyro.Predictive produces (num_data, 1, num_features) for samples in plate
-                # -> squeeze out intermediate 1 if necessary
-                # note: if sample site samples a scalar, its event shape is () and numpyro.Predictive
-                # produces (num_data, 1), which is already what we want for this case
+                # numpyro.Predictive produces (num_data, 1, num_features) for samples in plate (because batch size seen by model is 1 there)
+                # -> squeeze out intermediate 1
                 posterior_samples = {
-                    site: np.squeeze(samples, 1) if len(samples.shape) == 3 else samples
-                    for site, samples in posterior_samples.items()
+                    site: np.squeeze(samples, 1) for site, samples in posterior_samples.items()
                 }
                 retval = postprocess_fn(posterior_samples, orig_df)
             except TypeError as e:

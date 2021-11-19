@@ -2,7 +2,7 @@
     - made interfaces for custom NumPyro models more expressive:
         - model function may take more than one data argument and produce
             arbitary sample sites.
-        - preprocess function may return more than one data frame
+        - preprocess function may return more than one data frame or series
             which are passed into model (see above).
         - postprocess function now gets a dictionary of sample sites produced by
             model and the original data frame (see above).
