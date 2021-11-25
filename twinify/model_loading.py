@@ -208,7 +208,7 @@ def load_custom_numpyro_model(
     model = guard_model(model)
 
     try: guide = model_module.guide
-    except AttributeError: guide = AutoDiagonalNormal(model)
+    except AttributeError: guide = AutoDiagonalNormal(model, init_scale=1.0)
     except Exception as e: raise NumpyroModelParsingUnknownException('guide', e) from e
 
     # try to obtain preprocessing function from custom model
