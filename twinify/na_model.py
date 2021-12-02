@@ -18,9 +18,27 @@ Missing value model used by twinify main script and available for modelling.
 
 import jax.numpy as np
 import jax
+import typing
 
 import numpyro.distributions as dist
-from numpyro.primitives import sample
+
+
+class _NAConstraint(dist.constraints.Constraint):
+    """ Wraps a constraint to additionally allow NaN values.
+    """
+
+    def __init__(self, base_constraint: dist.constraints.Constraint) -> None:
+        self.base_constraint = base_constraint
+        super().__init__()
+
+    def __call__(self, value: np.ndarray) -> np.ndarray:
+        return np.isnan(value) | self.base_constraint(value)
+
+    def feasible_like(self, prototype: np.ndarray) -> np.ndarray:
+        return self.base_constraint.feasible_like(prototype)
+
+na_constraint = _NAConstraint
+
 
 class NAModel(dist.Distribution):
     """ Model decorator for missing values.
@@ -40,6 +58,11 @@ class NAModel(dist.Distribution):
         self._base_dist = base_dist
         self._na_prob = na_prob
         super(NAModel, self).__init__(base_dist.batch_shape, base_dist.event_shape, validate_args)
+
+
+    @property
+    def support(self) -> dist.constraints.Constraint:
+        return na_constraint(self._base_dist.support)
 
     @property
     def base_distribution(self):

@@ -36,7 +36,10 @@ class _CombinedConstraint(Constraint):
     """
 
     def __init__(self, base_constraints: typing.List[Constraint]) -> None:
-        assert np.all([isinstance(base_constraint, Constraint) for base_constraint in base_constraints])
+        assert np.all([
+            isinstance(base_constraint, Constraint) or base_constraint is None
+            for base_constraint in base_constraints
+        ])
 
         self.base_constraints = base_constraints
         super().__init__()

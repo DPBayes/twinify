@@ -359,6 +359,10 @@ class TypedDistribution(dists.Distribution):
         self.dtype = dtype
         self.base_dist = base_dist
 
+    @property
+    def support(self):
+        return self.base_dist.support
+
     def log_prob(self, value):
         log_prob = self.base_dist.log_prob(value.astype(self.dtype))
         return log_prob
