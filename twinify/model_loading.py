@@ -125,7 +125,7 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
                 if 'x' not in posterior_samples:
                     raise ModelException("FAILED DURING POSTPROCESSING DATA", f"For the specified postprocessing function with a single argument, the 'model'  function must combine all features at sample site 'x'.")
                 syn_data = posterior_samples['x']
-                syn_data = np.squeeze(syn_data, 1)  # Predictive produces (num_data, 1, num_features)
+                #syn_data = np.squeeze(syn_data, 1)  # Predictive produces (num_data, 1, num_features)
                 if len(syn_data.shape) == 1: syn_data = np.expand_dims(syn_data, -1)  # in case num_features = 1 results in () sample shape
                 if syn_data.shape[-1] != len(feature_names):
                     raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Number of features in synthetic data ({syn_data.shape[-1]}) does not match number of features used in training ({len(feature_names)}).")
@@ -142,9 +142,9 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
             try:
                 # numpyro.Predictive produces (num_data, 1, num_features) for samples in plate (because batch size seen by model is 1 there)
                 # -> squeeze out intermediate 1
-                posterior_samples = {
-                    site: np.squeeze(samples, 1) for site, samples in posterior_samples.items()
-                }
+                #posterior_samples = {
+                #    site: np.squeeze(samples, 1) for site, samples in posterior_samples.items()
+                #}
                 retval = postprocess_fn(posterior_samples, orig_df)
             except TypeError as e:
                 if str(e).find('positional argument') != -1:

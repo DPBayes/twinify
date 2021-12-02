@@ -33,28 +33,46 @@ def sample_synthetic_data(
     Returns a dictionary jnp.arrays of synthetic data samples for each sample site in the model.
     Each of these has shape (num_parameter_samples, num_synthetic_records_per_parameter_sample, *sample_site_shape)
     """
-    parameter_sampling_rng, record_sampling_rng = jax.random.split(sampling_rng)
+    #parameter_sampling_rng, record_sampling_rng = jax.random.split(sampling_rng)
 
-    parameter_samples = Predictive(
-        guide, params=posterior_params, num_samples=num_parameter_samples
-    )(parameter_sampling_rng)
+    #parameter_samples = Predictive(
+    #    guide, params=posterior_params, num_samples=num_parameter_samples
+    #)(parameter_sampling_rng)
 
-    def _reshape_parameter_value(v: jnp.ndarray) -> jnp.ndarray:
-        original_shape = jnp.shape(v)
-        assert(original_shape[0] == num_parameter_samples)
-        new_shape = (original_shape[0], num_record_samples_per_parameter_sample, *original_shape[1:])
-        v = jnp.repeat(v, num_record_samples_per_parameter_sample, axis=0)
-        v = jnp.reshape(v, new_shape)
-        return v
+    #def _reshape_parameter_value(v: jnp.ndarray) -> jnp.ndarray:
+    #    original_shape = jnp.shape(v)
+    #    assert(original_shape[0] == num_parameter_samples)
+    #    new_shape = (original_shape[0], num_record_samples_per_parameter_sample, *original_shape[1:])
+    #    v = jnp.repeat(v, num_record_samples_per_parameter_sample, axis=0)
+    #    v = jnp.reshape(v, new_shape)
+    #    return v
 
-    parameter_samples = {
-        k: _reshape_parameter_value(v)
-        for k, v in parameter_samples.items()
-    }
+    #parameter_samples = {
+    #    k: _reshape_parameter_value(v)
+    #    for k, v in parameter_samples.items()
+    #}
 
-    posterior_samples = Predictive(
-        model, posterior_samples=parameter_samples, batch_ndims=2
-    )(record_sampling_rng)
+    #posterior_samples = Predictive(
+    #    model, posterior_samples=parameter_samples, batch_ndims=2
+    #)(record_sampling_rng)
+
+    ###
+    posterior_sampler = Predictive(guide, posterior_params, num_samples=1)
+
+    @jax.jit
+    def sample_from_ppd(rng_key):
+        parameter_sampling_rng, record_sampling_rng = jax.random.split(rng_key)
+        posterior_samples = posterior_sampler(parameter_sampling_rng)
+        posterior_samples = {k: v.squeeze(0) for k,v in posterior_samples.items()}
+        ppd_sampler = Predictive(model, posterior_samples, batch_ndims=0)
+        per_sample_rngs = jax.random.split(record_sampling_rng, num_record_samples_per_parameter_sample)
+        ppd_samples = jax.vmap(ppd_sampler)(per_sample_rngs)
+        ppd_samples = {k: v.squeeze(1) for k, v in ppd_samples.items()}
+        return ppd_samples
+
+    per_parameter_rngs = jax.random.split(sampling_rng, num_parameter_samples)
+    ppd_samples = jax.vmap(sample_from_ppd)(per_parameter_rngs)
+    ###
 
     return posterior_samples
 
