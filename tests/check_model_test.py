@@ -119,6 +119,17 @@ class CheckModelTests(unittest.TestCase):
         self.verify_output(output, "okay")
         self.assertEqual(retcode, 0)
 
+    def test_model_factory_with_guide(self):
+        retcode, output = self.run_check_model('model_factory_with_guide.py')
+        self.verify_output(output, "okay")
+        self.assertEqual(retcode, 0)
+
+    def test_model_factory_with_autoguide(self):
+        retcode, output = self.run_check_model('model_factory_with_autoguide.py')
+        self.verify_output(output, "okay")
+        self.assertEqual(retcode, 0)
+
+
     def test_model_factory_broken(self):
         retcode, output = self.run_check_model('model_factory_broken.py')
         self.verify_output(output, "FACTORY", "AttributeError", "unspecified_arg")
@@ -130,6 +141,6 @@ class CheckModelTests(unittest.TestCase):
         self.assertNotEqual(retcode, 0)
 
     def test_model_factory_wrong_returns(self):
-        retcode, output = self.run_check_model('model_factory_wrong_returns.py')
-        self.verify_output(output, "MODEL", "must be a function")
+        retcode, output = self.run_check_model('model_factory_wrong_returns_none.py')
+        self.verify_output(output, "FACTORY", "either a model function or a tuple")
         self.assertNotEqual(retcode, 0)
