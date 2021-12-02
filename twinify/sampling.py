@@ -33,48 +33,37 @@ def sample_synthetic_data(
     Returns a dictionary jnp.arrays of synthetic data samples for each sample site in the model.
     Each of these has shape (num_parameter_samples, num_synthetic_records_per_parameter_sample, *sample_site_shape)
     """
-    #parameter_sampling_rng, record_sampling_rng = jax.random.split(sampling_rng)
-
-    #parameter_samples = Predictive(
-    #    guide, params=posterior_params, num_samples=num_parameter_samples
-    #)(parameter_sampling_rng)
-
-    #def _reshape_parameter_value(v: jnp.ndarray) -> jnp.ndarray:
-    #    original_shape = jnp.shape(v)
-    #    assert(original_shape[0] == num_parameter_samples)
-    #    new_shape = (original_shape[0], num_record_samples_per_parameter_sample, *original_shape[1:])
-    #    v = jnp.repeat(v, num_record_samples_per_parameter_sample, axis=0)
-    #    v = jnp.reshape(v, new_shape)
-    #    return v
-
-    #parameter_samples = {
-    #    k: _reshape_parameter_value(v)
-    #    for k, v in parameter_samples.items()
-    #}
-
-    #posterior_samples = Predictive(
-    #    model, posterior_samples=parameter_samples, batch_ndims=2
-    #)(record_sampling_rng)
-
-    ###
-    posterior_sampler = Predictive(guide, posterior_params, num_samples=1)
 
     @jax.jit
     def sample_from_ppd(rng_key):
+        """ Samples a single parameter vector and
+            num_record_samples_per_parameter_sample based on it.
+        """
         parameter_sampling_rng, record_sampling_rng = jax.random.split(rng_key)
+
+        # sample single parameter vector
+        posterior_sampler = Predictive(
+            guide, params=posterior_params, num_samples=1
+        )
         posterior_samples = posterior_sampler(parameter_sampling_rng)
+        # models always add a superfluous batch dimensions, squeeze it
         posterior_samples = {k: v.squeeze(0) for k,v in posterior_samples.items()}
+
+        # sample num_record_samples_per_parameter_sample data samples
         ppd_sampler = Predictive(model, posterior_samples, batch_ndims=0)
-        per_sample_rngs = jax.random.split(record_sampling_rng, num_record_samples_per_parameter_sample)
+        per_sample_rngs = jax.random.split(
+            record_sampling_rng, num_record_samples_per_parameter_sample
+        )
         ppd_samples = jax.vmap(ppd_sampler)(per_sample_rngs)
+        # models always add a superfluous batch dimensions, squeeze it
         ppd_samples = {k: v.squeeze(1) for k, v in ppd_samples.items()}
+
         return ppd_samples
 
     per_parameter_rngs = jax.random.split(sampling_rng, num_parameter_samples)
     ppd_samples = jax.vmap(sample_from_ppd)(per_parameter_rngs)
-    ###
 
-    return posterior_samples
+    return ppd_samples
 
 PreparedPostprocessFunction = Callable[[Dict[str, jnp.ndarray]], pd.DataFrame]
 
