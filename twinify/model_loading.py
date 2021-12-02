@@ -20,7 +20,7 @@ TPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame], Tuple[pd.
 TOldPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
 TModelFunction = Callable
 TGuideFunction = Callable
-TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], pd.DataFrame], TModelFunction]
+TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], pd.DataFrame], Union[TModelFunction, Tuple[TModelFunction, TGuideFunction]]]
 
 
 class ModelException(Exception):
@@ -187,29 +187,43 @@ def load_custom_numpyro_model(
         raise NumpyroModelParsingException("Unable to read the specified file as a Python module.", e) from e
 
     # load the model function from the module
+    model = None
+    guide = None
     try: model = model_module.model
     except AttributeError:
+        # model file did not directly contain a model function; check if it has model_factory
         try:
             model_factory = model_module.model_factory
         except AttributeError:
             raise NumpyroModelParsingException("Model module does neither specify a 'model' nor a 'model_factory' function.")
         try:
-            model = model_factory(args, unknown_args, orig_data)
+            model_factory_return = model_factory(args, unknown_args, orig_data)
         except TypeError as e:
             if str(e).find('positional argument') != -1:
                 raise ModelException("FAILED IN MODEL FACTORY", f"Custom model_factory functions must accept a namespace of parsed arguments, an iterable of unparsed arguments and a pandas.DataFrame as arguments.")
             raise e
         except Exception as e:
             raise ModelException('FAILED IN MODEL FACTORY', base_exception=e) from e
+
+        # determine whether model_factory returned model function or (model, guide) tuple
+        if (type(model_factory_return) is tuple
+                and isinstance(model_factory_return[0], TModelFunction)
+                and isinstance(model_factory_return[1], TGuideFunction)):
+            model, guide = model_factory_return
+        elif isinstance(model_factory_return, TModelFunction):
+            model = model_factory_return
+        else:
+            raise ModelException('FAILED IN MODEL FACTORY', f"Custom model_factory functions must return either a model function or a tuple consisting of model and guide function, but returned {type(model_factory_return)}.")
     except Exception as e: raise NumpyroModelParsingUnknownException('model', e) from e
 
     if not isinstance(model, Callable):
         raise NumpyroModelParsingException(f"'model' must be a function; got {type(model)}")
     model = guard_model(model)
 
-    try: guide = model_module.guide
-    except AttributeError: guide = AutoDiagonalNormal(model)
-    except Exception as e: raise NumpyroModelParsingUnknownException('guide', e) from e
+    if guide is None:
+        try: guide = model_module.guide
+        except AttributeError: guide = AutoDiagonalNormal(model)
+        except Exception as e: raise NumpyroModelParsingUnknownException('guide', e) from e
 
     # try to obtain preprocessing function from custom model
     try: preprocess_fn = guard_preprocess(model_module.preprocess)

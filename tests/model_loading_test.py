@@ -319,6 +319,50 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.assertEqual(samples_no_obs['x']['value'].shape, (1, 2))
         self.assertFalse(np.allclose(samples_no_obs['x']['value'], z))
 
+    def test_load_numpyro_model_model_factory_with_guide(self):
+        orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        model, guide, preprocess, postprocess = load_custom_numpyro_model(
+            './tests/models/model_factory_with_guide.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
+        )
+        self.assertIsNotNone(model)
+        self.assertIsNotNone(guide)
+        self.assertIsNotNone(preprocess)
+        self.assertIsNotNone(postprocess)
+        z = orig_data.to_numpy()
+        guide_samples_with_obs = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
+        self.assertEqual(guide_samples_with_obs['mu']['value'].shape, (2,))
+        guide_samples_no_obs = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(num_obs_total=10)
+        self.assertEqual(guide_samples_no_obs['mu']['value'].shape, (2,))
+
+        samples_with_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
+        self.assertTrue(np.allclose(samples_with_obs['x']['value'], z))
+        samples_no_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(num_obs_total=10)
+        self.assertEqual(samples_no_obs['x']['value'].shape, (1, 2))
+        self.assertFalse(np.allclose(samples_no_obs['x']['value'], z))
+
+    def test_load_numpyro_model_model_factory_with_autoguide(self):
+        orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        model, guide, preprocess, postprocess = load_custom_numpyro_model(
+            './tests/models/model_factory_with_autoguide.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
+        )
+        self.assertIsNotNone(model)
+        self.assertIsNotNone(guide)
+        self.assertIsNotNone(preprocess)
+        self.assertIsNotNone(postprocess)
+        z = orig_data.to_numpy()
+        guide_samples_with_obs = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
+        self.assertEqual(guide_samples_with_obs['guide_loc']['value'].shape, (4,)) # 2 parameters (mu, sigma) with 2 dimensions each
+        self.assertEqual(guide_samples_with_obs['guide_scale']['value'].shape, (4,))
+        guide_samples_no_obs = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(num_obs_total=10)
+        self.assertEqual(guide_samples_no_obs['guide_loc']['value'].shape, (4,))
+        self.assertEqual(guide_samples_no_obs['guide_scale']['value'].shape, (4,))
+
+        samples_with_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
+        self.assertTrue(np.allclose(samples_with_obs['x']['value'], z))
+        samples_no_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(num_obs_total=10)
+        self.assertEqual(samples_no_obs['x']['value'].shape, (1, 2))
+        self.assertFalse(np.allclose(samples_no_obs['x']['value'], z))
+
     def test_load_numpyro_model_model_factory_broken(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         try:
@@ -344,14 +388,26 @@ class NumpyroModelLoadingTests(unittest.TestCase):
             self.fail(f"load_custom_numpyro_model did raise for wrong signature in model_factory, but did not give expected explanation; got: {e.format_message('')}")
         self.fail(f"load_custom_numpyro_model did not raise for wrong signature in model_factory")
 
-    def test_load_numpyro_model_model_factory_wrong_returns(self):
+    def test_load_numpyro_model_model_factory_wrong_returns_none(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         try:
             load_custom_numpyro_model(
-                './tests/models/model_factory_wrong_returns.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
+                './tests/models/model_factory_wrong_returns_none.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
             )
         except ModelException as e:
-            if e.title.find('model'.upper()) != -1 and e.msg.find('must be a function') != -1:
+            if e.title.find('model factory'.upper()) != -1 and e.msg.find('either a model function or a tuple') != -1:
+                return
+            self.fail(f"load_custom_numpyro_model did raise for wrong returns in model_factory, but did not give expected explanation; got: {e.format_message('')}")
+        self.fail(f"load_custom_numpyro_model did not raise for wrong returns in model_factory")
+
+    def test_load_numpyro_model_model_factory_wrong_returns_bad_tuple(self):
+        orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        try:
+            load_custom_numpyro_model(
+                './tests/models/model_factory_wrong_returns_bad_tuple.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
+            )
+        except ModelException as e:
+            if e.title.find('model factory'.upper()) != -1 and e.msg.find('either a model function or a tuple') != -1:
                 return
             self.fail(f"load_custom_numpyro_model did raise for wrong returns in model_factory, but did not give expected explanation; got: {e.format_message('')}")
         self.fail(f"load_custom_numpyro_model did not raise for wrong returns in model_factory")
