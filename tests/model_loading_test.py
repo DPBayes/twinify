@@ -331,8 +331,10 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         z = orig_data.to_numpy()
         guide_samples_with_obs = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
         self.assertEqual(guide_samples_with_obs['mu']['value'].shape, (2,))
+        self.assertEqual(guide_samples_with_obs['sigma']['value'].shape, (2,))
         guide_samples_no_obs = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(num_obs_total=10)
         self.assertEqual(guide_samples_no_obs['mu']['value'].shape, (2,))
+        self.assertEqual(guide_samples_no_obs['sigma']['value'].shape, (2,))
 
         samples_with_obs = trace(seed(model, jax.random.PRNGKey(0))).get_trace(z, num_obs_total=10)
         self.assertTrue(np.allclose(samples_with_obs['x']['value'], z))

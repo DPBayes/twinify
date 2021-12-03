@@ -37,6 +37,7 @@ def model_factory(twinify_args: argparse.Namespace, unparsed_args: Iterable[str]
 
         mu_param = param('mu_param', 0.)
         sample('mu', dists.Normal(mu_param, 1.).expand_by((d,)).to_event(1))
+        sample('sigma', dists.InverseGamma(1.).expand_by((d,)).to_event(1))
 
     return model, guide
 
