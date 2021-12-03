@@ -25,9 +25,9 @@ As the learning of the model is done under differential privacy, the sampled dat
 **NOTE**: Twinify *currently is not available for Python 3.9*. Please **use Python 3.7 or 3.8** for now.
 This is due to some dependencies not being available in the required versions there. We are hoping to resolve this issue soon.
 
-Twinify will appear on the Python Package Index soon. Until then, install directly from github via `pip`. For the latest release bundle use
+Twinify is currently not listed on the Python Package Index (pypi). Please install directly from github via `pip`. For the latest release bundle use
 ```
-pip install git+https://github.com/DPBayes/twinify.git@v0.1.2
+pip install git+https://github.com/DPBayes/twinify.git@v0.1.2 -f https://storage.googleapis.com/jax-releases/jax_releases.html
 ```
 
 
@@ -36,7 +36,7 @@ or installed from the cloned repository for the current development version:
 ```
 git clone https://github.com/DPBayes/twinify
 cd twinify
-pip install .
+pip install . -f https://storage.googleapis.com/jax-releases/jax_releases.html
 ```
 
 ## Using Twinify
