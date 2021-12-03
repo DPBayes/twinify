@@ -24,6 +24,7 @@ setuptools.setup(
     ],
     extras_require = {
         'examples': [
+            'openpyxl',
             'xlrd',
             'scikit-learn'
         ],
