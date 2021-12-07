@@ -97,12 +97,11 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
         try:
             prior_samples = Predictive(model, num_samples = num_data)(jax.random.PRNGKey(0))
         except Exception as e: raise ModelException("Error while obtaining prior samples from model", base_exception=e)
-
         try:
             parameter_sites = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(*zeroed_train_data)
         except Exception as e: raise ModelException("Error while determining the sampling sites of parameter priors")
         parameter_sites = parameter_sites.keys()
-        prior_samples = {site: samples for site, samples in prior_samples.items() if site not in parameter_sites}
+        prior_samples = {site: samples.squeeze(1) for site, samples in prior_samples.items() if site not in parameter_sites}
 
         print("Transforming prior samples to output domain to obtain dummy data (using postprocess)")
         _, syn_prior_encoded = postprocess_fn(prior_samples, df, feature_names)

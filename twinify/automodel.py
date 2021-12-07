@@ -359,6 +359,10 @@ class TypedDistribution(dists.Distribution):
         self.dtype = dtype
         self.base_dist = base_dist
 
+    @property
+    def support(self):
+        return self.base_dist.support
+
     def log_prob(self, value):
         log_prob = self.base_dist.log_prob(value.astype(self.dtype))
         return log_prob
@@ -427,7 +431,7 @@ def postprocess_function_factory(features):
     def postprocess_fn(
             posterior_samples: Dict[str, np.array], ori_df: pd.DataFrame, feature_names: Sequence[int]
         ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        syn_data = np.squeeze(posterior_samples['x'], 1)
+        syn_data = posterior_samples['x']
         syn_df = pd.DataFrame(syn_data, columns = feature_names)
         encoded_syn_df = syn_df.copy()
         for feature in features:

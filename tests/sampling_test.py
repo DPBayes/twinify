@@ -25,7 +25,7 @@ class SamplingTests(unittest.TestCase):
     def test_sampling(self) -> None:
         samples = sample_synthetic_data(model, guide, {}, jax.random.PRNGKey(0), 2, 3)
         self.assertEqual(set(samples.keys()), {'x'})
-        self.assertEqual(samples['x'].shape, (2, 3, 1, 5))
+        self.assertEqual(samples['x'].shape, (2, 3, 5))
 
     def test_reshape_and_postprocess_combined(self) -> None:
         samples = sample_synthetic_data(model, guide, {}, jax.random.PRNGKey(0), 2, 3)
