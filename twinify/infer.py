@@ -76,7 +76,7 @@ def _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs, si
 
     return svi.get_params(svi_state), loss
 
-def train_model(rng, rng_suite, model, guide, data, batch_size, num_data, dp_scale, num_epochs, clipping_threshold=1.):
+def train_model(rng, rng_suite, model, guide, data, batch_size, num_data, dp_scale, num_epochs, clipping_threshold=1., pre_clipping_noise=None):
     """ trains a given model using DPSVI and the globally defined parameters and data """
 
     optimizer = Adam(1e-3)
@@ -84,7 +84,7 @@ def train_model(rng, rng_suite, model, guide, data, batch_size, num_data, dp_sca
     svi = DPSVI(
         model, guide, optimizer, Trace_ELBO(),
         num_obs_total=num_data, clipping_threshold=clipping_threshold,
-        dp_scale=dp_scale, rng_suite=rng_suite
+        dp_scale=dp_scale, rng_suite=rng_suite, pre_clipping_noise_scale=pre_clipping_noise
     )
 
     return _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs)

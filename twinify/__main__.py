@@ -61,6 +61,7 @@ parser.add_argument("--drop_na", default=0, type=int, help="Remove missing value
 parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
 parser.add_argument("--no-privacy", default=False, action='store_true', help="Turn off all privacy features. Intended FOR DEBUGGING ONLY!")
 parser.add_argument("--separate_output", default=False, action='store_true', help="Store synthetic data in separate files per parameter sample.")
+parser.add_argument("--pre_clipping_noise", default=None, type=float, help="Noise to apply to individual gradients before clipping to mitigate clipping-induced bias.")
 parser.add_argument("--version", action='version', version=__version__)
 
 def initialize_rngs(seed):
@@ -202,7 +203,8 @@ def main():
                 num_data=num_data,
                 num_epochs=args.num_epochs,
                 dp_scale=dp_sigma,
-                clipping_threshold=args.clipping_threshold
+                clipping_threshold=args.clipping_threshold,
+                pre_clipping_noise=args.pre_clipping_noise
             )
         else:
             print("!!!!! WARNING !!!!! PRIVACY FEATURES HAVE BEEN DISABLED!")

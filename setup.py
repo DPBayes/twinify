@@ -24,7 +24,7 @@ setuptools.setup(
     python_requires='>=3.7',
     install_requires=[
         'pandas',
-        'd3p @ git+https://github.com/DPBayes/d3p.git@1.0.0-rc.2#egg=d3p',
+        'd3p @ git+https://github.com/DPBayes/d3p.git@clipping_bias_mitigation#egg=d3p',
     ],
     extras_require = {
         'examples': [
