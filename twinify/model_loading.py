@@ -1,4 +1,5 @@
 
+from ast import Call
 import importlib.util
 import inspect
 from re import A
@@ -10,9 +11,12 @@ from twinify import automodel
 from numpyro.infer.autoguide import AutoDiagonalNormal
 import os
 import argparse
+from collections import namedtuple
 
 __all__ = ['load_custom_numpyro_model', 'ModelException', 'NumpyroModelParsingUnknownException', 'NumpyroModelParsingException']
 
+DataDescription = namedtuple("DataDescription", ["dtypes", "shape"])
+TDataLoadingFunction = Callable[[str], pd.DataFrame]
 TPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int]]
 TWrappedPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int, Sequence[str]]]
 TWrappedPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame, Sequence[str]], Tuple[pd.DataFrame, pd.DataFrame]]
@@ -21,6 +25,11 @@ TOldPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
 TModelFunction = Callable
 TGuideFunction = Callable
 TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], pd.DataFrame], Union[TModelFunction, Tuple[TModelFunction, TGuideFunction]]]
+TLoadModelAndGuideFunction = Callable[[DataDescription], Tuple[TModelFunction, TGuideFunction]]
+
+TwinifyRunResult = namedtuple('TwinifyRunResult',
+    ('model_params', 'elbo', 'twinify_args', 'unknown_args', 'twinify_version', 'data_description')
+)
 
 
 class ModelException(Exception):
@@ -165,9 +174,39 @@ def guard_model(model_fn: TModelFunction) -> TModelFunction:
             raise ModelException("FAILED IN MODEL", base_exception=e) from e
     return wrapped_model
 
+
+def guard_data_loading_function(data_loading_fn: Callable) -> TDataLoadingFunction:
+    def wrapped_loading_function(data_path: str) -> pd.DataFrame:
+        try:
+            ret = data_loading_fn(data_path)
+        except FileNotFoundError:
+            raise
+        except TypeError as e:
+            raise ModelException("FAILED WHILE LOADING DATA", f"Custom loading functions must accept one positional parameter indicating the path of the file to load", base_exception=e) from e
+        except Exception as e:
+            raise ModelException("FAILED WHILE LOADING DATA", base_exception=e) from e
+
+        if not isinstance(ret, pd.DataFrame):
+            raise ModelException("FAILED WHILE LOADING DATA", f"Custom loading functions must return a pandas DataFrame, instead it returned a {type(ret)}")
+        return ret
+    return wrapped_loading_function
+
+
+@guard_data_loading_function
+def default_data_loading_function(data_path: str) -> pd.DataFrame:
+    return pd.read_csv(data_path)
+
+
+def get_data_description(df: pd.DataFrame) -> DataDescription:
+    return DataDescription(
+        {col: df[col].dtype for col in df.columns},
+        df.shape
+    )
+
+
 def load_custom_numpyro_model(
-        model_path: str, args: argparse.Namespace, unknown_args: Iterable[str], orig_data: pd.DataFrame
-    ) -> Tuple[TModelFunction, TGuideFunction, TWrappedPreprocessFunction, TWrappedPostprocessFunction]:
+        model_path: str, args: argparse.Namespace, unknown_args: Iterable[str]#, orig_data: pd.DataFrame
+    ) -> Tuple[TDataLoadingFunction, TLoadModelAndGuideFunction, TWrappedPreprocessFunction, TWrappedPreprocessFunction]:
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(model_path)
@@ -179,44 +218,70 @@ def load_custom_numpyro_model(
     except Exception as e: # handling errors in py-file parsing
         raise NumpyroModelParsingException("Unable to read the specified file as a Python module.", e) from e
 
-    # load the model function from the module
-    model = None
-    guide = None
-    try: model = model_module.model
+    # load data loading function
+    data_loading_fn = None
+    try:
+        data_loading_fn = guard_data_loading_function(model_module.load_data)
     except AttributeError:
-        # model file did not directly contain a model function; check if it has model_factory
-        try:
-            model_factory = model_module.model_factory
+        data_loading_fn = default_data_loading_function
+
+    def guard_model_and_guide(model: TModelFactoryFunction, guide: TGuideFunction) -> Tuple[TModelFunction, TGuideFunction]:
+        if not isinstance(model, Callable):
+            raise NumpyroModelParsingException(f"'model' must be a function; got {type(model)}")
+        model = guard_model(model)
+
+        if guide is None: guide = AutoDiagonalNormal(model)
+        if not isinstance(guide, Callable):
+            raise NumpyroModelParsingException(f"'guide' must be a function; got {type(guide)}")
+
+        return model, guide
+
+    # load the model function from the module
+    load_model_and_guide_fn = None
+    try:
+        model_factory = model_module.model_factory
+
+        def load_model_and_guide_from_factory(data_dtypes: DataDescription) -> Tuple[TModelFunction, TGuideFunction]:
+            try:
+                model_factory_return = model_factory(args, unknown_args, data_dtypes)
+            except TypeError as e:
+                if str(e).find('positional argument') != -1:
+                    raise ModelException("FAILED IN MODEL FACTORY", f"Custom model_factory functions must accept a namespace of parsed arguments, an iterable of unparsed arguments and a pandas.DataFrame as arguments.")
+                raise e
+            except Exception as e:
+                raise ModelException('FAILED IN MODEL FACTORY', base_exception=e) from e
+
+            # determine whether model_factory returned model function or (model, guide) tuple
+            if (type(model_factory_return) is tuple
+                    and isinstance(model_factory_return[0], TModelFunction)
+                    and isinstance(model_factory_return[1], TGuideFunction)):
+                model, guide = model_factory_return
+            elif isinstance(model_factory_return, TModelFunction):
+                model = model_factory_return
+                guide = None
+            else:
+                raise ModelException('FAILED IN MODEL FACTORY', f"Custom model_factory functions must return either a model function or a tuple consisting of model and guide function, but returned {type(model_factory_return)}.")
+
+            return guard_model_and_guide(model, guide)
+
+        load_model_and_guide_fn = load_model_and_guide_from_factory
+
+    except AttributeError:
+        # model file did not contain a model_factory; check whether it specifies model and guide directly
+        model = None
+        guide = None
+        try: model = model_module.model
         except AttributeError:
             raise NumpyroModelParsingException("Model module does neither specify a 'model' nor a 'model_factory' function.")
-        try:
-            model_factory_return = model_factory(args, unknown_args, orig_data)
-        except TypeError as e:
-            if str(e).find('positional argument') != -1:
-                raise ModelException("FAILED IN MODEL FACTORY", f"Custom model_factory functions must accept a namespace of parsed arguments, an iterable of unparsed arguments and a pandas.DataFrame as arguments.")
-            raise e
-        except Exception as e:
-            raise ModelException('FAILED IN MODEL FACTORY', base_exception=e) from e
+        except Exception as e: raise NumpyroModelParsingUnknownException('model', e) from e
 
-        # determine whether model_factory returned model function or (model, guide) tuple
-        if (type(model_factory_return) is tuple
-                and isinstance(model_factory_return[0], TModelFunction)
-                and isinstance(model_factory_return[1], TGuideFunction)):
-            model, guide = model_factory_return
-        elif isinstance(model_factory_return, TModelFunction):
-            model = model_factory_return
-        else:
-            raise ModelException('FAILED IN MODEL FACTORY', f"Custom model_factory functions must return either a model function or a tuple consisting of model and guide function, but returned {type(model_factory_return)}.")
-    except Exception as e: raise NumpyroModelParsingUnknownException('model', e) from e
-
-    if not isinstance(model, Callable):
-        raise NumpyroModelParsingException(f"'model' must be a function; got {type(model)}")
-    model = guard_model(model)
-
-    if guide is None:
         try: guide = model_module.guide
-        except AttributeError: guide = AutoDiagonalNormal(model)
-        except Exception as e: raise NumpyroModelParsingUnknownException('guide', e) from e
+        except AttributeError: guide = None
+
+        # model_factory = lambda twinify_args, unknown_args, data_dtypes: (model, guide)
+        load_model_and_guide_fn = lambda _: guard_model_and_guide(model, guide) # type: TLoadModelAndGuideFunction
+
+    except Exception as e: raise NumpyroModelParsingUnknownException('model_factory', e) from e
 
     # try to obtain preprocessing function from custom model
     try: preprocess_fn = guard_preprocess(model_module.preprocess)
@@ -231,4 +296,4 @@ def load_custom_numpyro_model(
         postprocess_fn = automodel.postprocess_function_factory([])
     except Exception as e: raise NumpyroModelParsingUnknownException('postprocess', e) from e
 
-    return model, guide, preprocess_fn, postprocess_fn
+    return data_loading_fn, load_model_and_guide_fn, preprocess_fn, postprocess_fn

@@ -144,3 +144,28 @@ class CheckModelTests(unittest.TestCase):
         retcode, output = self.run_check_model('model_factory_wrong_returns_none.py')
         self.verify_output(output, "FACTORY", "either a model function or a tuple")
         self.assertNotEqual(retcode, 0)
+
+    def test_load_numpyro_model_load_data_from_custom_model(self):
+        retcode, output = self.run_check_model('load_data.py')
+        self.verify_output(output, "okay")
+        self.assertEqual(retcode, 0)
+
+    def test_load_numpyro_model_load_data_file_not_found(self):
+        retcode, output = self.run_check_model('load_data.py', data_file='does_not_exist.csv')
+        self.verify_output(output, "READ DATA")
+        self.assertNotEqual(retcode, 0)
+
+    def test_load_numpyro_model_load_data_wrong_signature(self):
+        retcode, output = self.run_check_model('load_data_wrong_signature.py')
+        self.verify_output(output, "LOADING", "must accept one positional parameter")
+        self.assertNotEqual(retcode, 0)
+
+    def test_load_numpyro_model_load_data_wrong_returns(self):
+        retcode, output = self.run_check_model('load_data_wrong_returns.py')
+        self.verify_output(output, "LOADING", "must return a pandas DataFrame")
+        self.assertNotEqual(retcode, 0)
+
+    def test_load_numpyro_model_load_data_exception(self):
+        retcode, output = self.run_check_model('load_data_exception.py')
+        self.verify_output(output, "LOADING", "Uncategorised error")
+        self.assertNotEqual(retcode, 0)

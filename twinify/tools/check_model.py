@@ -31,7 +31,7 @@ from numpyro.handlers import trace, seed
 from numpyro.infer import Predictive
 import d3p.random
 from twinify.infer import train_model_no_dp
-from twinify.model_loading import ModelException, load_custom_numpyro_model
+from twinify.model_loading import ModelException, get_data_description, load_custom_numpyro_model
 from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
 
 def setup_argument_parser(parser: argparse.ArgumentParser) -> None:
@@ -57,26 +57,13 @@ def setup_argument_parser(parser: argparse.ArgumentParser) -> None:
 
 
 def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
-    # read data
-    try:
-        df = pd.read_csv(args.data_path)
-    except Exception as e:
-        print("#### UNABLE TO READ DATA FILE ####")
-        print(e)
-        exit(1)
-
     args = argparse.Namespace(**vars(args), output_path='')
-
-    train_df = df.copy()
-    if args.drop_na:
-        train_df = train_df.dropna()
-    num_data = 100
 
     try:
         # loading the model
         if args.model_path[-3:] == '.py':
             try:
-                model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args, train_df)
+                load_data, load_model_and_guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args)
             except (ModuleNotFoundError, FileNotFoundError) as e:
                 print("#### COULD NOT FIND THE MODEL FILE ####")
                 print(e)
@@ -84,6 +71,22 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
         else:
             print("#### loading txt file model currently not supported ####")
             exit(2)
+
+        try:
+            df = load_data(args.data_path)
+        except Exception as e:
+            print("#### UNABLE TO READ DATA FILE ####")
+            print(e)
+            exit(1)
+
+        # read data
+        train_df = df.copy()
+        if args.drop_na:
+            train_df = train_df.dropna()
+        num_data = 100
+
+        data_description = get_data_description(train_df)
+        model, guide = load_model_and_guide(data_description)
 
         print("Extracting relevant features from data (using preprocess)")
         zeroed_train_data, _, feature_names = preprocess_fn(train_df.iloc[:2])

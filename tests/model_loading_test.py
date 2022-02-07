@@ -3,26 +3,26 @@ import pandas as pd
 import numpy as np
 from numpyro.handlers import seed, trace
 import jax
-from twinify.model_loading import load_custom_numpyro_model, ModelException
+from twinify.model_loading import DataDescription, get_data_description, load_custom_numpyro_model, ModelException
 from argparse import Namespace
 
 class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_file_not_found(self):
         with self.assertRaises(FileNotFoundError):
-            load_custom_numpyro_model('./tests/models/does_not_exist', Namespace(), [], pd.DataFrame())
+            load_custom_numpyro_model('./tests/models/does_not_exist', Namespace(), [])
 
     def test_load_numpyro_model_no_model_fn(self):
         with self.assertRaisesRegex(ModelException, "does neither specify a 'model'"):
-            load_custom_numpyro_model('./tests/models/empty_model.py', Namespace(), [], pd.DataFrame())
+            load_custom_numpyro_model('./tests/models/empty_model.py', Namespace(), [])
 
     def test_load_numpyro_model_not_a_module(self):
         with self.assertRaisesRegex(ModelException, "as a Python module"):
-            load_custom_numpyro_model('./tests/models/gauss_data.csv', Namespace(), [], pd.DataFrame())
+            load_custom_numpyro_model('./tests/models/gauss_data.csv', Namespace(), [])
 
     def test_load_numpyro_model_with_syntax_error(self):
         try:
-            load_custom_numpyro_model('./tests/models/syntax_error.py', Namespace(), [], pd.DataFrame())
+            load_custom_numpyro_model('./tests/models/syntax_error.py', Namespace(), [])
         except ModelException as e:
             if isinstance(e.base, SyntaxError):
                 return # = success here; otherwise, fall through to next line
@@ -33,7 +33,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess.py', Namespace(), [])
         syn_data, encoded_syn_data = postprocess(samples, orig_data, feature_names)
         self.assertIsInstance(syn_data, pd.DataFrame)
         self.assertTrue(np.allclose(samples['x'][:,0], syn_data['first']))
@@ -46,7 +46,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2)), 'y': np.zeros((10,))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_multiple_sample_sites.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_multiple_sample_sites.py', Namespace(), [])
         syn_data, encoded_syn_data = postprocess(samples, orig_data, feature_names)
         self.assertIsInstance(syn_data, pd.DataFrame)
         self.assertTrue(np.allclose(samples['x'][:,0], syn_data['first']))
@@ -61,7 +61,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style.py', Namespace(), [])
         syn_data, encoded_syn_data = postprocess(samples, orig_data, feature_names)
         self.assertIsInstance(syn_data, pd.DataFrame)
         self.assertTrue(np.allclose(samples['x'][:,0], syn_data['first']))
@@ -74,7 +74,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_broken.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_broken.py', Namespace(), [])
         try:
             postprocess(samples, orig_data, feature_names)
         except ModelException as e: # check exception is raised
@@ -88,7 +88,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style_broken.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style_broken.py', Namespace(), [])
         try:
             postprocess(samples, orig_data, feature_names)
         except ModelException as e: # check exception is raised
@@ -102,7 +102,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'first': np.zeros((10,)), 'second': np.zeros((10,))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style.py', Namespace(), [])
         try:
             postprocess(samples, orig_data, feature_names)
         except ModelException as e:
@@ -115,7 +115,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_wrong_signature.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_wrong_signature.py', Namespace(), [])
         try:
             postprocess(samples, orig_data, feature_names)
         except ModelException as e: # check exception is raised
@@ -129,7 +129,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_wrong_returns.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_wrong_returns.py', Namespace(), [])
         try:
             postprocess(samples, orig_data, feature_names)
         except ModelException as e:
@@ -142,7 +142,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         samples = {'x': np.zeros((10,2))}
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
         feature_names = ['first', 'second']
-        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style_wrong_returns.py', Namespace(), [], orig_data)
+        _, _, _, postprocess = load_custom_numpyro_model('./tests/models/postprocess_old_style_wrong_returns.py', Namespace(), [])
         try:
             postprocess(samples, orig_data, feature_names)
         except ModelException as e:
@@ -154,7 +154,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
     #### TESTS FOR PREPROCESS LOADING AND ERROR WRAPPING
     def test_load_numpyro_model_with_broken_preprocess(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_broken.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_broken.py', Namespace(), [])
         try:
             preprocess(orig_data)
         except ModelException as e:
@@ -165,7 +165,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_old_style_preprocess(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_old_style.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_old_style.py', Namespace(), [])
         train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
@@ -177,7 +177,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_preprocess_single_return(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_single_return.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_single_return.py', Namespace(), [])
         train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
@@ -189,7 +189,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_preprocess_single_return_series(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_single_return_series.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_single_return_series.py', Namespace(), [])
         train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
@@ -200,7 +200,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_preprocess(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess.py', Namespace(), [])
         train_data, num_data, feature_names = preprocess(orig_data)
         self.assertEqual(10, num_data)
         self.assertIsInstance(train_data, tuple)
@@ -214,7 +214,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_with_preprocess_wrong_returns(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_wrong_returns.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_wrong_returns.py', Namespace(), [])
         try:
             preprocess(orig_data)
         except ModelException as e:
@@ -225,7 +225,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_with_preprocess_wrong_signature(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_wrong_signature.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_wrong_signature.py', Namespace(), [])
         try:
             preprocess(orig_data)
         except ModelException as e:
@@ -236,7 +236,7 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_with_preprocess_returns_array(self):
         orig_data = pd.DataFrame({'first': np.ones(10), 'second': np.zeros(10)})
-        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_returns_array.py', Namespace(), [], orig_data)
+        _, _, preprocess, _ = load_custom_numpyro_model('./tests/models/preprocess_returns_array.py', Namespace(), [])
         try:
             preprocess(orig_data)
         except ModelException as e:
@@ -248,7 +248,8 @@ class NumpyroModelLoadingTests(unittest.TestCase):
     #### TESTING MODEL LOADING AND ERROR WRAPPING
     def test_load_numpyro_model_simple_working_model(self):
         """ only verifies that no errors occur and all returned functions are not None """
-        model, guide, preprocess, postprocess = load_custom_numpyro_model('./tests/models/simple_gauss_model.py', Namespace(), [], pd.DataFrame())
+        _, load_model_and_guide, preprocess, postprocess = load_custom_numpyro_model('./tests/models/simple_gauss_model.py', Namespace(), [])
+        model, guide = load_model_and_guide(dict())
         self.assertIsNotNone(model)
         self.assertIsNotNone(guide)
         self.assertIsNotNone(preprocess)
@@ -261,7 +262,8 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.assertFalse(np.allclose(samples_no_obs['x']['value'], z))
 
     def test_load_numpyro_model_broken_model(self):
-        model, _, _, _ = load_custom_numpyro_model('./tests/models/simple_gauss_model_broken.py', Namespace(), [], pd.DataFrame())
+        _, load_model_and_guide, _, _ = load_custom_numpyro_model('./tests/models/simple_gauss_model_broken.py', Namespace(), [])
+        model, _ = load_model_and_guide(dict())
         z = np.ones((10, 2))
         try:
             seed(model, jax.random.PRNGKey(0))(z)
@@ -272,7 +274,8 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.fail(f"load_custom_numpyro_model did not raise for error in model")
 
     def test_load_numpyro_model_model_without_num_obs_total(self):
-        model, _, _, _ = load_custom_numpyro_model('./tests/models/simple_gauss_model_no_num_obs_total.py', Namespace(), [], pd.DataFrame())
+        _, load_model_and_guide, _, _ = load_custom_numpyro_model('./tests/models/simple_gauss_model_no_num_obs_total.py', Namespace(), [])
+        model, _ = load_model_and_guide(dict())
         z = np.ones((10, 2))
         try:
             seed(model, jax.random.PRNGKey(0))(z, num_obs_total=100)
@@ -283,7 +286,8 @@ class NumpyroModelLoadingTests(unittest.TestCase):
         self.fail(f"load_custom_numpyro_model did not raise for error in model")
 
     def test_load_numpyro_model_model_not_allowing_None_arguments(self):
-        model, _, _, _ = load_custom_numpyro_model('./tests/models/simple_gauss_model_no_none.py', Namespace(), [], pd.DataFrame())
+        _, load_model_and_guide, _, _ = load_custom_numpyro_model('./tests/models/simple_gauss_model_no_none.py', Namespace(), [])
+        model, _ = load_model_and_guide(dict())
         try:
             seed(model, jax.random.PRNGKey(0))(num_obs_total=100)
         except ModelException as e:
@@ -294,7 +298,8 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_model_not_a_function(self):
         try:
-            load_custom_numpyro_model('./tests/models/model_not_a_function.py', Namespace(), [], pd.DataFrame())
+            _, load_model_and_guide, _, _ = load_custom_numpyro_model('./tests/models/model_not_a_function.py', Namespace(), [])
+            load_model_and_guide(dict())
         except ModelException as e:
             if e.title.find('model'.upper()) != -1 and e.msg.find('must be a function') != -1:
                 return
@@ -305,9 +310,10 @@ class NumpyroModelLoadingTests(unittest.TestCase):
     #### TESTING MODEL FACTORY
     def test_load_numpyro_model_model_factory(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
-        model, guide, preprocess, postprocess = load_custom_numpyro_model(
-            './tests/models/model_factory.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
+        _, load_model_and_guide, preprocess, postprocess = load_custom_numpyro_model(
+            './tests/models/model_factory.py', Namespace(epsilon=1.), ['--prior_mu', '10']
         )
+        model, guide = load_model_and_guide(get_data_description(orig_data))
         self.assertIsNotNone(model)
         self.assertIsNotNone(guide)
         self.assertIsNotNone(preprocess)
@@ -321,9 +327,10 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_model_factory_with_guide(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
-        model, guide, preprocess, postprocess = load_custom_numpyro_model(
-            './tests/models/model_factory_with_guide.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
+        _, load_model_and_guide, preprocess, postprocess = load_custom_numpyro_model(
+            './tests/models/model_factory_with_guide.py', Namespace(epsilon=1.), ['--prior_mu', '10']
         )
+        model, guide = load_model_and_guide(get_data_description(orig_data))
         self.assertIsNotNone(model)
         self.assertIsNotNone(guide)
         self.assertIsNotNone(preprocess)
@@ -344,9 +351,10 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_model_factory_with_autoguide(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
-        model, guide, preprocess, postprocess = load_custom_numpyro_model(
-            './tests/models/model_factory_with_autoguide.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
+        _, load_model_and_guide, preprocess, postprocess = load_custom_numpyro_model(
+            './tests/models/model_factory_with_autoguide.py', Namespace(epsilon=1.), ['--prior_mu', '10']
         )
+        model, guide = load_model_and_guide(get_data_description(orig_data))
         self.assertIsNotNone(model)
         self.assertIsNotNone(guide)
         self.assertIsNotNone(preprocess)
@@ -367,10 +375,11 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_model_factory_broken(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        _, load_model_and_guide, _, _ = load_custom_numpyro_model(
+            './tests/models/model_factory_broken.py', Namespace(epsilon=1.), ['--prior_mu', '10']
+        )
         try:
-            load_custom_numpyro_model(
-                './tests/models/model_factory_broken.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
-            )
+            load_model_and_guide(get_data_description(orig_data))
         except ModelException as e:
             print(e.title)
             if e.title.find('model factory'.upper()) != -1:
@@ -380,10 +389,11 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_model_factory_wrong_signature(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        _, load_model_and_guide, _, _ = load_custom_numpyro_model(
+            './tests/models/model_factory_wrong_signature.py', Namespace(epsilon=1.), ['--prior_mu', '10']
+        )
         try:
-            load_custom_numpyro_model(
-                './tests/models/model_factory_wrong_signature.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
-            )
+            load_model_and_guide(get_data_description(orig_data))
         except ModelException as e:
             if e.title.find('model factory'.upper()) != -1 and e.msg.find('as argument') != -1:
                 return
@@ -392,10 +402,11 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_model_factory_wrong_returns_none(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        _, load_model_and_guide, _, _ = load_custom_numpyro_model(
+            './tests/models/model_factory_wrong_returns_none.py', Namespace(epsilon=1.), ['--prior_mu', '10']
+        )
         try:
-            load_custom_numpyro_model(
-                './tests/models/model_factory_wrong_returns_none.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
-            )
+            load_model_and_guide(get_data_description(orig_data))
         except ModelException as e:
             if e.title.find('model factory'.upper()) != -1 and e.msg.find('either a model function or a tuple') != -1:
                 return
@@ -404,16 +415,63 @@ class NumpyroModelLoadingTests(unittest.TestCase):
 
     def test_load_numpyro_model_model_factory_wrong_returns_bad_tuple(self):
         orig_data = pd.DataFrame({'first': np.zeros(10), 'second': np.ones(10)})
+        _, load_model_and_guide, _, _ = load_custom_numpyro_model(
+            './tests/models/model_factory_wrong_returns_bad_tuple.py', Namespace(epsilon=1.), ['--prior_mu', '10']
+        )
         try:
-            load_custom_numpyro_model(
-                './tests/models/model_factory_wrong_returns_bad_tuple.py', Namespace(epsilon=1.), ['--prior_mu', '10'], orig_data
-            )
+            load_model_and_guide(get_data_description(orig_data))
         except ModelException as e:
             if e.title.find('model factory'.upper()) != -1 and e.msg.find('either a model function or a tuple') != -1:
                 return
             self.fail(f"load_custom_numpyro_model did raise for wrong returns in model_factory, but did not give expected explanation; got: {e.format_message('')}")
         self.fail(f"load_custom_numpyro_model did not raise for wrong returns in model_factory")
 
+    def test_load_numpyro_model_load_data_default(self):
+        load_data, _, _, _ = load_custom_numpyro_model('./tests/models/simple_gauss_model.py', Namespace(), [])
+        df = load_data('./tests/models/gauss_data.csv')
+        self.assertIsInstance(df, pd.DataFrame)
+        self.assertEqual((100,2), df.shape)
+
+    def test_load_numpyro_model_load_data_from_custom_model(self):
+        load_data, _, _, _ = load_custom_numpyro_model('./tests/models/load_data.py', Namespace(), [])
+        df = load_data('./tests/models/gauss_data.csv')
+        self.assertIsInstance(df, pd.DataFrame)
+        self.assertEqual((100,2), df.shape)
+
+    def test_load_numpyro_model_load_data_file_not_found(self):
+        load_data, _, _, _ = load_custom_numpyro_model('./tests/models/load_data.py', Namespace(), [])
+        with self.assertRaises(FileNotFoundError):
+            load_data('./tests/models/does_not_exist.csv')
+
+    def test_load_numpyro_model_load_data_wrong_signature(self):
+        load_data, _, _, _ = load_custom_numpyro_model('./tests/models/load_data_wrong_signature.py', Namespace(), [])
+        try:
+            load_data('./tests/models/gauss_data.csv')
+        except ModelException as e:
+            if e.title.find('loading data'.upper()) != -1 and e.msg.find('must accept one positional parameter') != -1:
+                return
+            self.fail(f"load_custom_numpyro_model did raise for wrong load_data, but did not give expected explanation; got: {e.format_message('')}")
+        self.fail(f"load_custom_numpyro_model did not raise for wrong load_data")
+
+    def test_load_numpyro_model_load_data_wrong_returns(self):
+        load_data, _, _, _ = load_custom_numpyro_model('./tests/models/load_data_wrong_returns.py', Namespace(), [])
+        try:
+            load_data('./tests/models/gauss_data.csv')
+        except ModelException as e:
+            if e.title.find('loading data'.upper()) != -1 and e.msg.find('must return a pandas DataFrame') != -1:
+                return
+            self.fail(f"load_custom_numpyro_model did raise for wrong returns in load_data, but did not give expected explanation; got: {e.format_message('')}")
+        self.fail(f"load_custom_numpyro_model did not raise for wrong returns in load_data")
+
+    def test_load_numpyro_model_load_data_exception(self):
+        load_data, _, _, _ = load_custom_numpyro_model('./tests/models/load_data_exception.py', Namespace(), [])
+        try:
+            load_data('./tests/models/gauss_data.csv')
+        except ModelException as e:
+            if e.title.find('loading data'.upper()) != -1 and e.msg.find('Uncategorised error') != -1:
+                return
+            self.fail(f"load_custom_numpyro_model did raise for exception in load_data, but did not give expected explanation; got: {e.format_message('')}")
+        self.fail(f"load_custom_numpyro_model did not raise for exception in load_data")
 
     # TODO: test handling of guides
     # TODO: some integrated tests to ensure preprocess-model-postprocess pipeline error are handled well?

@@ -8,8 +8,11 @@
             model and the original data frame (see above).
         - instead of a model function, custom models may define a model_factory
             function that is provided arguments from the command line and returns
-            a model function.
-        - twinify remains backward-compatible to old models.
+            a model function and a guide function.
+        - custom models may define a load_data function which is supposed
+            to return a pandas DataFrame with correct dtypes but should not do
+            any preprocessing.
+        - twinify remains backward-compatible to old custom models.
     - added twinify-tools command as entry point for various utilites.
     - added check-model subcommand for twinify-tools to check whether a given
         NumPyro model works with twinify.

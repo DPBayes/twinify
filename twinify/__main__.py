@@ -27,7 +27,7 @@ from numpyro.infer.autoguide import AutoDiagonalNormal
 
 from twinify.infer import train_model, train_model_no_dp, InferenceException
 import twinify.automodel as automodel
-from twinify.model_loading import ModelException, load_custom_numpyro_model
+from twinify.model_loading import ModelException, load_custom_numpyro_model, get_data_description
 from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
 
 import numpy as np
@@ -89,16 +89,6 @@ def main():
     if unknown_args:
         print(f"Additional received arguments: {unknown_args}")
 
-    # read data
-    try:
-        df = pd.read_csv(args.data_path)
-    except Exception as e:
-        print("#### UNABLE TO READ DATA FILE ####")
-        print(e)
-        return 1
-    print("Loaded data set has {} rows (entries) and {} columns (features).".format(*df.shape))
-    num_data = len(df)
-
     try:
     # check whether we parse model from txt or whether we have a numpyro module
         if args.model_path[-3:] == '.py':
@@ -108,15 +98,43 @@ def main():
                 train_df = train_df.dropna()
 
             try:
-                model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args, train_df)
+                # model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args, train_df)
+                load_data, load_model_and_guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args)
             except (ModuleNotFoundError, FileNotFoundError) as e:
                 print("#### COULD NOT FIND THE MODEL FILE ####")
                 print(e)
                 return 1
 
+            # read data
+            try:
+                df = load_data(args.data_path)
+            except Exception as e:
+                print("#### UNABLE TO READ DATA FILE ####")
+                print(e)
+                exit(1)
+
+            train_df = df.copy()
+            if args.drop_na:
+                train_df = train_df.dropna()
+            num_data = len(df)
+
+            data_description = get_data_description(train_df)
+            model, guide = load_model_and_guide(data_description)
+
             train_data, num_data, feature_names = preprocess_fn(train_df)
         else:
             print("Parsing model from txt file (was unable to read it as python module containing numpyro code)")
+
+            # read data
+            try:
+                df = pd.read_csv(args.data_path)
+            except Exception as e:
+                print("#### UNABLE TO READ DATA FILE ####")
+                print(e)
+                return 1
+            print("Loaded data set has {} rows (entries) and {} columns (features).".format(*df.shape))
+            num_data = len(df)
+
             k = args.k
             # read model file
             with open(args.model_path, 'r') as model_handle:
@@ -139,7 +157,7 @@ def main():
             if args.drop_na:
                 train_df = train_df.dropna()
 
-            # TODO normalize?
+            data_description = get_data_description(train_df)
 
             # data preprocessing: determines number of categories for Categorical
             #   distribution and maps categorical values in the data to ints
@@ -166,7 +184,6 @@ def main():
                 print("\tSplit {} has {} entries with {} features each.".format(i, x.shape[0], 1 if x.ndim == 1 else x.shape[1]))
 
         # compute DP values
-        # TODO need to make this fail safely
         batch_size = q_to_batch_size(args.sampling_ratio, num_data)
 
         if not args.no_privacy:
@@ -232,7 +249,7 @@ def main():
         # Store learned model parameters
         # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
         result = TwinifyRunResult(
-            posterior_params, elbo, args, unknown_args, __version__
+            posterior_params, elbo, args, unknown_args, __version__, data_description
         )
         pickle.dump(result, open(f"{args.output_path}.p", "wb"))
 
