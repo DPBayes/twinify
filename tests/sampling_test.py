@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import jax
 from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
-from twinify.model_loading import guard_postprocess
+from twinify.model_loading import guard_postprocess, DataDescription
 
 import numpyro.distributions as dists
 from numpyro import sample, plate
@@ -15,7 +15,8 @@ def model():
 def guide():
     sample('mu', dists.Delta(2.))
 
-def postprocess(samples, ori_df):
+@guard_postprocess
+def postprocess(samples, _: DataDescription):
     syn_data = samples['x']
     syn_df = pd.DataFrame(syn_data)
     return syn_df, syn_df
@@ -30,7 +31,7 @@ class SamplingTests(unittest.TestCase):
     def test_reshape_and_postprocess_combined(self) -> None:
         samples = sample_synthetic_data(model, guide, {}, jax.random.PRNGKey(0), 2, 3)
 
-        prepared_postprocess = lambda samples: guard_postprocess(postprocess)(samples, None, None)
+        prepared_postprocess = lambda samples: postprocess(samples, None)
 
         i = 0
         for syn_df, _ in reshape_and_postprocess_synthetic_data(
@@ -43,7 +44,7 @@ class SamplingTests(unittest.TestCase):
     def test_reshape_and_postprocess_separate(self) -> None:
         samples = sample_synthetic_data(model, guide, {}, jax.random.PRNGKey(0), 2, 3)
 
-        prepared_postprocess = lambda samples: guard_postprocess(postprocess)(samples, None, None)
+        prepared_postprocess = lambda samples: postprocess(samples, None)
 
         i = 0
         for syn_df, _ in reshape_and_postprocess_synthetic_data(

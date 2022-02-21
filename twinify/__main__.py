@@ -98,7 +98,6 @@ def main():
                 train_df = train_df.dropna()
 
             try:
-                # model, guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args, train_df)
                 load_data, load_model_and_guide, preprocess_fn, postprocess_fn = load_custom_numpyro_model(args.model_path, args, unknown_args)
             except (ModuleNotFoundError, FileNotFoundError) as e:
                 print("#### COULD NOT FIND THE MODEL FILE ####")
@@ -274,7 +273,7 @@ def main():
         # postprocess: so that the synthetic twin looks like the original data
         #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
         #   - if preprocessing involved data mapping, it is mapped back here
-        conditioned_postprocess_fn = lambda posterior_samples: postprocess_fn(posterior_samples, df, feature_names)
+        conditioned_postprocess_fn = lambda posterior_samples: postprocess_fn(posterior_samples, data_description)
         for i, (syn_df, encoded_syn_df) in enumerate(reshape_and_postprocess_synthetic_data(
             posterior_samples, conditioned_postprocess_fn, args.separate_output, num_parameter_samples
         )):

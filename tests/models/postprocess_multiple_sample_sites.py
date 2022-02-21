@@ -5,12 +5,13 @@ import numpyro.distributions as dists
 from numpyro.primitives import sample, plate
 import pandas as pd
 from typing import Tuple, Dict
+from twinify.model_loading import DataDescription
 
-def postprocess(samples: Dict[str, np.ndarray], orig_data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def postprocess(samples: Dict[str, np.ndarray], data_description: DataDescription) -> Tuple[pd.DataFrame, pd.DataFrame]:
     assert(samples['x'].ndim == 2)
     assert(samples['y'].ndim == 1)
 
-    syn_data = pd.DataFrame(samples['x'], columns=orig_data.columns)
+    syn_data = pd.DataFrame(samples['x'], columns=data_description.dtypes.keys())
     syn_data['foo'] = samples['y']
     encoded_syn_data = syn_data.copy()
 

@@ -1,13 +1,11 @@
 
-from ast import Call
 import importlib.util
 import inspect
 from re import A
 import traceback
 import pandas as pd
 import numpy as np
-from typing import Any, Callable, Tuple, Iterable, Dict, Union, Optional, Sequence
-from twinify import automodel
+from typing import Any, Callable, OrderedDict, Tuple, Iterable, Dict, Union, Optional, Sequence
 from numpyro.infer.autoguide import AutoDiagonalNormal
 import os
 import argparse
@@ -19,8 +17,8 @@ DataDescription = namedtuple("DataDescription", ["dtypes", "shape"])
 TDataLoadingFunction = Callable[[str], pd.DataFrame]
 TPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int]]
 TWrappedPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int, Sequence[str]]]
-TWrappedPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame, Sequence[str]], Tuple[pd.DataFrame, pd.DataFrame]]
-TPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame], Tuple[pd.DataFrame, pd.DataFrame]]
+TWrappedPostprocessFunction = Callable[[Dict[str, np.ndarray], DataDescription], Tuple[pd.DataFrame, pd.DataFrame]]
+TPostprocessFunction = Callable[[Dict[str, np.ndarray], DataDescription], Tuple[pd.DataFrame, pd.DataFrame]]
 TOldPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
 TModelFunction = Callable
 TGuideFunction = Callable
@@ -129,7 +127,8 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
     num_parameters = len(inspect.signature(postprocess_fn).parameters)
     if num_parameters == 1:
         print("WARNING: Custom postprocessing function using old signature, which is deprecated!")
-        def wrapped_postprocess_old(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        def wrapped_postprocess_old(posterior_samples: Dict[str, np.ndarray], data_description: DataDescription) -> Tuple[pd.DataFrame, pd.DataFrame]:
+            feature_names = list(data_description.dtypes.keys())
             try:
                 if 'x' not in posterior_samples:
                     raise ModelException("FAILED DURING POSTPROCESSING DATA", f"For the specified postprocessing function with a single argument, the 'model'  function must combine all features at sample site 'x'.")
@@ -145,9 +144,9 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
             except Exception as e: raise ModelException("FAILED DURING POSTPROCESSING DATA", base_exception=e) from e
         return wrapped_postprocess_old
     else:
-        def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], data_description: DataDescription) -> Tuple[pd.DataFrame, pd.DataFrame]:
             try:
-                retval = postprocess_fn(posterior_samples, orig_df)
+                retval = postprocess_fn(posterior_samples, data_description)
             except TypeError as e:
                 if str(e).find('positional argument') != -1:
                     raise ModelException("FAILED DURING POSTPROCESSING DATA", "Custom postprocessing functions must accept two single pandas.DataFrame as arguments.")
@@ -160,6 +159,19 @@ def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostproces
                 raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Custom postprocessing functions must return (syn_data, encoded_syn_data), each being a pd.DataFrame; got {got_msg}.")
             return retval
         return wrapped_postprocess
+
+@guard_postprocess
+def default_postprocess(posterior_samples: Dict[str, np.array], data_description: DataDescription) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    syn_data = posterior_samples['x']
+    syn_df = pd.DataFrame(syn_data,
+        columns=data_description.dtypes.keys()
+    )
+
+    encoded_syn_df = syn_df.copy()
+    for feature, dtype in data_description.dtypes.items():
+        encoded_syn_df[feature] = encoded_syn_df[feature].astype(dtype)
+
+    return syn_df, encoded_syn_df
 
 def guard_model(model_fn: TModelFunction) -> TModelFunction:
     def wrapped_model(*args, **kwargs) -> Any:
@@ -198,10 +210,11 @@ def default_data_loading_function(data_path: str) -> pd.DataFrame:
 
 
 def get_data_description(df: pd.DataFrame) -> DataDescription:
-    return DataDescription(
-        {col: df[col].dtype for col in df.columns},
-        df.shape
-    )
+    dtypes = OrderedDict()
+    for col in df.columns:
+        dtypes[col] = df[col].dtype
+
+    return DataDescription(dtypes, df.shape)
 
 
 def load_custom_numpyro_model(
@@ -293,7 +306,7 @@ def load_custom_numpyro_model(
     except AttributeError:
         print("Warning: Your model does not specify a postprocessing function for generated samples.")
         print("     Using default, which assumes that your model only produces samples at sample site 'x' and outputs samples as they are.")
-        postprocess_fn = automodel.postprocess_function_factory([])
+        postprocess_fn = default_postprocess
     except Exception as e: raise NumpyroModelParsingUnknownException('postprocess', e) from e
 
     return data_loading_fn, load_model_and_guide_fn, preprocess_fn, postprocess_fn

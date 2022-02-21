@@ -427,12 +427,13 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
     return model
 
 ####################### postprocessing ###########################
+from twinify.model_loading import DataDescription
 def postprocess_function_factory(features):
     def postprocess_fn(
-            posterior_samples: Dict[str, np.array], ori_df: pd.DataFrame, feature_names: Sequence[int]
+            posterior_samples: Dict[str, np.array], data_description: DataDescription
         ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         syn_data = posterior_samples['x']
-        syn_df = pd.DataFrame(syn_data, columns = feature_names)
+        syn_df = pd.DataFrame(syn_data, columns = data_description.dtypes.keys())
         encoded_syn_df = syn_df.copy()
         for feature in features:
             encoded_syn_df = feature.postprocess_data(encoded_syn_df)
