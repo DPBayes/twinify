@@ -23,7 +23,7 @@ import pandas as pd
 
 from numpyro.optim import Adam
 from numpyro.infer import Trace_ELBO, SVI
-from d3p.svi import DPSVI
+from d3p.svi import DPSVI, DPSVIState
 from d3p.minibatch import subsample_batchify_data
 import d3p.random
 
@@ -40,7 +40,13 @@ def _cast_data_tuple(data_tuple):
     return tuple(_cast_data(x) for x in data_tuple)
 
 
-def _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs, silent=False):
+def reset_optimizer(svi: DPSVI, current_state: DPSVIState) -> DPSVIState:
+    params = svi.optim.get_params(current_state.optim_state)
+    new_optimizer_state = svi.optim.init(params)
+    return DPSVIState(new_optimizer_state, current_state.rng_key, current_state.observation_scale)
+
+
+def _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs, silent=False, reset_optimizer_after=None):
     rng, svi_rng, init_batch_rng = rng_suite.split(rng, 3)
 
     #init_batching, get_batch = subsample_batchify_data((data,), batch_size)
@@ -65,6 +71,9 @@ def _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs, si
     rng, epochs_rng = rng_suite.split(rng)
 
     for i in range(num_epochs):
+        if reset_optimizer_after is not None and i % reset_optimizer_after:
+            svi_state = reset_optimizer(svi, svi_state)
+
         batchify_rng = rng_suite.fold_in(epochs_rng, i)
         num_batches, batchify_state = init_batching(batchify_rng)
 
@@ -73,6 +82,7 @@ def _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs, si
             raise InferenceException
         loss /= num_data
         if not silent: print("epoch {}: loss {}".format(i, loss))
+
 
     return svi.get_params(svi_state), loss
 
@@ -87,7 +97,7 @@ def train_model(rng, rng_suite, model, guide, data, batch_size, num_data, dp_sca
         dp_scale=dp_scale, rng_suite=rng_suite
     )
 
-    return _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs)
+    return _train_model(rng, rng_suite, svi, data, batch_size, num_data, num_epochs, reset_optimizer_after=100)
 
 def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs, silent=False, **kwargs):
     """ trains a given model using SVI (no DP!) and the globally defined parameters and data """
@@ -101,4 +111,14 @@ def train_model_no_dp(rng, model, guide, data, batch_size, num_data, num_epochs,
     )
 
     import d3p.random.debug
-    return _train_model(d3p.random.convert_to_jax_rng_key(rng), d3p.random.debug, svi, data, batch_size, num_data, num_epochs, silent)
+    return _train_model(
+        d3p.random.convert_to_jax_rng_key(rng),
+        d3p.random.debug,
+        svi,
+        data,
+        batch_size,
+        num_data,
+        num_epochs,
+        silent,
+        reset_optimizer_after=None
+    )
