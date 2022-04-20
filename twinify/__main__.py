@@ -34,12 +34,13 @@ import numpy as np
 
 import pandas as pd
 
-import argparse, pickle
+import argparse
 import d3p.random
 import chacha.defs
 import secrets
 
 from twinify import __version__
+from twinify.results import store_twinify_run_result
 # from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
 # import matplotlib.pyplot as plt
 
@@ -77,11 +78,6 @@ def initialize_rngs(seed):
 
     return inference_rng, sampling_rng
 
-from collections import namedtuple
-
-TwinifyRunResult = namedtuple('TwinifyRunResult',
-    ('model_params', 'elbo', 'twinify_args', 'unknown_args', 'twinify_version')
-)
 
 def main():
     args, unknown_args = parser.parse_known_args()
@@ -231,10 +227,7 @@ def main():
 
         # Store learned model parameters
         # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
-        result = TwinifyRunResult(
-            posterior_params, elbo, args, unknown_args, __version__
-        )
-        pickle.dump(result, open(f"{args.output_path}.p", "wb"))
+        store_twinify_run_result(f"{args.output_path}.p", posterior_params, elbo, args, unknown_args, __version__)
 
         # sample synthetic data
         print("Model learning complete; now sampling data!")
