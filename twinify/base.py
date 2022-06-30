@@ -2,16 +2,17 @@ import abc
 from io import BufferedReader, BufferedWriter
 import pandas as pd
 from typing import Union, Optional, Iterable
-
+from d3p.random import PRNGState
 
 class InferenceModel(meta=abc.ABCMeta):
     """ A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. """
 
-    def fit(self, data: pd.DataFrame, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
+    def fit(self, data: pd.DataFrame, rng: PRNGState, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
         """ Compute the parameter posterior (approximation) for a given data set, hyperparameters and privacy bounds.
 
         Args:
             data: A `pandas.DataFrame` containing (sensitive) data.
+            rng: A seeded state for the d3p.random secure random number generator.
             epsilon: Privacy bound ε.
             delta: Privacy bound δ.
             kwargs: Optional (model specific) hyperparameters.
