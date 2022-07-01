@@ -1,12 +1,12 @@
 import abc
-from io import BufferedReader, BufferedWriter
 import pandas as pd
-from typing import Union, Optional, Iterable
+from typing import Union, Optional, Iterable, BinaryIO
 from d3p.random import PRNGState
 
 class InferenceModel(meta=abc.ABCMeta):
     """ A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. """
 
+    @abc.abstractmethod
     def fit(self, data: pd.DataFrame, rng: PRNGState, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
         """ Compute the parameter posterior (approximation) for a given data set, hyperparameters and privacy bounds.
 
@@ -25,6 +25,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
     for a particular `InferenceModel`. """
 
     def generate(self,
+            rng: PRNGState,
             dataset_size: int,
             num_datasets: Optional[int] = 1,
             ) -> Iterable[pd.DataFrame]:
@@ -35,12 +36,15 @@ class InferenceResult(metaclass=abc.ABCMeta):
         and categorical labels (if any).
 
         Args:
+            - rng: A seeded state for the d3p.random secure random number generator.
             - dataset_size: The size of a single generated data set.
             - num_datasets: How many data sets to generate.
         """
-        return self.generate_extended(num_datasets, dataset_size, single_dataframe=False)
+        return self.generate_extended(rng, num_datasets, dataset_size, single_dataframe=False)
 
+    @abc.abstractmethod
     def generate_extended(self,
+            rng: PRNGState,
             num_data_per_parameter_sample: int,
             num_parameter_samples: int,
             single_dataframe: Optional[bool] = False) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
@@ -53,6 +57,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
         i.e., it has identical column names and categorical labels (if any).
 
         Args:
+            - rng: A seeded state for the d3p.random secure random number generator.
             - num_data_per_parameter_sample: How many data points to generate for each parameter sample.
             - num_parameter_samples: How often to sample from the parameter posterior (approximation).
             - single_dataframe: Whether to combine data samples into a single data frame or return separate data frames.
@@ -60,10 +65,10 @@ class InferenceResult(metaclass=abc.ABCMeta):
         raise NotImplementedError(f"{self.__class__.__name__} does not implement generate_extended yet.")
 
     @classmethod
-    def load(cls, file_path_or_reader: Union[str, BufferedReader]) -> 'InferenceResult':
+    def load(cls, file_path_or_io: Union[str, BinaryIO]) -> 'InferenceResult':
         """ Loads an inference result from a file.
 
-        The file can be specified either as a path or a reader, i.e., both of the following
+        The file can be specified either as a path or an opened file, i.e., both of the following
         are possible:
         ```InferenceResult.load('my_inference_result.out')```
         or
@@ -73,60 +78,47 @@ class InferenceResult(metaclass=abc.ABCMeta):
         ```.
 
         Args:
-            - file_path_or_reader: The file path (as a string) or a `BufferedReader` instance representing the
+            - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the
                 file from which to load.
+
+        If a `BinaryIO` instance is passed, the cursor position is advanced to after the data representing the
+        inference result.
 
         Exceptions:
             raises an `InvalidFileFormatException` if the data in the file is not a valid representation of the
             inference result type represented by this class.
 
         Note for subclass implementation:
-            Default implementation handles opening a `BufferedReader` if a path is given and calls `_load_from_reader`;
-            Subclasses need only implement an override for `_load_from_reader`.
+            Subclasses need only implement an override for `_load_from_io`.
         """
-        if isinstance(file_path_or_reader, str):
-            with open(file_path_or_reader, 'rb') as f:
-                return cls._load_from_reader(f)
+        if isinstance(file_path_or_io, str):
+            with open(file_path_or_io, 'rb') as f:
+                return cls._load_from_io(f)
         else:
-            return cls._load_from_reader(file_path_or_reader)
+            if not file_path_or_io.readable():
+                raise ValueError("file_path_or_io is not a readable BinaryIO instance.")
+            return cls._load_from_io(file_path_or_io)
 
     @classmethod
-    def _load_from_reader(cls, file_reader: BufferedReader) -> 'InferenceResult':
-        """ Internal implementation for `load` using a `BufferedReader`.
+    @abc.abstractmethod
+    def _load_from_io(cls, read_io: BinaryIO) -> 'InferenceResult':
+        """ Internal implementation for `load` using a `BinaryIO` instance.
 
         Args:
-            - file_reader: A `BufferedReader` instance for reading binary data representing the inference result.
+            - read_io: A readable `BinaryIO` instance for reading binary data representing the inference result.
 
         Note for subclass implementation:
             This method MUST raise an `InvalidFileFormatException` if the data stored in the file does not represent
             an inference result type implemented by this class (i.e., if the data cannot be loaded as an instance of
             this class).
         """
-        raise NotImplementedError(f"{cls.__name__} does not implement load_from_reader yet.")
+        raise NotImplementedError(f"{cls.__name__} does not implement load_from_io yet.")
 
     @classmethod
-    def _is_file_stored_result_from_reader(cls, file_reader: BufferedReader) -> bool:
-        """ Internal implementation for `is_file_stored_result_from_reader` using a `BufferedReader`.
-
-        Args:
-            - file_reader: A `BufferedReader` instance for reading binary data representing the inference result.
-
-        Note for subclass implementation:
-            Default implementation tries to read the file and returns False if `_load_from_reader` raises an
-            `InvalidFileFormatException`. Subclasses should implement a more direct way of determining the type of
-            inference result stored in the file (e.g. a type identifier in the beginning of the data).
-        """
-        try:
-            cls._load_from_reader(file_reader)
-            return True
-        except InvalidFileFormatException:
-            return False
-
-    @classmethod
-    def is_file_stored_result_from_reader(cls, file_path_or_reader: Union[str, BufferedReader]) -> bool:
+    def is_file_stored_result(cls, file_path_or_io: Union[str, BinaryIO]) -> bool:
         """ Checks whether a file stores data representing the specific inference result type represented by this class.
 
-        The file can be specified either as a path or a reader, i.e., both of the following
+        The file can be specified either as a path or an opened file, i.e., both of the following
         are possible:
         ```InferenceResult.is_file_stored_result('my_inference_result.out')```
         or
@@ -135,23 +127,47 @@ class InferenceResult(metaclass=abc.ABCMeta):
             InferenceResult.is_file_stored_result(f)
         ```.
 
+        If a `BinaryIO` instance is passed, the cursor position will remain the same after this method returns.
+
         Args:
-            - file_path_or_reader: The file path (as a string) or a `BufferedReader` instance representing the
+            - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the
                 file to check.
 
         Note for subclass implementation:
-            Subclasses need only implement an override for `_is_file_stored_result_from_reader`.
+            Subclasses need only implement an override for `_is_file_stored_result_from_io`.
         """
-        if isinstance(file_path_or_reader, str):
-            with open(file_path_or_reader, 'rb') as f:
-                return cls._is_file_stored_result_from_reader(f)
+        if isinstance(file_path_or_io, str):
+            with open(file_path_or_io, 'rb') as f:
+                return cls._is_file_stored_result_from_io(f)
         else:
-            return cls._is_file_stored_result_from_reader(file_path_or_reader)
+            if not file_path_or_io.readable() or not file_path_or_io.seekable():
+                raise ValueError("file_path_or_io is not a readable and seekable BinaryIO instance.")
+            return cls._is_file_stored_result_from_io(file_path_or_io)
 
-    def store(self, file_path_or_writer: Union[str, BufferedWriter]) -> None:
+    @classmethod
+    def _is_file_stored_result_from_io(cls, read_io: BinaryIO) -> bool:
+        """ Internal implementation for `is_file_stored_result` using a `BinaryIO` instance.
+
+        Args:
+            - read_io: A readable and seekable `BinaryIO` instance for reading binary data representing the
+                inference result.
+
+        Note for subclass implementation:
+            Default implementation tries to read the file and returns False if `_load_from_io` raises an
+            `InvalidFileFormatException`. Subclasses should implement a more direct way of determining the type of
+            inference result stored in the file (e.g. a type identifier in the beginning of the data). Implementation
+            should additionally ensure that the implementation does not advance the cursor position of `read_io`.
+        """
+        try:
+            cls._load_from_io(read_io)
+            return True
+        except InvalidFileFormatException:
+            return False
+
+    def store(self, file_path_or_io: Union[str, BinaryIO]) -> None:
         """ Writes the inference result to a file.
 
-        The file can be specified either as a path or a writer, i.e., both of the following
+        The file can be specified either as a path or an opened file, i.e., both of the following
         are possible:
         ```inference_result.store('my_inference_result.out')```
         or
@@ -161,31 +177,37 @@ class InferenceResult(metaclass=abc.ABCMeta):
         ```.
 
         Args:
-            - file_path_or_writer: The file path (as a string) or a `BufferedWriter` instance representing the
+            - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the
                 file to write data into.
 
-        Note for subclass implementation:
-            Subclasses only need to implement an override for `_store_to_writer`.
-        """
-        if isinstance(file_path_or_writer, str):
-            with open(file_path_or_writer, 'wb') as f:
-                self._store_to_writer(f)
-        else:
-            self._store_to_writer(file_path_or_writer)
+        If a `BinaryIO` instance is passed, the cursor position is advanced to after the data representing the
+        inference result.
 
-    def _store_to_writer(self, file_writer: BufferedWriter) -> None:
-        """ Internal implementation for `store` using a `BufferedWriter`.
+        Note for subclass implementation:
+            Subclasses only need to implement an override for `_store_to_io`.
+        """
+        if isinstance(file_path_or_io, str):
+            with open(file_path_or_io, 'wb') as f:
+                self._store_to_io(f)
+        else:
+            if not file_path_or_io.writable():
+                raise ValueError("file_path_or_io is not a writable BinaryIO instance.")
+            self._store_to_io(file_path_or_io)
+
+    @abc.abstractmethod
+    def _store_to_io(self, write_io: BinaryIO) -> None:
+        """ Internal implementation for `store` using a `BinaryIO` instance.
 
         Args:
-            - file_writer: A `BufferedWriter` instance for writing binary data representing the inference result.
+            - write_io: A writeable `BinaryIO` instance for writing binary data representing the inference result.
 
         Note for subclass implementation:
             The data written to the file should
             1) not rely overly much on pickling
             2) allow to identify the type of inference result written to the file
-                (to identify the class with which to load it; see also `_is_file_stored_result_from_reader`)
+                (to identify the class with which to load it; see also `_is_file_stored_result_from_io`)
         """
-        raise NotImplementedError(f"{self.__class__.__name__} does not implement store_to_writer yet.")
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement store_to_io yet.")
 
 
 class InvalidFileFormatException(Exception):
