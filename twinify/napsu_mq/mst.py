@@ -20,7 +20,6 @@ and does not rely on public provisional data for measurement selection.
 
 
 def MST_selection(data, epsilon, delta, cliques_to_include=[]):
-    # rho = cdp_rho(epsilon, delta)
     rho = accounting.eps_delta_budget_to_rho_budget(epsilon, delta)
     sigma = np.sqrt(3 / (2 * rho))
     cliques = [(col,) for col in data.domain]
@@ -31,7 +30,6 @@ def MST_selection(data, epsilon, delta, cliques_to_include=[]):
 
 
 def MST(data, epsilon, delta):
-    # rho = cdp_rho(epsilon, delta)
     rho = accounting.eps_delta_budget_to_rho_budget(epsilon, delta)
     sigma = np.sqrt(3 / (2 * rho))
     cliques = [(col,) for col in data.domain]
