@@ -16,15 +16,14 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from numpy.typing import ArrayLike
-import torch
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Type, Union, Sequence
+from typing import List, Optional, Tuple, Type, Union, Sequence, Iterable
 
 
 class LogFactor(ABC):
     """Base class for log factors of Markov networks."""
 
-    def __init__(self, scope: List[int], values: Union[jnp.ndarray, torch.Tensor], debug_checks: Optional[bool] = True):
+    def __init__(self, scope: Iterable[int], values: jnp.ndarray, debug_checks: Optional[bool] = True):
         """Create the log factor.
         Args:
             scope (List): Scope of the factor as a tuple of nodes.
@@ -70,7 +69,7 @@ class LogFactor(ABC):
     def get_variable_range(self, variable: Union[str, int]) -> Tuple[int, ...]:
         return self.values.shape[self.variable_inds[variable]]
 
-    def repeat_to_shape(self, result_shape: List[Tuple[int, ...]], result_scope: Tuple[int]):
+    def repeat_to_shape(self, result_shape: Union[List[int], List[Tuple[int, ...]]], result_scope: Tuple[int]):
         variables_not_in_scope: List[int] = [var for var in result_scope if var not in self.scope]
         repeat_shape = [result_shape[result_scope.index(var)] for var in variables_not_in_scope] + [1 for var in
                                                                                                     self.scope]
@@ -131,7 +130,7 @@ class LogFactor(ABC):
         """
         return self.logsumexp(self.values, tuple(range(len(self.values.shape))))
 
-    def list_product(factors: List['LogFactor']) -> 'LogFactor':
+    def list_product(factors: Iterable['LogFactor']) -> 'LogFactor':
         """The product of a list of LogFactors.
         Args:
             factors (list(LogFactor)): The list of factors in the product.
@@ -186,12 +185,13 @@ class LogFactor(ABC):
             LogFactor: The batched factor as a new LogFactor object.
         """
         batch_dim_name = "batch"
-        if batch_dim_name in self.scope: raise ValueError("{} is already in scope".format(batch_dim_name))
+        if batch_dim_name in self.scope:
+            raise ValueError("{} is already in scope".format(batch_dim_name))
         result_scope = (batch_dim_name,) + self.scope
         result_values = self.tile_values((n_batches,) + tuple(1 for _ in range(len(self.scope))))
         return self.self_type()(result_scope, result_values, self.debug_checks)
 
-    def batch_condition(self, variable: int, values: Union[jnp.ndarray, torch.Tensor]) -> 'LogFactor':
+    def batch_condition(self, variable: int, values: jnp.ndarray) -> 'LogFactor':
         """Condition a batched LogFactor on an array of values for a given variable.
         Args:
             variable (int): The variable to condition on.
@@ -226,7 +226,7 @@ class LogFactorJax(LogFactor):
     def logsumexp(self, values: ArrayLike, axis: Union[None, Tuple[int, ...]]) -> jnp.ndarray:
         return jax.scipy.special.logsumexp(values, axis=axis)
 
-    def take_values(self, index: Union[List, np.number], axis: Optional[Union[int, np.number]]) -> jnp.ndarray:
+    def take_values(self, index: Union[Iterable, np.number], axis: Optional[Union[int, np.number]]) -> jnp.ndarray:
         return jnp.take(self.values, index, axis)
 
     def compute_batch_condition_values(self, values: ArrayLike, to_remove_index: int,
@@ -237,7 +237,6 @@ class LogFactorJax(LogFactor):
     def move_values_axis(self, axis: Union[int, Sequence[int]], place: Union[int, Sequence[int]]) -> None:
         self.values = jnp.moveaxis(self.values, axis, place)
 
-    # TODO: check type
     def query(self, queries) -> Union[jnp.ndarray, jnp.number]:
         result = jnp.zeros(len(queries.queries))
         for i, query in enumerate(queries.queries):
@@ -245,51 +244,3 @@ class LogFactorJax(LogFactor):
             query_value_tuple = query.value_tuple()
             result = result.at[i].set(self.values[tuple(query_value_tuple[i] for i in query_permutation)])
         return jnp.exp(result - self.log_sum_total())
-
-
-class LogFactorTorch(LogFactor):
-    """PyTorch implementation of LogFactor."""
-
-    def tile_values(self, repeat_shape: Union[torch.Size, Tuple[int, ...]]) -> torch.Tensor:
-        return self.values.repeat(repeat_shape)
-
-    def permute_axes(self, value: torch.Tensor, permutation: Tuple[int, ...]) -> torch.Tensor:
-        return value.permute(permutation)
-
-    def logsumexp(self, values: torch.Tensor, axis: Union[int, Tuple[int, ...]]) -> torch.Tensor:
-        return torch.logsumexp(values, dim=axis)
-
-    def take_values(self, index: int, axis: int) -> torch.Tensor:
-        return torch.select(self.values, axis, index)
-
-    @staticmethod
-    def expand_indices(tensor: torch.Tensor, result_shape: Union[torch.Size, List[int]], i: int) -> torch.Tensor:
-        shape = result_shape[:i] + result_shape[i + 1:]
-        return tensor.expand(shape + [-1]).movedim(-1, i)
-
-    def compute_batch_condition_values(self, values: torch.Tensor, to_remove_index: int, result_shape: Union[torch.Size, List[int]]) -> torch.Tensor:
-        take_indices = torch.zeros(result_shape, dtype=torch.long)
-        for i in range(len(self.scope)):
-            if i == to_remove_index:
-                index_term = self.expand_indices(values, result_shape, 0)
-            else:
-                index_term = self.expand_indices(torch.arange(self.values.shape[i]), result_shape,
-                                                 i - 1 if i > to_remove_index else i)
-            mul = 1
-            for j in range(i + 1, len(self.scope)):
-                mul *= self.values.shape[j]
-            take_indices += index_term * mul
-
-        return self.values.take(take_indices)
-
-    def move_values_axis(self, axis: Union[int, Tuple[int, ...]], place: Union[int, Tuple[int, ...]]) -> None:
-        self.values = self.values.movedim(axis, place)
-
-    # TODO: check type
-    def query(self, queries) -> torch.Tensor:
-        result = torch.zeros(len(queries.queries))
-        for i, query in enumerate(queries.queries):
-            query_permutation = [query.features.index(variable) for variable in self.scope]
-            query_value_tuple = query.value_tuple()
-            result[i] = self.values[tuple(query_value_tuple[i] for i in query_permutation)]
-        return torch.exp(result - self.log_sum_total())

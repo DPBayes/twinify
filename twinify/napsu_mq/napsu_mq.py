@@ -14,7 +14,10 @@
 from typing import Optional, Union, Iterable, BinaryIO, Callable, Mapping
 import os
 import pandas as pd
+
+# TODO: remove torch dependency
 import torch
+
 import numpy as np
 import arviz as az
 import jax
@@ -46,7 +49,7 @@ class NapsuMQModel(InferenceModel):
 
         dataframe = DataFrameData(data)
         category_mapping = DataFrameData.get_category_mapping(data)
-        n, d = dataframe.int_tensor.shape
+        n, d = dataframe.int_array.shape
         domain_key_list = list(dataframe.values_by_col.keys())
         domain_value_count_list = [len(dataframe.values_by_col[key]) for key in domain_key_list]
         domain = Domain(domain_key_list, domain_value_count_list)

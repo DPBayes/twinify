@@ -16,16 +16,13 @@
 import unittest
 from functools import reduce
 from operator import mul
-import torch
-
-torch.set_default_dtype(torch.float64)
 from twinify.napsu_mq.marginal_query import *
 from twinify.napsu_mq.binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
 
 
 class MarginalQueryTest(unittest.TestCase):
     def setUp(self):
-        self.datagen = BinaryLogisticRegressionDataGenerator(torch.tensor((1.0, 2.0)))
+        self.datagen = BinaryLogisticRegressionDataGenerator(np.array((1.0, 2.0)))
         self.data = self.datagen.generate_data(100)
         self.x_values = self.datagen.x_values
         self.values_by_feature = {i: [0, 1] for i in range(3)}
@@ -51,7 +48,7 @@ class MarginalQueryTest(unittest.TestCase):
 
     def test_all_marginals_for_feature_set(self):
         marginals = all_marginals_for_feature_set((0, 2), self.values_by_feature)
-        marginals_as_tuples = {(tuple(query.inds), tuple(query.value.numpy())) for query in marginals}
+        marginals_as_tuples = {(tuple(query.inds), tuple(query.value)) for query in marginals}
         self.assertEqual(len(marginals), 4)
         self.assertEqual(len(marginals_as_tuples), 4)
         for marginal_tuple in marginals_as_tuples:
@@ -63,7 +60,7 @@ class MarginalQueryTest(unittest.TestCase):
     def test_all_marginals(self):
         feature_sets = [(0, 1), (0, 2)]
         marginals = all_marginals(feature_sets, self.values_by_feature).queries
-        marginals_as_tuples = {(tuple(query.inds), tuple(query.value.numpy())) for query in marginals}
+        marginals_as_tuples = {(tuple(query.inds), tuple(query.value)) for query in marginals}
         self.assertEqual(len(marginals), 4 * 2)
         self.assertEqual(len(marginals_as_tuples), 4 * 2)
         for feature_set in feature_sets:
@@ -82,7 +79,7 @@ class MarginalQueryTest(unittest.TestCase):
             t_ind, t_val = query.as_tuple()
             self.assertTupleEqual(t_ind, tuple(query.inds))
             self.assertEqual(len(t_val), query.value.shape[0])
-            self.assertTrue(torch.allclose(torch.tensor(t_val), query.value))
+            self.assertTrue(np.allclose(np.array(t_val), query.value))
 
 
 class Domain:
@@ -92,18 +89,18 @@ class Domain:
         self.size = reduce(mul, [len(col_values) for col_values in self.values_by_col.values()])
 
     def get_x_values(self):
-        x_values = torch.zeros((self.size, self.d))
+        x_values = np.zeros((self.size, self.d))
         for i, val in enumerate(itertools.product(*self.values_by_col.values())):
-            x_values[i, :] = torch.tensor(val)
+            x_values[i, :] = np.array(val)
         return x_values
 
 
 class CanonicalQueriesTest(unittest.TestCase):
 
     def query_matrix_rank(self, domain, queries):
-        mat = queries(domain.get_x_values()).double()
-        mat = torch.cat([mat, torch.ones((mat.shape[0], 1))], dim=1)
-        return torch.linalg.matrix_rank(mat).item()
+        mat = queries(domain.get_x_values()).astype(np.double)
+        mat = np.concatenate([mat, np.ones((mat.shape[0], 1))], axis=1)
+        return np.linalg.matrix_rank(mat)
 
     def test_canonical_queries_rank_binary_domain(self):
         binary_domain = Domain({0: range(2), 1: range(2), 2: range(2)})

@@ -104,11 +104,11 @@ class UndirectedGraph:
         ]
 
 
-def node_ordering_cost(graph, node):
+def node_ordering_cost(graph: UndirectedGraph, node: Iterable):
     return len(graph.get_neighbours(node))
 
 
-def greedy_ordering(graph) -> List:
+def greedy_ordering(graph: UndirectedGraph) -> List:
     """Find a greedy ordering for variable elimination.
     Args:
         graph (UndirectedGraph): The graph to find the ordering on.

@@ -11,12 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from typing import Iterable, Tuple
 import numpy as np
-import torch
 
-
-def eps_delta_budget_to_rho_budget(epsilon, delta):
+def eps_delta_budget_to_rho_budget(epsilon: float, delta: float) -> float:
     """Convert (epsilon, delta)-DP to rho-zCDP.
     Args:
         epsilon (float)
@@ -28,7 +26,7 @@ def eps_delta_budget_to_rho_budget(epsilon, delta):
     return (np.sqrt(beta ** 2 + epsilon) - beta) ** 2
 
 
-def gauss_mechanism_sigma(rho, sensitivity):
+def gauss_mechanism_sigma(rho: float, sensitivity: float) -> float:
     """Compute noise standard deviation for Gaussian mechanism with zCDP.
     Args:
         rho (float): zCDP privacy bound.
@@ -39,7 +37,7 @@ def gauss_mechanism_sigma(rho, sensitivity):
     return np.sqrt(sensitivity ** 2 / (2 * rho))
 
 
-def gauss_mechanism_composition_sigma(rho, sensitivity_counts):
+def gauss_mechanism_composition_sigma(rho: float, sensitivity_counts: Iterable[Tuple[float, int]]) -> float:
     """Compute noise standard deviation for a composition of Gaussian mechanism with zCDP.
     Args:
         rho (float): zCDP privacy bound.
@@ -50,7 +48,7 @@ def gauss_mechanism_composition_sigma(rho, sensitivity_counts):
     return np.sqrt(np.sum(np.array([sc[1] * sc[0] ** 2 for sc in sensitivity_counts])) / (2 * rho))
 
 
-def gauss_mechanism(x, rho, sensitivity):
+def gauss_mechanism(x, rho, sensitivity) -> Tuple[float, float]:
     """Run the Gaussian mechanism.
     Args:
         x (float): Value to release.
@@ -63,7 +61,7 @@ def gauss_mechanism(x, rho, sensitivity):
     return gauss_mechanism_with_sigma(x, sigma), sigma
 
 
-def gauss_mechanism_with_sigma(x, sigma):
+def gauss_mechanism_with_sigma(x: float, sigma: float) -> float:
     """Run the Gaussian mechanism with given noise standard deviation.
     Args:
         x (float): Value to release.
@@ -71,10 +69,10 @@ def gauss_mechanism_with_sigma(x, sigma):
     Returns:
         float: Noisy value of x.
     """
-    return torch.normal(mean=x, std=sigma)
+    return np.random.normal(loc=x, scale=sigma)
 
 
-def report_noisy_max(x, rho, sensitivity):
+def report_noisy_max(x, rho: float, sensitivity: float) -> np.ndarray[int]:
     """Report noisy max with Gumbel noise.
     Args:
         x (torch.tensor): Input data.
@@ -84,4 +82,4 @@ def report_noisy_max(x, rho, sensitivity):
         _type_: _description_
     """
     noise_scale = sensitivity / np.sqrt(2 * rho)
-    return torch.argmax(x + torch.distributions.Gumbel(0, noise_scale).sample(x.shape))
+    return np.argmax(x + np.random.gumbel(loc=0, scale=noise_scale, size=x.shape))

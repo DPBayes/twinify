@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Iterable
 
 import jax
 import jax.numpy as jnp
@@ -27,7 +27,7 @@ import functools
 class MarkovNetworkJax(MarkovNetwork):
     """Jax implementation of MarkovNetwork."""
 
-    def __init__(self, domain: Dict, queries: FullMarginalQuerySet, elimination_order: Optional[List] = None, debug_checks: Optional[bool] = True):
+    def __init__(self, domain: Dict, queries: FullMarginalQuerySet, elimination_order: Optional[Iterable] = None, debug_checks: Optional[bool] = True):
         super().__init__(domain, queries, elimination_order, debug_checks)
         self.suff_stat_mean = jax.jit(jax.grad(self.lambda0))
         self.suff_stat_cov = jax.jit(jax.hessian(self.lambda0))
@@ -56,9 +56,9 @@ class MarkovNetworkJax(MarkovNetwork):
     def sample(self, rng: jax.random.PRNGKey, lambdas: jnp.ndarray, n_sample: Optional[int] = 1) -> pd.DataFrame:
         n_cols = len(self.domain.keys())
         cols = self.domain.keys()
-        data = np.zeros((n_sample, n_cols), dtype=jnp.int64)
+        data = np.zeros((n_sample, n_cols), dtype=np.int64)
         df = pd.DataFrame(data, columns=cols, dtype=int)
-
+        df_flags = df.values.flags
         order = self.elimination_order[::-1]
         batch_factors = [factor.add_batch_dim(n_sample) for factor in self.compute_factors(lambdas)]
         for variable in order:
@@ -66,11 +66,11 @@ class MarkovNetworkJax(MarkovNetwork):
             rng, key = jax.random.split(rng)
             values = jax.random.categorical(key, marginal)
             batch_factors = [factor.batch_condition(variable, values) if variable in factor.scope else factor for factor in batch_factors]
-            df.loc[:, variable] = np.array(values)
+            df.loc[:, variable] = values
 
         return df
 
-    def log_factor_vector(self, lambdas: jnp.ndarray, variables: List) -> jnp.ndarray:
+    def log_factor_vector(self, lambdas: jnp.ndarray, variables: Iterable) -> jnp.ndarray:
         vec = jnp.zeros(tuple(len(self.domain[var]) for var in variables))
         for query_ind in self.variable_associations[variables]:
             query_val = jnp.array(self.flat_queries.queries[query_ind].value)

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, List, TypeVar, Tuple
+from typing import Dict, Optional, List, Tuple, Iterable
 
 import pandas as pd
 
@@ -21,17 +21,16 @@ from twinify.napsu_mq.junction_tree import JunctionTree
 from twinify.napsu_mq.log_factor import LogFactor
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
 from twinify.napsu_mq.undirected_graph import UndirectedGraph, greedy_ordering
-import jax.numpy as jnp
-import torch
+import numpy
 
-ArrayType = TypeVar('ArrayType', jnp.ndarray, torch.Tensor)
+ArrayType = numpy.typing.ArrayLike
 
 
 class MarkovNetwork(ABC):
     """A Markov network representation for MED.
     """
 
-    def __init__(self, domain: Dict, queries: FullMarginalQuerySet, elimination_order: Optional[List] = None,
+    def __init__(self, domain: Dict, queries: FullMarginalQuerySet, elimination_order: Optional[Iterable] = None,
                  debug_checks: Optional[bool] = True):
         """Create the Markov network.
         Args:
@@ -111,14 +110,14 @@ class MarkovNetwork(ABC):
         """
         return self.suff_stat_mean(lambdas), self.suff_stat_cov(lambdas)
 
-    def marginal_distribution_logits(self, factors: List[LogFactor], variables: List):
+    def marginal_distribution_logits(self, factors: Iterable[LogFactor], variables: Iterable):
         to_eliminate = [var for var in self.elimination_order if var not in variables]
         result_factor = self.variable_elimination(factors, to_eliminate)
         proj_factor = result_factor.project(variables)
         proj_factor.ensure_batch_is_first_dim()
         return proj_factor.values
 
-    def variable_elimination(self, factors: List[LogFactor], variables_to_eliminate: List) -> 'LogFactor':
+    def variable_elimination(self, factors: Iterable[LogFactor], variables_to_eliminate: Iterable) -> 'LogFactor':
         """Run variable elimination.
         Args:
             factors (list(LogFactor)): The factors used in variable elimination from self.compute_factors.
@@ -132,7 +131,7 @@ class MarkovNetwork(ABC):
         return LogFactor.list_product(factors)
 
     @staticmethod
-    def eliminate_var(factors: List['LogFactor'], variable):
+    def eliminate_var(factors: Iterable['LogFactor'], variable):
         factors_in_prod = [factor for factor in factors if variable in factor.scope]
         factors_not_in_prod = [factor for factor in factors if variable not in factor.scope]
 
@@ -144,7 +143,7 @@ class MarkovNetwork(ABC):
         factors_not_in_prod.append(summed_log_factor)
         return factors_not_in_prod
 
-    def belief_propagation(self, factors: List[LogFactor]) -> Dict:
+    def belief_propagation(self, factors: Iterable[LogFactor]) -> Dict:
         """Run belief propagation.
         Args:
             factors (list(LogFactor)): The factors used in belief propagation from self.compute_factors

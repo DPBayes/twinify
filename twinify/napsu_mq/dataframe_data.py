@@ -11,9 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Tuple, List, Union, Mapping
+from typing import Tuple, List, Union, Mapping, Iterable
 from pandas.api.types import is_integer_dtype, is_categorical_dtype
-import torch
 import pandas as pd
 import itertools
 from functools import reduce
@@ -39,7 +38,7 @@ class DataFrameData:
             else:
                 raise ValueError(f"DataFrame contains unsupported column type: {self.base_df[col].dtype}")
 
-        self.int_tensor = torch.tensor(self.int_df.values)
+        self.int_array = self.int_df.to_numpy()
 
         self.n, self.d = base_df.shape
 
@@ -50,14 +49,14 @@ class DataFrameData:
         }
         self.values_by_int_feature = {i: list(self.values_by_col[col]) for i, col in enumerate(self.int_df.columns)}
 
-    def get_x_values(self) -> torch.Tensor:
+    def get_x_values(self) -> np.ndarray:
         """Enumerate all possible datapoints for the categories of the dataset.
         Returns:
-            torch.tensor: Enumeration of all possible datapoints.
+            np.ndarray: Enumeration of all possible datapoints.
         """
-        x_values = torch.zeros((self.get_domain_size(), self.d))
+        x_values = np.zeros((self.get_domain_size(), self.d))
         for i, val in enumerate(itertools.product(*self.values_by_col.values())):
-            x_values[i, :] = torch.tensor(val)
+            x_values[i, :] = np.array(val)
         return x_values
 
     def get_domain_size(self) -> int:
@@ -138,20 +137,20 @@ class DataFrameData:
         int_df = pd.DataFrame(ndarray, columns=self.base_df.columns, dtype=int)
         return self.int_df_to_cat_df(int_df)
 
-    def int_query_to_str_query(self, inds: Tuple, value: Union[Tuple, torch.Tensor]) -> Tuple[List, List]:
+    def int_query_to_str_query(self, inds: Tuple, value: Union[Iterable, np.ndarray]) -> Tuple[List, List]:
         """Convert marginal query for integer dataframe to query for categorical dataframe.
         Args:
             inds (tuple: Query indices.
-            value (tuple or torch.Tensor): Query value.
+            value (tuple or np.ndarray): Query value.
         Returns:
             (List, List): String-valued indices and value.
         """
-        value = tuple(value.numpy()) if type(value) is torch.Tensor else value
+        value = tuple(value) if type(value) is np.ndarray else value
         str_inds = [self.base_df.columns[ind] for ind in inds]
         str_value = [self.base_df[str_inds[i]].cat.categories[val] for i, val in enumerate(value)]
         return str_inds, str_value
 
-    def str_query_to_int_query(self, feature_set: Tuple, value: Tuple) -> Tuple[List, torch.Tensor]:
+    def str_query_to_int_query(self, feature_set: Tuple, value: Tuple) -> Tuple[List, np.ndarray]:
         """Convert marginal query for categorical dataframe to query for integer dataframe.
         Args:
             feature_set (tuple): Query indices.
@@ -169,4 +168,4 @@ class DataFrameData:
         int_inds = [index(list(self.values_by_col.keys()), feature) for feature in feature_set]
         int_values = [index(list(self.base_df[feature].cat.categories), value[i]) for i, feature in
                       enumerate(feature_set)]
-        return int_inds, torch.tensor(int_values)
+        return int_inds, np.array(int_values)

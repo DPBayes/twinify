@@ -13,8 +13,8 @@
 # limitations under the License.
 from typing import Iterable, List, Optional, Tuple, Dict, Set
 
-import torch
 import itertools
+import numpy as np
 
 from tqdm import tqdm
 
@@ -22,7 +22,7 @@ from twinify.napsu_mq.utils import powerset
 
 
 class MarginalQuery:
-    def __init__(self, inds: Iterable[int], value: Iterable[int], features: Optional[List] = None):
+    def __init__(self, inds: Iterable[int], value: Iterable[int], features: Optional[Iterable] = None):
         """Create the marginal query object.
         Args:
             inds (iterable(int)): Indices of the marginal query. Converted to list.
@@ -31,10 +31,10 @@ class MarginalQuery:
         """
         self.inds = list(inds)
         self.features = self.inds if features is None else features
-        self.value = value if type(value) is torch.Tensor else torch.tensor(value)
+        self.value = value if type(value) is np.ndarray else np.array(value)
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return (x[:, self.inds] == self.value).all(axis=1).int().view(-1, 1)
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        return (x[:, self.inds] == self.value).all(axis=1).astype(int).reshape((-1, 1))
 
     def __str__(self) -> str:
         return "{} = {}".format(self.inds, [val.item() for val in self.value])
@@ -57,7 +57,7 @@ class MarginalQuery:
 class FullMarginalQuerySet:
     """A full marginal query set."""
 
-    def __init__(self, feature_sets: List[Tuple], values_by_feature: Dict):
+    def __init__(self, feature_sets: Iterable[Tuple], values_by_feature: Dict):
         """Create the full marginal query set.
         Args:
             feature_sets (list(tuple)): The tuples of variables that are used as indices.
@@ -81,7 +81,7 @@ class FullMarginalQuerySet:
         self.queries = {feature_set: QueryList(all_marginals_for_feature_set(feature_set, values_by_feature)) for
                         feature_set in feature_sets}
 
-    def query(self, x: torch.Tensor) -> Dict:
+    def query(self, x: np.ndarray) -> Dict:
         """Run all marginal queries on output.
         Args:
             x (torch.tensor): The output.
@@ -90,16 +90,16 @@ class FullMarginalQuerySet:
         """
         return {feature_set: self.queries[feature_set](x) for feature_set in self.feature_sets}
 
-    def query_sum(self, x: torch.Tensor) -> Dict:
+    def query_sum(self, x: np.ndarray) -> Dict:
         """As self.query, except the results are summed over datapoints.
         Args:
             x (torch.tensor): The output.
         Returns:
             dict: A dictionary containing the feature sets as keys and summed query results as values.
         """
-        return {feature_set: result.sum(dim=0) for feature_set, result in self.query(x).items()}
+        return {feature_set: result.sum(axis=0) for feature_set, result in self.query(x).items()}
 
-    def query_feature_set(self, feature_set: Tuple, x: torch.Tensor) -> torch.Tensor:
+    def query_feature_set(self, feature_set: Tuple, x: np.ndarray) -> np.ndarray:
         """Query one feature set.
         Args:
             feature_set (tuple): The feature set to query.
@@ -109,7 +109,7 @@ class FullMarginalQuerySet:
         """
         return self.queries[feature_set](x)
 
-    def query_feature_set_sum(self, feature_set: Tuple, x: torch.Tensor) -> torch.Tensor:
+    def query_feature_set_sum(self, feature_set: Tuple, x: np.ndarray) -> np.ndarray:
         """As self.query_feature_set, except results are summed over datapoints.
         Args:
             feature_set (tuple): The feature set to query.
@@ -117,7 +117,7 @@ class FullMarginalQuerySet:
         Returns:
             torch.tensor: The summed query results.
         """
-        return self.query_feature_set(feature_set, x).sum(dim=0)
+        return self.query_feature_set(feature_set, x).sum(axis=0)
 
     def flatten(self) -> 'QueryList':
         """Convert self to a QueryList of the contained queries.
@@ -132,7 +132,7 @@ class FullMarginalQuerySet:
             FullMarginalQuerySet: The canonical queries as a FullMarginalQuerySet.
         """
         d = len(self.values_by_feature.keys())
-        base_value = torch.zeros(d, dtype=int)
+        base_value = np.zeros(d, dtype=int)
         clique_list = list(itertools.chain.from_iterable(powerset(features) for features in self.int_feature_sets))
         clique_set = set([tuple(val) for val in clique_list])
         canonical_queries = {}
@@ -142,23 +142,23 @@ class FullMarginalQuerySet:
             clique_ordered = tuple(clique)
             if clique == set():
                 continue
-            index_conversion = torch.full((d,), -1)
+            index_conversion = np.full((d,), -1)
             for i, variable in enumerate(clique_ordered):
                 index_conversion[variable] = i
             conv_clique_indices = index_conversion[list(clique)]
 
             clique_product = itertools.product(*(self.values_by_int_feature[variable] for variable in clique_ordered))
             for val in tqdm(clique_product):
-                value = torch.zeros(len(clique), dtype=int)
-                value[conv_clique_indices] = torch.tensor(val, dtype=int)
-                counter = torch.zeros(tuple([len(self.values_by_int_feature[variable]) for variable in clique_ordered]),
+                value = np.zeros(len(clique), dtype=int)
+                value[conv_clique_indices] = np.asarray(val, dtype=int)
+                counter = np.zeros(tuple([len(self.values_by_int_feature[variable]) for variable in clique_ordered]),
                                       dtype=int)
                 subsets = powerset(clique)
                 for subset in subsets:
                     multiplier = (-1) ** (len(clique) - len(subset))
                     base_indices = list(clique.difference(subset))
                     conv_base_indices = index_conversion[base_indices]
-                    completed_value = value.clone()
+                    completed_value = value.copy()
                     completed_value[conv_base_indices] = base_value[conv_base_indices]
                     counter[tuple(completed_value)] += multiplier
 
@@ -216,13 +216,13 @@ class QueryList:
         """
         self.queries = list(queries)
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.concat([query(x) for query in self.queries], dim=1)
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        return np.concatenate([query(x) for query in self.queries], axis=1)
 
     def __str__(self):
         return "\n".join(query.__str__() for query in self.queries)
 
-    def evaluate_subset(self, x: torch.Tensor, subset: Iterable[int]) -> torch.Tensor:
+    def evaluate_subset(self, x: np.ndarray, subset: Iterable[int]) -> np.ndarray:
         """Evaluate a subset of the queries.
         Args:
             x (torch.tensor): The output.
@@ -230,7 +230,7 @@ class QueryList:
         Returns:
             torch.tensor: The query results.
         """
-        return torch.concat([self.queries[i](x) for i in subset], dim=1)
+        return np.concatenate([self.queries[i](x) for i in subset], axis=1)
 
     def get_subset(self, subset: Iterable[int]) -> 'QueryList':
         """Get a subset of the queries.
@@ -275,13 +275,13 @@ def join_query_sets(query_sets: Iterable[QueryList]) -> QueryList:
     return QueryList(list(itertools.chain.from_iterable(query_set.queries for query_set in query_sets)))
 
 
-def all_marginals_for_feature_set(feature_set: List, values_by_feature: Dict) -> List[MarginalQuery]:
+def all_marginals_for_feature_set(feature_set: Iterable, values_by_feature: Dict) -> List[MarginalQuery]:
     inds = [list(values_by_feature.keys()).index(feature) for feature in feature_set]
     all_values = list(itertools.product(*[sorted(values_by_feature[feature]) for feature in feature_set]))
     return [MarginalQuery(inds, value, feature_set) for value in all_values]
 
 
-def all_marginals(feature_sets: List[Tuple], values_by_feature: Dict) -> QueryList:
+def all_marginals(feature_sets: Iterable[Tuple], values_by_feature: Dict) -> QueryList:
     """Get all marginal queries for given sets of variables.
     Args:
         feature_sets (list(tuple)): The sets of variables.
@@ -297,7 +297,7 @@ def all_marginals(feature_sets: List[Tuple], values_by_feature: Dict) -> QueryLi
     return QueryList(queries)
 
 
-def column_feature_sets_to_indices(column_feature_sets: List[Tuple[str, str]],
+def column_feature_sets_to_indices(column_feature_sets: Iterable[Tuple[str, str]],
                                    columns: List[str]) -> List[Tuple[int, int]]:
     int_feature_sets = []
     for pair in column_feature_sets:

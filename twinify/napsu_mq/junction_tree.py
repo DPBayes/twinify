@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import graphviz
-from typing import Tuple, List, Optional, Set, Dict, Union, TypeVar
+from typing import Tuple, List, Optional, Set, Dict, Union, TypeVar, Iterable
 
 T = TypeVar('T')
 
@@ -43,7 +43,7 @@ class EmptyFactor:
         return EmptyFactor(self.scope.difference({variable}))
 
     @staticmethod
-    def list_product(factors: List['EmptyFactor']) -> 'EmptyFactor':
+    def list_product(factors: Iterable['EmptyFactor']) -> 'EmptyFactor':
         factors = list(factors)
         product = factors[0]
         for i in range(1, len(factors)):
@@ -58,7 +58,7 @@ class JunctionTree:
     """
 
     def __init__(self, nodes: Set['TreeNode'], edges: Dict[Tuple['TreeNode', 'TreeNode'], Set['TreeNode']],
-                 cliques: List[Tuple]):
+                 cliques: Iterable[Tuple]):
         """Create the junction tree explicitly.
         Args:
             nodes (set): The nodes of the junction tree.
@@ -120,7 +120,7 @@ class JunctionTree:
                     node_stack.append(neighbour)
 
     @staticmethod
-    def from_variable_elimination(feature_sets: List[Tuple[T, T]], elimination_order: List) -> 'JunctionTree':
+    def from_variable_elimination(feature_sets: Iterable[Tuple[T, T]], elimination_order: Iterable) -> 'JunctionTree':
         """Create a junction tree from a variable elimination run.
         Args:
             feature_sets (list(tuple)): The factor scopes of the variable elimination.
@@ -139,7 +139,7 @@ class JunctionTree:
         return jt
 
     @staticmethod
-    def eliminate_var(factors: List, variable: List, nodes, edges) -> List:
+    def eliminate_var(factors: Iterable, variable: Iterable, nodes, edges) -> List:
         factors_in_prod = [factor for factor in factors if variable in factor.scope]
         factors_not_in_prod = [factor for factor in factors if variable not in factor.scope]
 
