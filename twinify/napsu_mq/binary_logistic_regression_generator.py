@@ -63,7 +63,7 @@ class BinaryLogisticRegressionDataGenerator:
     def compute_x_values(self) -> np.ndarray:
         """Enumerate all possible datapoints.
         Returns:
-            torch.tensor: 2-d array enumerating all possible datapoints.
+            np.ndarray: 2-d array enumerating all possible datapoints.
         """
         x_values = np.zeros((2 ** self.d, self.d))
         for i, val in enumerate(itertools.product(range(2), repeat=self.d)):

@@ -14,7 +14,6 @@
 
 import unittest
 import pytest
-import os
 import random
 import string
 import numpy as np

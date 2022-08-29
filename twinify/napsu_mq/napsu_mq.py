@@ -19,7 +19,6 @@ import numpy as np
 import arviz as az
 import jax
 import jax.numpy as jnp
-from jaxlib.xla_extension import DeviceArray
 from mbi import Domain, Dataset
 import dill
 

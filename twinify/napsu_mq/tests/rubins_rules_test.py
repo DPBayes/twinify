@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import unittest
-import numpy as np
 import twinify.napsu_mq.rubins_rules as rubins_rules
 
 

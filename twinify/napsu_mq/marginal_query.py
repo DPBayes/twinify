@@ -26,7 +26,7 @@ class MarginalQuery:
         """Create the marginal query object.
         Args:
             inds (iterable(int)): Indices of the marginal query. Converted to list.
-            value (iterable(int)): Values of the marginal query. Converted to torch.tensor.
+            value (iterable(int)): Values of the marginal query. Converted to np.ndarray.
             features (list, optional): Variable names corresponding to the indices. Defaults to inds.
         """
         self.inds = list(inds)
@@ -84,7 +84,7 @@ class FullMarginalQuerySet:
     def query(self, x: np.ndarray) -> Dict:
         """Run all marginal queries on output.
         Args:
-            x (torch.tensor): The output.
+            x (np.ndarray): The output.
         Returns:
             dict: A dictionary containing the feature sets as keys and query results as values.
         """
@@ -93,7 +93,7 @@ class FullMarginalQuerySet:
     def query_sum(self, x: np.ndarray) -> Dict:
         """As self.query, except the results are summed over datapoints.
         Args:
-            x (torch.tensor): The output.
+            x (np.ndarray): The output.
         Returns:
             dict: A dictionary containing the feature sets as keys and summed query results as values.
         """
@@ -103,9 +103,9 @@ class FullMarginalQuerySet:
         """Query one feature set.
         Args:
             feature_set (tuple): The feature set to query.
-            x (torch.tensor): The output.
+            x (np.ndarray): The output.
         Returns:
-            torch.tensor: The query results.
+            np.ndarray: The query results.
         """
         return self.queries[feature_set](x)
 
@@ -113,9 +113,9 @@ class FullMarginalQuerySet:
         """As self.query_feature_set, except results are summed over datapoints.
         Args:
             feature_set (tuple): The feature set to query.
-            x (torch.tensor): The output.
+            x (np.ndarray): The output.
         Returns:
-            torch.tensor: The summed query results.
+            np.ndarray: The summed query results.
         """
         return self.query_feature_set(feature_set, x).sum(axis=0)
 
@@ -225,10 +225,10 @@ class QueryList:
     def evaluate_subset(self, x: np.ndarray, subset: Iterable[int]) -> np.ndarray:
         """Evaluate a subset of the queries.
         Args:
-            x (torch.tensor): The output.
+            x (np.ndarray): The output.
             subset (iterable(int)): The indices for the queries to evaluate.
         Returns:
-            torch.tensor: The query results.
+            np.ndarray: The query results.
         """
         return np.concatenate([self.queries[i](x) for i in subset], axis=1)
 
