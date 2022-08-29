@@ -14,7 +14,6 @@
 from typing import Tuple, Optional
 
 import numpy as np
-import scipy.stats
 import scipy.stats as stats
 
 
@@ -61,7 +60,7 @@ def non_negative_conf_int(q: np.ndarray, u: np.ndarray, conf_level: float, n: in
 
 
 def conf_int_distribution(q: np.ndarray, u: np.ndarray, use_nonnegative_variance: Optional[bool] = False,
-                          n: Optional[int] = None, n_orig: Optional[int] = None) -> Optional[scipy.stats.t_gen]:
+                          n: Optional[int] = None, n_orig: Optional[int] = None) -> Optional[stats.t]:
     """Compute the estimator distribution with Rubin's rules used for confidence intervals and hypothesis tests.
     Args:
         q (ndarray): Point estimates.

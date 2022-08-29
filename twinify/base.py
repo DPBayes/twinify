@@ -3,7 +3,7 @@ import pandas as pd
 from typing import Union, Optional, Iterable, BinaryIO
 from d3p.random import PRNGState
 
-class InferenceModel(meta=abc.ABCMeta):
+class InferenceModel(metaclass=abc.ABCMeta):
     """ A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. """
 
     @abc.abstractmethod

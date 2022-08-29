@@ -15,9 +15,6 @@ from typing import Optional, Union, Iterable, BinaryIO, Callable, Mapping
 import os
 import pandas as pd
 
-# TODO: remove torch dependency
-import torch
-
 import numpy as np
 import arviz as az
 import jax
@@ -25,8 +22,8 @@ import jax.numpy as jnp
 from jaxlib.xla_extension import DeviceArray
 from mbi import Domain, Dataset
 import dill
-from mst import MST_selection
 
+from twinify.napsu_mq.mst import MST_selection
 from twinify.base import InferenceModel, InferenceResult, InvalidFileFormatException
 from twinify.napsu_mq.markov_network_jax import MarkovNetworkJax
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
@@ -58,10 +55,10 @@ class NapsuMQModel(InferenceModel):
         queries = FullMarginalQuerySet(query_sets, dataframe.values_by_col)
         queries = queries.get_canonical_queries()
         mnjax = MarkovNetworkJax(dataframe.values_by_col, queries)
-        suff_stat = torch.sum(queries.flatten()(dataframe.int_tensor), dim=0)
+        suff_stat = np.sum(queries.flatten()(dataframe.int_array), axis=0)
         sensitivity = np.sqrt(2 * len(query_sets))
         sigma_DP = privacy_accounting.sigma(epsilon, delta, sensitivity)
-        dp_suff_stat = torch.normal(mean=suff_stat.double(), std=sigma_DP)
+        dp_suff_stat = jnp.asarray(np.random.normal(loc=suff_stat, scale=sigma_DP))
 
         if use_laplace_approximation is True:
             laplace_approx, success = mei.run_numpyro_laplace_approximation(rng, dp_suff_stat, n, sigma_DP, mnjax)
@@ -85,7 +82,7 @@ class NapsuMQModel(InferenceModel):
 
 class NapsuMQResult(InferenceResult):
 
-    def __init__(self, markov_network: MarkovNetworkJax, posterior_values: DeviceArray,
+    def __init__(self, markov_network: MarkovNetworkJax, posterior_values: jnp.ndarray,
                  category_mapping: Mapping) -> None:
         super().__init__()
         self._markov_network = markov_network
@@ -97,7 +94,7 @@ class NapsuMQResult(InferenceResult):
         return self._markov_network
 
     @property
-    def posterior_values(self) -> DeviceArray:
+    def posterior_values(self) -> jnp.ndarray:
         return self._posterior_values
 
     @property
@@ -120,7 +117,7 @@ class NapsuMQResult(InferenceResult):
                   ) -> Iterable[pd.DataFrame]:
         mnjax = self._markov_network
         posterior_values = self.posterior_values
-        inds = np.random.choice(posterior_values.shape[0], num_datasets)
+        inds = jax.random.choice(key=rng, a=posterior_values.shape[0], shape=[num_datasets])
         posterior_sample = posterior_values[inds, :]
         rng, *data_keys = jax.random.split(rng, num_datasets + 1)
         syn_datasets = [mnjax.sample(syn_data_key, jnp.array(posterior_value), dataset_size) for

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Union
 
 import numpyro
 import numpyro.distributions as numdist
@@ -18,14 +19,14 @@ import jax.numpy as jnp
 from twinify.napsu_mq.markov_network_jax import MarkovNetworkJax
 
 
-def normal_prior_model_numpyro(dp_suff_stat: jnp.ndarray, n: int, sigma_DP: float, prior_mu: jnp.ndarray,
+def normal_prior_model_numpyro(dp_suff_stat: jnp.ndarray, n: int, sigma_DP: float, prior_mu: Union[float, jnp.ndarray],
                                prior_sigma: float, med: MarkovNetworkJax):
     """NumPyro model for NAPSU-MQ with isotropic Gaussian prior.
     Args:
         dp_suff_stat (jax.ndarray): Noisy sufficient statistic.
         n (int): Number of datapoints.
         sigma_DP (float): Noise standard deviation.
-        prior_mu (jax.ndarray): Prior mean.
+        prior_mu (float or jax.ndarray): Prior mean.
         prior_sigma (float): Prior standard deviation.
         med (MarkovNetworkJax): An implementation of MED.
     """

@@ -230,7 +230,7 @@ class LogFactorJax(LogFactor):
         return jnp.take(self.values, index, axis)
 
     def compute_batch_condition_values(self, values: ArrayLike, to_remove_index: int,
-                                       result_shape=None) -> jnp.DeviceArray:
+                                       result_shape=None) -> jnp.ndarray:
         return jax.vmap(lambda i: jnp.take(self.values[i], values[i], to_remove_index - 1), 0, 0)(
             jnp.arange(self.get_variable_range("batch")))
 

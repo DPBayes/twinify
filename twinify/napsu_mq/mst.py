@@ -1,7 +1,9 @@
 # Originally from https://github.com/ryan112358/private-pgm/blob/master/mechanisms/mst.py
 # Modified by Authors under the Apache 2.0 license
+from typing import Iterable, List, Tuple, Any, Callable, Mapping
 
 import numpy as np
+import scipy.sparse
 from mbi import FactoredInference, Dataset, Domain
 from scipy import sparse
 from disjoint_set import DisjointSet
@@ -19,7 +21,7 @@ and does not rely on public provisional data for measurement selection.
 """
 
 
-def MST_selection(data, epsilon, delta, cliques_to_include=[]):
+def MST_selection(data: Dataset, epsilon: float, delta: float, cliques_to_include: Iterable = []):
     rho = accounting.eps_delta_budget_to_rho_budget(epsilon, delta)
     sigma = np.sqrt(3 / (2 * rho))
     cliques = [(col,) for col in data.domain]
@@ -29,7 +31,7 @@ def MST_selection(data, epsilon, delta, cliques_to_include=[]):
     return cliques
 
 
-def MST(data, epsilon, delta):
+def MST(data: Dataset, epsilon: float, delta: float) -> Dataset:
     rho = accounting.eps_delta_budget_to_rho_budget(epsilon, delta)
     sigma = np.sqrt(3 / (2 * rho))
     cliques = [(col,) for col in data.domain]
@@ -43,7 +45,8 @@ def MST(data, epsilon, delta):
     return undo_compress_fn(synth)
 
 
-def measure(data, cliques, sigma, weights=None):
+def measure(data: Dataset, cliques: List, sigma: float, weights: np.ndarray = None) -> List[
+    Tuple[scipy.sparse.coo_matrix, np.ndarray, float, List]]:
     if weights is None:
         weights = np.ones(len(cliques))
     weights = np.array(weights) / np.linalg.norm(weights)
@@ -56,7 +59,7 @@ def measure(data, cliques, sigma, weights=None):
     return measurements
 
 
-def compress_domain(data, measurements):
+def compress_domain(data: Dataset, measurements: List[Tuple]) -> Tuple[Dataset, List, Callable]:
     supports = {}
     new_measurements = []
     for Q, y, sigma, proj in measurements:
@@ -76,14 +79,15 @@ def compress_domain(data, measurements):
     return transform_data(data, supports), new_measurements, undo_compress_fn
 
 
-def exponential_mechanism(q, eps, sensitivity, prng=np.random, monotonic=False):
+# TODO: add type to q
+def exponential_mechanism(q: Any, eps: float, sensitivity: float, prng=np.random, monotonic=False) -> np.ndarray:
     coef = 1.0 if monotonic else 0.5
     scores = coef * eps / sensitivity * q
     probas = np.exp(scores - logsumexp(scores))
     return prng.choice(q.size, p=probas)
 
 
-def select(data, rho, measurement_log, cliques=[]):
+def select(data: Dataset, rho: float, measurement_log: List[Tuple], cliques: Iterable = []) -> List:
     engine = FactoredInference(data.domain, iters=1000)
     est = engine.estimate(measurement_log)
 
@@ -115,7 +119,7 @@ def select(data, rho, measurement_log, cliques=[]):
     return list(T.edges)
 
 
-def transform_data(data, supports):
+def transform_data(data: Dataset, supports: Mapping) -> Dataset:
     df = data.df.copy()
     newdom = {}
     for col in data.domain:
@@ -137,7 +141,7 @@ def transform_data(data, supports):
     return Dataset(df, newdom)
 
 
-def reverse_data(data, supports):
+def reverse_data(data: Dataset, supports: Mapping) -> Dataset:
     df = data.df.copy()
     newdom = {}
     for col in data.domain:

@@ -18,6 +18,9 @@ import itertools
 from functools import reduce
 from operator import mul
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DataFrameData:
@@ -73,7 +76,7 @@ class DataFrameData:
             categorical_df (DataFrame): Categorical dataframe
         Returns:
             category_mapping (Mapping): Two-level dictionary for category mapping.
-                First level is mapping from column name to dictionary, second level is mapping from category index value to category names.
+                First level is mapping from column name to dictionary, second level is mapping from category index value to category name.
                 Example:
                     {
                         "animal_column": {
@@ -82,7 +85,7 @@ class DataFrameData:
                             2: "sheep"
                         },
                         "ml_library_column": {
-                            0: "jax",
+                            0: "JAX",
                             1: "PyTorch"
                             2: "Tensorflow"
                         }
@@ -109,8 +112,7 @@ class DataFrameData:
 
         for column in int_df:
             if column in category_mapping:
-                cat_df[column] = pd.Categorical(int_df[column]).rename_categories(category_mapping[column],
-                                                                                  inplace=True)
+                cat_df[column] = pd.Categorical(int_df[column]).rename_categories(category_mapping[column])
 
         return cat_df
 
@@ -123,7 +125,10 @@ class DataFrameData:
         """
         cat_df = int_df.copy()
         for col in int_df.columns:
-            cat_df[col] = self.base_df[col].cat.categories[int_df[col]]
+            if is_categorical_dtype(self.base_df[col]):
+                cat_df[col] = self.base_df[col].cat.categories[int_df[col]]
+            else:
+                logger.warning(f"Column {col} is not categorical column")
 
         return cat_df.astype("category")
 
@@ -137,7 +142,7 @@ class DataFrameData:
         int_df = pd.DataFrame(ndarray, columns=self.base_df.columns, dtype=int)
         return self.int_df_to_cat_df(int_df)
 
-    def int_query_to_str_query(self, inds: Tuple, value: Union[Iterable, np.ndarray]) -> Tuple[List, List]:
+    def int_query_to_str_query(self, inds: Iterable, value: Union[Iterable, np.ndarray]) -> Tuple[List, List]:
         """Convert marginal query for integer dataframe to query for categorical dataframe.
         Args:
             inds (tuple: Query indices.
@@ -150,7 +155,7 @@ class DataFrameData:
         str_value = [self.base_df[str_inds[i]].cat.categories[val] for i, val in enumerate(value)]
         return str_inds, str_value
 
-    def str_query_to_int_query(self, feature_set: Tuple, value: Tuple) -> Tuple[List, np.ndarray]:
+    def str_query_to_int_query(self, feature_set: Iterable, value: List) -> Tuple[List, np.ndarray]:
         """Convert marginal query for categorical dataframe to query for integer dataframe.
         Args:
             feature_set (tuple): Query indices.

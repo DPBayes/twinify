@@ -21,10 +21,7 @@ from twinify.napsu_mq.junction_tree import JunctionTree
 from twinify.napsu_mq.log_factor import LogFactor
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
 from twinify.napsu_mq.undirected_graph import UndirectedGraph, greedy_ordering
-import numpy
-
-ArrayType = numpy.typing.ArrayLike
-
+import numpy as np
 
 class MarkovNetwork(ABC):
     """A Markov network representation for MED.
@@ -60,18 +57,18 @@ class MarkovNetwork(ABC):
         self.lambda_d = self.suff_stat_d
 
     @abstractmethod
-    def lambda0(self, lambdas: ArrayType) -> ArrayType:
+    def lambda0(self, lambdas: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod
-    def suff_stat_mean_bp(self, lambdas: ArrayType) -> ArrayType:
+    def suff_stat_mean_bp(self, lambdas: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod
-    def sample(self, lambdas: ArrayType, n_sample: Optional[int] = 1) -> pd.DataFrame:
+    def sample(self, lambdas: np.ndarray, n_sample: Optional[int] = 1) -> pd.DataFrame:
         """Sample the distribution with given parameter values.
         Args:
-            lambdas (array): The parameter values.
+            lambdas (numpy array): The parameter values.
             n_sample (int, optional): The number of samples to generate. Defaults to 1.
         Returns:
             array (Pandas Dataframe): The generated samples.
@@ -79,34 +76,34 @@ class MarkovNetwork(ABC):
         pass
 
     @abstractmethod
-    def log_factor_vector(self, lambdas: ArrayType, variables):
+    def log_factor_vector(self, lambdas: np.ndarray, variables):
         pass
 
     @abstractmethod
-    def compute_factors(self, lambdas: ArrayType) -> List[LogFactor]:
+    def compute_factors(self, lambdas: np.ndarray) -> List[LogFactor]:
         """Compute the LogFactor objects used by other methods for given parameters.
         Args:
-            lambdas (array): The parameters.
+            lambdas (numpy array): The parameters.
         Returns:
             list(LogFactor): The resulting factors.
         """
         pass
 
-    def suff_stat_mean_and_cov_bp(self, lambdas: ArrayType) -> Tuple[ArrayType, ArrayType]:
+    def suff_stat_mean_and_cov_bp(self, lambdas: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Compute sufficient statistic mean and covariance for given parameter values with belief propagation.
         Args:
-            lambdas (array): The parameter values.
+            lambdas (numpy array): The parameter values.
         Returns:
-            (array, array): (mean, covariance)
+            (numpy array, numpy array): (mean, covariance)
         """
         return self.suff_stat_mean_bp(lambdas), self.suff_stat_cov_bp(lambdas)
 
-    def suff_stat_mean_and_cov(self, lambdas: ArrayType) -> Tuple[ArrayType, ArrayType]:
+    def suff_stat_mean_and_cov(self, lambdas: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Compute sufficient statistic mean and covariance for given parameter values with.
         Args:
-            lambdas (array): The parameter values.
+            lambdas (numpy array): The parameter values.
         Returns:
-            (array, array): (mean, covariance)
+            (numpy array, numpy array): (mean, covariance)
         """
         return self.suff_stat_mean(lambdas), self.suff_stat_cov(lambdas)
 

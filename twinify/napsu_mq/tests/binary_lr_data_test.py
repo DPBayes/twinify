@@ -13,11 +13,9 @@
 # limitations under the License.
 
 import unittest
-
 import jax.random
 import numpy as np
 from twinify.napsu_mq.binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
-import random
 
 
 class BinaryLogisticRegressionDataGeneratorTest(unittest.TestCase):
@@ -46,8 +44,8 @@ class BinaryLogisticRegressionDataGeneratorTest(unittest.TestCase):
                     for l in range(2):
                         self.assertIn((i, j, k, l), x_values_tuples)
 
-    def test_data_generation_3d_jax(self,):
-        rng_key = jax.random.PRNGKey(random.randint(0, 10000000))
+    def test_data_generation_3d_jax(self, ):
+        rng_key = jax.random.PRNGKey(801582)
 
         data = self.data_generator3d.generate_data(100000, rng_key=rng_key)
         data_mean = np.mean(data, axis=0)
@@ -62,7 +60,7 @@ class BinaryLogisticRegressionDataGeneratorTest(unittest.TestCase):
         self.assertAlmostEqual(0.486, data_std[2], places=2)
 
     def test_data_generation_4d_jax(self):
-        rng_key = jax.random.PRNGKey(random.randint(0, 10000000))
+        rng_key = jax.random.PRNGKey(356346)
 
         data = self.data_generator4d.generate_data(100000, rng_key=rng_key)
         data_mean = np.mean(data, axis=0)

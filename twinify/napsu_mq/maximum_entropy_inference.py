@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, Iterator, Iterable
+from typing import Union, Callable, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -19,12 +19,14 @@ import numpyro
 import numpyro.infer.util as nummcmc_util
 from jax import random
 import twinify.napsu_mq.maximum_entropy_model as mem
+from twinify.napsu_mq.markov_network_jax import MarkovNetworkJax
 
 
 def run_numpyro_mcmc(
-        rng: random.PRNGKey, suff_stat, n, sigma_DP, max_ent_dist, prior_mu=0, prior_sigma=10,
-        num_samples=1000, num_warmup=500, num_chains=1, disable_progressbar=False,
-):
+        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetworkJax,
+        prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10, num_samples: int = 1000,
+        num_warmup: int = 500, num_chains: int = 1, disable_progressbar: bool = False,
+) -> numpyro.infer.MCMC:
     kernel = numpyro.infer.NUTS(model=mem.normal_prior_model_numpyro, max_tree_depth=12)
     mcmc = numpyro.infer.MCMC(
         kernel, num_warmup=num_warmup, num_samples=num_samples, num_chains=num_chains,
@@ -35,28 +37,30 @@ def run_numpyro_mcmc(
 
 
 def run_numpyro_mcmc_normalised(
-        rng: random.PRNGKey, suff_stat, n, sigma_DP, max_ent_dist, laplace_approx, prior_sigma=10,
-        num_samples=1000, num_warmup=500, num_chains=1, disable_progressbar=False,
-):
+        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetworkJax,
+        laplace_approx: numpyro.distributions.MultivariateNormal, prior_sigma: float = 10,
+        num_samples: int = 1000, num_warmup: int = 500, num_chains: int = 1, disable_progressbar: bool = False,
+) -> Tuple[numpyro.infer.MCMC, Callable]:
     kernel = numpyro.infer.NUTS(model=mem.normal_prior_normalised_model_numpyro, max_tree_depth=12)
     mcmc = numpyro.infer.MCMC(
         kernel, num_warmup=num_warmup, num_samples=num_samples, num_chains=num_chains,
         progress_bar=not disable_progressbar, jit_model_args=False, chain_method="sequential"
     )
 
-    mean_guess = jnp.array(laplace_approx.mean.detach().numpy())
-    L_guess = jnp.linalg.cholesky(jnp.array(laplace_approx.covariance_matrix.detach().numpy()))
-    mcmc.run(rng, jnp.array(suff_stat), n, sigma_DP, prior_sigma, max_ent_dist, mean_guess, L_guess)
+    mean_guess = laplace_approx.mean
+    L_guess = jnp.linalg.cholesky(laplace_approx.covariance_matrix)
+    mcmc.run(rng, suff_stat, n, sigma_DP, prior_sigma, max_ent_dist, mean_guess, L_guess)
 
-    def backtransform(lambdas):
+    def backtransform(lambdas: jnp.ndarray) -> jnp.ndarray:
         return (L_guess @ lambdas.transpose()).transpose() + mean_guess
 
     return mcmc, backtransform
 
 
 def run_numpyro_laplace_approximation(
-        rng: random.PRNGKey, suff_stat, n, sigma_DP, max_ent_dist, prior_mu=0, prior_sigma=10
-):
+        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetworkJax,
+        prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10
+) -> Tuple[numpyro.distributions.MultivariateNormal, bool]:
     init_lambdas, potential_fn, t, mt = nummcmc_util.initialize_model(
         rng, mem.normal_prior_model_numpyro, model_args=(suff_stat, n, sigma_DP, prior_mu, prior_sigma, max_ent_dist)
     )

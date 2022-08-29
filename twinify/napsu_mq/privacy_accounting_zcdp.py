@@ -72,14 +72,14 @@ def gauss_mechanism_with_sigma(x: float, sigma: float) -> float:
     return np.random.normal(loc=x, scale=sigma)
 
 
-def report_noisy_max(x, rho: float, sensitivity: float) -> np.ndarray[int]:
+def report_noisy_max(x: np.ndarray, rho: float, sensitivity: float) -> np.ndarray:
     """Report noisy max with Gumbel noise.
     Args:
-        x (torch.tensor): Input data.
+        x (np.ndarray): Input data.
         rho (float): zCDP privacy parameter.
         sensitivity (float): Sensitivity of x.
     Returns:
-        _type_: _description_
+        int: Argmax from noisy value of x
     """
     noise_scale = sensitivity / np.sqrt(2 * rho)
     return np.argmax(x + np.random.gumbel(loc=0, scale=noise_scale, size=x.shape))

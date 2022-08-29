@@ -58,7 +58,6 @@ class MarkovNetworkJax(MarkovNetwork):
         cols = self.domain.keys()
         data = np.zeros((n_sample, n_cols), dtype=np.int64)
         df = pd.DataFrame(data, columns=cols, dtype=int)
-        df_flags = df.values.flags
         order = self.elimination_order[::-1]
         batch_factors = [factor.add_batch_dim(n_sample) for factor in self.compute_factors(lambdas)]
         for variable in order:
