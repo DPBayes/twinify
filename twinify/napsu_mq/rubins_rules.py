@@ -28,6 +28,11 @@ def compute_aggregates(q: np.ndarray, u: np.ndarray) -> Tuple[np.ndarray, np.nda
     q_m = np.mean(q)
     b_m = np.var(q, ddof=1)
     u_m = np.mean(u)
+
+    print(f"q_m: {q_m}")
+    print(f"b_m: {b_m}")
+    print(f"u_m: {u_m}")
+
     return q_m, b_m, u_m
 
 
@@ -74,9 +79,11 @@ def conf_int_distribution(q: np.ndarray, u: np.ndarray, use_nonnegative_variance
     q_m, b_m, u_m = compute_aggregates(q, u)
     m = q.size
     T_m = (1 + 1 / m) * b_m - u_m
+    print(f"T_m: {T_m}")
     if use_nonnegative_variance:
         T_m = T_m if T_m > 0 else n / n_orig * u_m
     degree = (m - 1) * (1 - u_m / ((1 + 1 / m) * b_m)) ** 2
+    print(f"degree: {degree}")
     if not np.isfinite(degree):
         print("m: {}, u_m: {}, b_m: {}".format(m, u_m, b_m))
 
