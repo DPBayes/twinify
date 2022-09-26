@@ -30,7 +30,7 @@ from twinify.napsu_mq.dataframe_data import DataFrameData
 import twinify.napsu_mq.privacy_accounting as privacy_accounting
 import twinify.napsu_mq.maximum_entropy_inference as mei
 
-from d3p.random import PRNGState
+import d3p.random
 
 
 class NapsuMQModel(InferenceModel):
@@ -38,7 +38,7 @@ class NapsuMQModel(InferenceModel):
     def __init__(self) -> None:
         super().__init__()
 
-    def fit(self, data: pd.DataFrame, rng: PRNGState, epsilon: float, delta: float, **kwargs) -> 'NapsuMQResult':
+    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, **kwargs) -> 'NapsuMQResult':
         column_feature_set = kwargs['column_feature_set'] if 'column_feature_set' in kwargs else []
         use_laplace_approximation = kwargs[
             'use_laplace_approximation'] if 'use_laplace_approximation' in kwargs else False
@@ -55,14 +55,23 @@ class NapsuMQModel(InferenceModel):
         queries = queries.get_canonical_queries()
         mnjax = MarkovNetworkJax(dataframe.values_by_col, queries)
         suff_stat = np.sum(queries.flatten()(dataframe.int_array), axis=0)
+
+        # determine Gaussian mech DP noise level for given privacy level
         sensitivity = np.sqrt(2 * len(query_sets))
         sigma_DP = privacy_accounting.sigma(epsilon, delta, sensitivity)
-        dp_suff_stat = jnp.asarray(np.random.normal(loc=suff_stat, scale=sigma_DP))
+
+        # add DP noise (according to Gaussian mechanism)
+        inference_rng, dp_rng = d3p.random.split(rng, 2)
+        dp_noise = d3p.random.normal(dp_rng, suff_stat.shape) * sigma_DP
+        dp_suff_stat = suff_stat + dp_noise
+
+        inference_rng = d3p.random.convert_to_jax_rng_key(inference_rng)
 
         if use_laplace_approximation is True:
-            laplace_approx, success = mei.run_numpyro_laplace_approximation(rng, dp_suff_stat, n, sigma_DP, mnjax)
+            approx_rng, mcmc_rng = jax.random.split(inference_rng, 2)
+            laplace_approx, success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP, mnjax)
             mcmc, backtransform = mei.run_numpyro_mcmc_normalised(
-                rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, num_samples=2000, num_warmup=800, num_chains=4
+                mcmc_rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, num_samples=2000, num_warmup=800, num_chains=4
             )
             inf_data = az.from_numpyro(mcmc, log_likelihood=False)
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
@@ -70,7 +79,7 @@ class NapsuMQModel(InferenceModel):
 
         else:
             mcmc = mei.run_numpyro_mcmc(
-                rng, dp_suff_stat, n, sigma_DP, mnjax, num_samples=2000, num_warmup=800, num_chains=4
+                inference_rng, dp_suff_stat, n, sigma_DP, mnjax, num_samples=2000, num_warmup=800, num_chains=4
             )
             inf_data = az.from_numpyro(mcmc, log_likelihood=False)
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))

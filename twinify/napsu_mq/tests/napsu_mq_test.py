@@ -22,7 +22,7 @@ import jax
 from twinify.napsu_mq.napsu_mq import NapsuMQResult, NapsuMQModel
 from twinify.napsu_mq.binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
 from twinify.napsu_mq.tests.test_utils import create_test_directory, file_exists, TEST_DIRECTORY_PATH, purge_test_directory
-
+import d3p.random
 
 class TestNapsuMQ(unittest.TestCase):
 
@@ -47,13 +47,15 @@ class TestNapsuMQ(unittest.TestCase):
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
-        rng = jax.random.PRNGKey(54363731)
+        rng = d3p.random.PRNGKey(54363731)
+        inference_rng, sampling_rng = d3p.random.split(rng)
+
         model = NapsuMQModel()
-        result = model.fit(data=self.dataframe, rng=rng, epsilon=1, delta=(self.n ** (-2)),
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)),
                            column_feature_set=column_feature_set,
                            use_laplace_approximation=True)
 
-        datasets = result.generate_extended(rng=rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
+        datasets = result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
@@ -74,9 +76,10 @@ class TestNapsuMQ(unittest.TestCase):
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
-        rng = jax.random.PRNGKey(69700241)
+        rng = d3p.random.PRNGKey(69700241)
+        inference_rng, sampling_rng = d3p.random.split(rng)
         model = NapsuMQModel()
-        result = model.fit(data=self.dataframe, rng=rng, epsilon=1, delta=(self.n ** (-2)),
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)),
                            column_feature_set=column_feature_set,
                            use_laplace_approximation=True)
 
@@ -89,7 +92,7 @@ class TestNapsuMQ(unittest.TestCase):
 
         napsu_result_read_file = open(f"{TEST_DIRECTORY_PATH}/napsu_test_result.dill", "rb")
         loaded_result: NapsuMQResult = NapsuMQResult._load_from_io(napsu_result_read_file)
-        datasets = loaded_result.generate_extended(rng=rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
+        datasets = loaded_result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
