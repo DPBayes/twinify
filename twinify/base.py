@@ -65,7 +65,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
         raise NotImplementedError(f"{self.__class__.__name__} does not implement generate_extended yet.")
 
     @classmethod
-    def load(cls, file_path_or_io: Union[str, BinaryIO]) -> 'InferenceResult':
+    def load(cls, file_path_or_io: Union[str, BinaryIO], **kwargs) -> 'InferenceResult':
         """ Loads an inference result from a file.
 
         The file can be specified either as a path or an opened file, i.e., both of the following
@@ -80,6 +80,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
         Args:
             - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the
                 file from which to load.
+            - kwargs: Optional (model specific) arguments for loading.
 
         If a `BinaryIO` instance is passed, the cursor position is advanced to after the data representing the
         inference result.
@@ -93,19 +94,20 @@ class InferenceResult(metaclass=abc.ABCMeta):
         """
         if isinstance(file_path_or_io, str):
             with open(file_path_or_io, 'rb') as f:
-                return cls._load_from_io(f)
+                return cls._load_from_io(f, **kwargs)
         else:
             if not file_path_or_io.readable():
                 raise ValueError("file_path_or_io is not a readable BinaryIO instance.")
-            return cls._load_from_io(file_path_or_io)
+            return cls._load_from_io(file_path_or_io, **kwargs)
 
     @classmethod
     @abc.abstractmethod
-    def _load_from_io(cls, read_io: BinaryIO) -> 'InferenceResult':
+    def _load_from_io(cls, read_io: BinaryIO, **kwargs) -> 'InferenceResult':
         """ Internal implementation for `load` using a `BinaryIO` instance.
 
         Args:
             - read_io: A readable `BinaryIO` instance for reading binary data representing the inference result.
+            - kwargs: Optional (model specific) arguments for loading.
 
         Note for subclass implementation:
             This method MUST raise an `InvalidFileFormatException` if the data stored in the file does not represent
@@ -115,7 +117,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
         raise NotImplementedError(f"{cls.__name__} does not implement load_from_io yet.")
 
     @classmethod
-    def is_file_stored_result(cls, file_path_or_io: Union[str, BinaryIO]) -> bool:
+    def is_file_stored_result(cls, file_path_or_io: Union[str, BinaryIO], **kwargs) -> bool:
         """ Checks whether a file stores data representing the specific inference result type represented by this class.
 
         The file can be specified either as a path or an opened file, i.e., both of the following
@@ -132,6 +134,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
         Args:
             - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the
                 file to check.
+            - kwargs: Optional (model specific) arguments.
 
         Note for subclass implementation:
             Subclasses need only implement an override for `_is_file_stored_result_from_io`.
@@ -145,12 +148,13 @@ class InferenceResult(metaclass=abc.ABCMeta):
             return cls._is_file_stored_result_from_io(file_path_or_io)
 
     @classmethod
-    def _is_file_stored_result_from_io(cls, read_io: BinaryIO) -> bool:
+    def _is_file_stored_result_from_io(cls, read_io: BinaryIO, **kwargs) -> bool:
         """ Internal implementation for `is_file_stored_result` using a `BinaryIO` instance.
 
         Args:
             - read_io: A readable and seekable `BinaryIO` instance for reading binary data representing the
                 inference result.
+            - kwargs: Optional (model specific) arguments.
 
         Note for subclass implementation:
             Default implementation tries to read the file and returns False if `_load_from_io` raises an
@@ -159,7 +163,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
             should additionally ensure that the implementation does not advance the cursor position of `read_io`.
         """
         try:
-            cls._load_from_io(read_io)
+            cls._load_from_io(read_io, **kwargs)
             return True
         except InvalidFileFormatException:
             return False
