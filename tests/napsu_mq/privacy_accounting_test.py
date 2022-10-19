@@ -41,8 +41,6 @@ def calculate_sensitivity_from_rho(rho, sigma):
 
 
 class PrivacyAccountingTest(unittest.TestCase):
-    def setUp(self):
-        pass
 
     def test_sigma(self):
         with self.assertRaises(ZeroDivisionError):

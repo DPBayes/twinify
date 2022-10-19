@@ -50,10 +50,12 @@ class BinaryLogisticRegressionDataGenerator:
         if rng_key is None:
             rng_key = jax.random.PRNGKey(7033170967)
 
-        x = jax.random.bernoulli(key=rng_key, p=probability, shape=(n, self.d - 1))
+        x_key, y_key = jax.random.split(rng_key, 2)
+
+        x = jax.random.bernoulli(key=x_key, p=probability, shape=(n, self.d - 1))
         alpha = x @ self.true_params.reshape((-1, 1))
         probs = expit(alpha)
-        y = jax.random.bernoulli(key=rng_key, p=probs)
+        y = jax.random.bernoulli(key=y_key, p=probs)
         result = jnp.concatenate((x, y), axis=1)
 
         return result

@@ -58,7 +58,7 @@ class JunctionTree:
     """
 
     def __init__(self, nodes: Set['TreeNode'], edges: Dict[Tuple['TreeNode', 'TreeNode'], Set['TreeNode']],
-                 cliques: Iterable[Tuple]):
+                 cliques: Iterable[Tuple], enable_checks=False):
         """Create the junction tree explicitly.
         Args:
             nodes (set): The nodes of the junction tree.
@@ -68,6 +68,10 @@ class JunctionTree:
         self.nodes = nodes
         self.edges = edges
         self.cliques = cliques
+        self.enable_checks = enable_checks
+
+        if self.enable_checks is True:
+            self.check_self()
 
     def check_self(self) -> None:
         self.init_factor_assignments()
@@ -122,7 +126,7 @@ class JunctionTree:
                     node_stack.append(neighbour)
 
     @staticmethod
-    def from_variable_elimination(feature_sets: Iterable[Tuple[T, T]], elimination_order: Iterable) -> 'JunctionTree':
+    def from_variable_elimination(feature_sets: Iterable[Tuple[T, T]], elimination_order: Iterable, **kwargs) -> 'JunctionTree':
         """Create a junction tree from a variable elimination run.
         Args:
             feature_sets (list(tuple)): The factor scopes of the variable elimination.
@@ -137,7 +141,7 @@ class JunctionTree:
         for variable in elimination_order:
             factors = JunctionTree.eliminate_var(factors, variable, nodes, edges)
 
-        jt = JunctionTree(nodes, edges, feature_sets)
+        jt = JunctionTree(nodes, edges, feature_sets, **kwargs)
         return jt
 
     @staticmethod
@@ -176,8 +180,7 @@ class JunctionTree:
         self.edges[edge] = set(e1).intersection(set(e2))
 
     def remove_redundant_nodes(self) -> None:
-        """Prune the juction tree to remove redundant nodes.
-        """
+        """Prune the juction tree to remove redundant nodes."""
         while True:
             res = self.find_redundant_node()
             if res is not None:
@@ -189,7 +192,8 @@ class JunctionTree:
                         self.add_edge((large_neighbour, neighbour))
 
             else:
-                self.check_nodes_edges()
+                if self.enable_checks is True:
+                    self.check_nodes_edges()
                 self.init_factor_assignments()
                 self.init_node_orders()
                 return

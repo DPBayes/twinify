@@ -1,5 +1,6 @@
 # Originally from https://github.com/ryan112358/private-pgm/blob/master/mechanisms/mst.py
 # Modified by Authors under the Apache 2.0 license
+# Modifications contain adding typing hints and changing privacy accounting method
 from typing import Iterable, List, Tuple, Any, Callable, Mapping
 
 import numpy as np

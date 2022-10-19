@@ -16,7 +16,7 @@
 import unittest
 import itertools
 import pandas as pd
-from twinify.napsu_mq.dataframe_data import DataFrameData
+from twinify.dataframe_data import DataFrameData
 
 
 class DataFrameDataTest(unittest.TestCase):

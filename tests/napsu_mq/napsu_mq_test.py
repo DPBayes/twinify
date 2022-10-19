@@ -16,20 +16,16 @@ import unittest
 import pytest
 import numpy as np
 import pandas as pd
-import jax
 from twinify.napsu_mq.napsu_mq import NapsuMQResult, NapsuMQModel
 from binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
 import tempfile
 from pathlib import Path
-from d3p.random import PRNGState,convert_to_jax_rng_key
+import d3p.random
 
 class TestNapsuMQ(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        rng = PRNGState(97842441)
-        jax_rng = convert_to_jax_rng_key(rng)
-        jax_keyset = jax.random.split(jax_rng, 6)
         data_gen = BinaryLogisticRegressionDataGenerator(np.array([1.0, 0.0]))
         cls.data = data_gen.generate_data(n=2000, rng_key=jax_rng)
         cls.dataframe = pd.DataFrame(cls.data, columns=['A', 'B', 'C'], dtype=int)
@@ -48,12 +44,16 @@ class TestNapsuMQ(unittest.TestCase):
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
+        rng = d3p.random.PRNGKey(54363731)
+        inference_rng, sampling_rng = d3p.random.split(rng)
+
         model = NapsuMQModel()
-        result = model.fit(data=self.dataframe, rng=self.jax_keyset[1], epsilon=1, delta=(self.n ** (-2)),
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)),
                            column_feature_set=column_feature_set,
                            use_laplace_approximation=False)
 
-        datasets = result.generate_extended(rng=self.jax_keyset[1], num_data_per_parameter_sample=2000, num_parameter_samples=5)
+
+        datasets = result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
@@ -74,8 +74,11 @@ class TestNapsuMQ(unittest.TestCase):
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
+
+        rng = d3p.random.PRNGKey(69700241)
+        inference_rng, sampling_rng = d3p.random.split(rng)
         model = NapsuMQModel()
-        result = model.fit(data=self.dataframe, rng=self.rng, epsilon=1, delta=(self.n ** (-2)),
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)),
                            column_feature_set=column_feature_set,
                            use_laplace_approximation=False)
 
@@ -88,7 +91,7 @@ class TestNapsuMQ(unittest.TestCase):
         napsu_result_read_file = open(napsu_result_file.name, "rb")
         loaded_result: NapsuMQResult = NapsuMQResult.load(napsu_result_read_file)
 
-        datasets = loaded_result.generate_extended(rng=self.rng, num_data_per_parameter_sample=2000, num_parameter_samples=5)
+        datasets = loaded_result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
@@ -116,12 +119,15 @@ class TestNapsuMQ(unittest.TestCase):
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
+        rng = d3p.random.PRNGKey(85532350)
+        inference_rng, sampling_rng = d3p.random.split(rng)
+
         model = NapsuMQModel()
-        result = model.fit(data=self.dataframe, rng=self.rng, epsilon=1, delta=(self.n ** (-2)),
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)),
                            column_feature_set=column_feature_set,
                            use_laplace_approximation=True)
 
-        datasets = result.generate_extended(rng=self.rng, num_data_per_parameter_sample=2000, num_parameter_samples=5)
+        datasets = result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=2000, num_parameter_samples=5)
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
