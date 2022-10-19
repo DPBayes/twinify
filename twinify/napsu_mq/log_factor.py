@@ -15,13 +15,13 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax.numpy import ndarray
 from numpy.typing import ArrayLike
-from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Type, Union, Sequence, Iterable
+from typing import List, Optional, Tuple, Union, Sequence, Iterable
 
 
-class LogFactor(ABC):
-    """Base class for log factors of Markov networks."""
+class LogFactor:
+    """Jax implementation of log factors of Markov networks."""
 
     def __init__(self, scope: Iterable[int], values: jnp.ndarray, debug_checks: Optional[bool] = True):
         """Create the log factor.
@@ -34,37 +34,6 @@ class LogFactor(ABC):
         self.variable_inds = {var: i for i, var in enumerate(scope)}
         self.values = values
         self.debug_checks = debug_checks
-
-    def self_type(self) -> Type:
-        return type(self)
-
-    @abstractmethod
-    def tile_values(self, repeat_shape):
-        pass
-
-    @abstractmethod
-    def permute_axes(self, value, permutation):
-        pass
-
-    @abstractmethod
-    def logsumexp(self, values, axis):
-        pass
-
-    @abstractmethod
-    def take_values(self, index, axis):
-        pass
-
-    @abstractmethod
-    def compute_batch_condition_values(self, values, to_remove_index, result_shape):
-        pass
-
-    @abstractmethod
-    def move_values_axis(self, axis, place):
-        pass
-
-    @abstractmethod
-    def query(self, queries):
-        pass
 
     def get_variable_range(self, variable: Union[str, int]) -> Tuple[int, ...]:
         return self.values.shape[self.variable_inds[variable]]
@@ -109,7 +78,7 @@ class LogFactor(ABC):
             other_expanded_values = factor.repeat_to_shape(result_values_ranges, result_scope)
             result_values = self_expanded_values + other_expanded_values
 
-        return self.self_type()(result_scope, result_values, self.debug_checks)
+        return LogFactor(result_scope, result_values, self.debug_checks)
 
     def marginalise(self, variable: int) -> 'LogFactor':
         """Marginalise a variable from the factor.
@@ -121,9 +90,9 @@ class LogFactor(ABC):
         to_remove_index = self.scope.index(variable)
         result_scope = self.scope[:to_remove_index] + self.scope[to_remove_index + 1:]
         result_values = self.logsumexp(self.values, axis=self.variable_inds[variable])
-        return self.self_type()(result_scope, result_values, self.debug_checks)
+        return LogFactor(result_scope, result_values, self.debug_checks)
 
-    def log_sum_total(self) -> float:
+    def log_sum_total(self) -> ndarray:
         """Compute the logsumexp of all values in self.
         Returns:
             float: The resulting logsumexp value.
@@ -172,7 +141,7 @@ class LogFactor(ABC):
         to_remove_index = self.scope.index(variable)
         result_scope = self.scope[:to_remove_index] + self.scope[to_remove_index + 1:]
         result_values = self.take_values(value, to_remove_index)
-        return self.self_type()(result_scope, result_values, self.debug_checks)
+        return LogFactor(result_scope, result_values, self.debug_checks)
 
     def add_batch_dim(self, n_batches: int) -> 'LogFactor':
         """Add a dimension named 'batch' the scope for batched operations.
@@ -189,7 +158,7 @@ class LogFactor(ABC):
             raise ValueError("{} is already in scope".format(batch_dim_name))
         result_scope = (batch_dim_name,) + self.scope
         result_values = self.tile_values((n_batches,) + tuple(1 for _ in range(len(self.scope))))
-        return self.self_type()(result_scope, result_values, self.debug_checks)
+        return LogFactor(result_scope, result_values, self.debug_checks)
 
     def batch_condition(self, variable: int, values: jnp.ndarray) -> 'LogFactor':
         """Condition a batched LogFactor on an array of values for a given variable.
@@ -204,7 +173,7 @@ class LogFactor(ABC):
         result_scope = self.scope[:to_remove_index] + self.scope[to_remove_index + 1:]
         result_shape = [self.get_variable_range(var) for var in result_scope]
         result_values = self.compute_batch_condition_values(values, to_remove_index, result_shape)
-        return self.self_type()(result_scope, result_values, self.debug_checks)
+        return LogFactor(result_scope, result_values, self.debug_checks)
 
     def ensure_batch_is_first_dim(self) -> None:
         if self.scope[0] != "batch" and "batch" in self.scope:
@@ -212,10 +181,6 @@ class LogFactor(ABC):
             self.scope = ("batch",) + self.scope[:batch_index] + self.scope[batch_index + 1:]
             self.move_values_axis(batch_index, 0)
             self.variable_inds = {var: i for i, var in enumerate(self.scope)}
-
-
-class LogFactorJax(LogFactor):
-    """Jax implementation of LogFactor."""
 
     def tile_values(self, repeat_shape: ArrayLike) -> jnp.ndarray:
         return jnp.tile(self.values, repeat_shape)

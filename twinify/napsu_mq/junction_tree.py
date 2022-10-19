@@ -68,6 +68,8 @@ class JunctionTree:
         self.nodes = nodes
         self.edges = edges
         self.cliques = cliques
+
+    def check_self(self) -> None:
         self.init_factor_assignments()
         self.check_nodes_edges()
         self.init_node_orders()

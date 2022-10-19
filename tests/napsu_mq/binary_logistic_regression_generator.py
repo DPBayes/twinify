@@ -15,8 +15,6 @@ import itertools
 import numpy as np
 from scipy.special import expit
 import jax
-from d3p.random import PRNGState
-import d3p
 import jax.numpy as jnp
 
 
@@ -43,14 +41,14 @@ class BinaryLogisticRegressionDataGenerator:
         """Generate the output d-dimensional binary output.
         Args:
             n (int): Number of datapoints to generate.
-            rng_key (dp3 RNG key, optional): Random number generator key for d3p. Defaults to None.
+            rng_key (Jax RNG key, optional): Random number generator key for Jax. Defaults to None.
             probability (float): Probability p for the Bernoulli distribution.
         Returns:
             jnp.ndarray: The generated output.
         """
 
         if rng_key is None:
-            rng_key = d3p.random.convert_to_jax_rng_key(d3p.random.PRNGKey(0))
+            rng_key = jax.random.PRNGKey(7033170967)
 
         x = jax.random.bernoulli(key=rng_key, p=probability, shape=(n, self.d - 1))
         alpha = x @ self.true_params.reshape((-1, 1))

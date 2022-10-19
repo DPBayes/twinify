@@ -16,11 +16,11 @@ from typing import Union
 import numpyro
 import numpyro.distributions as numdist
 import jax.numpy as jnp
-from twinify.napsu_mq.markov_network_jax import MarkovNetworkJax
+from twinify.napsu_mq.markov_network import MarkovNetwork
 
 
 def normal_prior_model_numpyro(dp_suff_stat: jnp.ndarray, n: int, sigma_DP: float, prior_mu: Union[float, jnp.ndarray],
-                               prior_sigma: float, med: MarkovNetworkJax):
+                               prior_sigma: float, med: MarkovNetwork):
     """NumPyro model for NAPSU-MQ with isotropic Gaussian prior.
     Args:
         dp_suff_stat (jax.ndarray): Noisy sufficient statistic.
@@ -28,7 +28,7 @@ def normal_prior_model_numpyro(dp_suff_stat: jnp.ndarray, n: int, sigma_DP: floa
         sigma_DP (float): Noise standard deviation.
         prior_mu (float or jax.ndarray): Prior mean.
         prior_sigma (float): Prior standard deviation.
-        med (MarkovNetworkJax): An implementation of MED.
+        med (MarkovNetwork): An implementation of MED.
     """
     d = med.suff_stat_d
     lambda_d = med.lambda_d
@@ -43,14 +43,14 @@ def normal_prior_model_numpyro(dp_suff_stat: jnp.ndarray, n: int, sigma_DP: floa
 
 
 def normal_prior_normalised_model_numpyro(dp_suff_stat: jnp.ndarray, n: int, sigma_DP: float, prior_sigma: float,
-                                          med: MarkovNetworkJax, mean_guess: jnp.ndarray, L_guess: jnp.ndarray):
+                                          med: MarkovNetwork, mean_guess: jnp.ndarray, L_guess: jnp.ndarray):
     """NumPyro model for NAPSU-MQ with isotropic Gaussian prior and normalisation.
     Args:
         dp_suff_stat (jax.ndarray): Noisy sufficient statistic.
         n (int): Number of datapoints.
         sigma_DP (float): Noise standard deviation.
         prior_sigma (float): Prior standard deviation.
-        med (MarkovNetworkJax): An implementation of MED.
+        med (MarkovNetwork): An implementation of MED.
         mean_guess (jax.ndarray): A guess for the posterior mean.
         L_guess (jax.ndarray): A guess for the Cholesky decomposition of posterior covariance.
     """

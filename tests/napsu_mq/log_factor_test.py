@@ -19,15 +19,15 @@ from jax.config import config
 
 config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-from twinify.napsu_mq.log_factor import LogFactorJax
+from twinify.napsu_mq.log_factor import LogFactor
 
 class LogFactorJaxTest(unittest.TestCase):
 
     def test_log_factor_product_overlapping_scopes(self):
         a = jnp.arange(3 * 2).reshape((3, 2))
         b = jnp.arange(4).reshape((2, 2)) + 5
-        af = LogFactorJax([0, 1], a)
-        bf = LogFactorJax([1, 3], b)
+        af = LogFactor([0, 1], a)
+        bf = LogFactor([1, 3], b)
 
         c = af.product(bf)
         self.assertSetEqual(set(c.scope), {0, 1, 3})
@@ -39,8 +39,8 @@ class LogFactorJaxTest(unittest.TestCase):
     def test_log_factor_product_same_scopes(self):
         a = jnp.arange(4).reshape((2, 2))
         b = jnp.arange(4).reshape((2, 2)) + 5
-        af = LogFactorJax([0, 1], a)
-        bf = LogFactorJax([0, 1], b)
+        af = LogFactor([0, 1], a)
+        bf = LogFactor([0, 1], b)
         c = af.product(bf)
 
         self.assertSetEqual(set(c.scope), {0, 1})
@@ -49,8 +49,8 @@ class LogFactorJaxTest(unittest.TestCase):
     def test_log_factor_product_different_scopes(self):
         a = jnp.arange(4).reshape((2, 2))
         b = jnp.arange(4).reshape((2, 2)) + 5
-        af = LogFactorJax([0, 1], a)
-        bf = LogFactorJax([2, 4], b)
+        af = LogFactor([0, 1], a)
+        bf = LogFactor([2, 4], b)
         c = af.product(bf)
 
         self.assertSetEqual(set(c.scope), {0, 1, 2, 4})
@@ -63,8 +63,8 @@ class LogFactorJaxTest(unittest.TestCase):
     def test_log_factor_product_subset_scope(self):
         a = jnp.arange(3 * 2 * 2).reshape((3, 2, 2))
         b = jnp.arange(3 * 2).reshape((3, 2))
-        af = LogFactorJax([0, 1, 2], a)
-        bf = LogFactorJax([0, 1], b)
+        af = LogFactor([0, 1, 2], a)
+        bf = LogFactor([0, 1], b)
         c = af.product(bf)
 
         self.assertSetEqual(set(c.scope), {0, 1, 2})
@@ -75,7 +75,7 @@ class LogFactorJaxTest(unittest.TestCase):
 
     def test_log_factor_marginalise(self):
         a = jnp.arange(3 * 2 * 2).reshape((3, 2, 2))
-        af = LogFactorJax([0, 1, 4], a)
+        af = LogFactor([0, 1, 4], a)
 
         m0 = af.marginalise(0)
         self.assertSetEqual(set(m0.scope), {1, 4})
@@ -92,7 +92,7 @@ class LogFactorJaxTest(unittest.TestCase):
 
     def test_condition(self):
         a = jnp.arange(3 * 2 * 2).reshape((3, 2, 2))
-        af = LogFactorJax([0, 1, 4], a)
+        af = LogFactor([0, 1, 4], a)
 
         m0 = af.condition(0, 2)
         self.assertSetEqual(set(m0.scope), {1, 4})
@@ -108,7 +108,7 @@ class LogFactorJaxTest(unittest.TestCase):
 
     def test_add_batch_dim(self):
         a = jnp.arange(3 * 2 * 2).reshape((3, 2, 2))
-        af = LogFactorJax([0, 1, 4], a)
+        af = LogFactor([0, 1, 4], a)
         b = af.add_batch_dim(10)
         self.assertTupleEqual(b.scope, ("batch",) + af.scope)
         self.assertTupleEqual(tuple(b.values.shape), (10,) + tuple(af.values.shape))
@@ -117,7 +117,7 @@ class LogFactorJaxTest(unittest.TestCase):
 
     def test_batch_condition(self):
         a = jnp.arange(3 * 2 * 2).reshape((3, 2, 2))
-        af = LogFactorJax([0, 1, 4], a)
+        af = LogFactor([0, 1, 4], a)
         b = af.add_batch_dim(4)
         b.values = b.values.at[1].set(jnp.zeros((3, 2, 2)))
         b.values = b.values.at[2].set(jnp.ones((3, 2, 2)))

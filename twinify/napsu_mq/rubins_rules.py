@@ -64,8 +64,8 @@ def conf_int_distribution(q: np.ndarray, u: np.ndarray, use_nonnegative_variance
                           n: Optional[int] = None, n_orig: Optional[int] = None) -> Optional[stats.t]:
     """Compute the estimator distribution with Rubin's rules used for confidence intervals and hypothesis tests.
     Args:
-        q (ndarray): Point estimates.
-        u (ndarray): Variance estimates.
+        q (ndarray, 1d): Point estimates.
+        u (ndarray, 1d): Variance estimates.
         use_nonnegative_variance (bool, optional): Use the non-negative variance estimate. Defaults to False.
         n (int, optional): Number of synthetic datapoints. Required with non-negative variance estimate. Defaults to None.
         n_orig (int, optional): Number of original datapoints. Required with non-negative variance estimate. Defaults to None.

@@ -117,9 +117,9 @@ class DataFrameData:
         return cat_df
 
     def int_df_to_cat_df(self, int_df: pd.DataFrame) -> pd.DataFrame:
-        """Convert interger-valued dataframe to categorical dataframe.
+        """Convert integer-valued dataframe to categorical dataframe.
         Args:
-            int_df (DataFrame): The interger valued dataframe.
+            int_df (DataFrame): The integer valued dataframe.
         Returns:
             DataFrame: Categorical valued dataframe.
         """
@@ -135,7 +135,7 @@ class DataFrameData:
     def ndarray_to_cat_df(self, ndarray: np.ndarray) -> pd.DataFrame:
         """Convert integer-valued ndarray to categorical dataframe.
         Args:
-            ndarray (ndarray): The interger-valued array to convert.
+            ndarray (ndarray): The integer-valued array to convert.
         Returns:
             DataFrame: The categorical dataframe.
         """

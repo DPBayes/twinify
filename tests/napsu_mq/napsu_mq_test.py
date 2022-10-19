@@ -14,23 +14,24 @@
 
 import unittest
 import pytest
-import random
-import string
 import numpy as np
 import pandas as pd
 import jax
 from twinify.napsu_mq.napsu_mq import NapsuMQResult, NapsuMQModel
-from twinify.napsu_mq.binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
-from twinify.napsu_mq.tests.test_utils import create_test_directory, file_exists, TEST_DIRECTORY_PATH, purge_test_directory
-
+from binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
+import tempfile
+from pathlib import Path
+from d3p.random import PRNGState,convert_to_jax_rng_key
 
 class TestNapsuMQ(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        rng = jax.random.PRNGKey(97842441)
+        rng = PRNGState(97842441)
+        jax_rng = convert_to_jax_rng_key(rng)
+        jax_keyset = jax.random.split(jax_rng, 6)
         data_gen = BinaryLogisticRegressionDataGenerator(np.array([1.0, 0.0]))
-        cls.data = data_gen.generate_data(n=500, rng_key=rng)
+        cls.data = data_gen.generate_data(n=2000, rng_key=jax_rng)
         cls.dataframe = pd.DataFrame(cls.data, columns=['A', 'B', 'C'], dtype=int)
         cls.n, cls.d = cls.data.shape
 
@@ -47,13 +48,12 @@ class TestNapsuMQ(unittest.TestCase):
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
-        rng = jax.random.PRNGKey(54363731)
         model = NapsuMQModel()
-        result = model.fit(data=self.dataframe, rng=rng, epsilon=1, delta=(self.n ** (-2)),
+        result = model.fit(data=self.dataframe, rng=self.jax_keyset[1], epsilon=1, delta=(self.n ** (-2)),
                            column_feature_set=column_feature_set,
-                           use_laplace_approximation=True)
+                           use_laplace_approximation=False)
 
-        datasets = result.generate_extended(rng=rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
+        datasets = result.generate_extended(rng=self.jax_keyset[1], num_data_per_parameter_sample=2000, num_parameter_samples=5)
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
@@ -74,22 +74,21 @@ class TestNapsuMQ(unittest.TestCase):
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
-        rng = jax.random.PRNGKey(69700241)
         model = NapsuMQModel()
-        result = model.fit(data=self.dataframe, rng=rng, epsilon=1, delta=(self.n ** (-2)),
+        result = model.fit(data=self.dataframe, rng=self.rng, epsilon=1, delta=(self.n ** (-2)),
                            column_feature_set=column_feature_set,
-                           use_laplace_approximation=True)
+                           use_laplace_approximation=False)
 
-        create_test_directory()
+        napsu_result_file = tempfile.NamedTemporaryFile("wb")
+        result.store(napsu_result_file)
 
-        napsu_result_file = open(f"{TEST_DIRECTORY_PATH}/napsu_test_result.dill", "wb")
-        result._store_to_io(napsu_result_file)
+        self.assertTrue(Path(napsu_result_file.name).exists())
+        self.assertTrue(Path(napsu_result_file.name).is_file())
 
-        self.assertTrue(file_exists(f"{TEST_DIRECTORY_PATH}/napsu_test_result.dill"))
+        napsu_result_read_file = open(napsu_result_file.name, "rb")
+        loaded_result: NapsuMQResult = NapsuMQResult.load(napsu_result_read_file)
 
-        napsu_result_read_file = open(f"{TEST_DIRECTORY_PATH}/napsu_test_result.dill", "rb")
-        loaded_result: NapsuMQResult = NapsuMQResult._load_from_io(napsu_result_read_file)
-        datasets = loaded_result.generate_extended(rng=rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
+        datasets = loaded_result.generate_extended(rng=self.rng, num_data_per_parameter_sample=2000, num_parameter_samples=5)
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
@@ -104,10 +103,34 @@ class TestNapsuMQ(unittest.TestCase):
             pd.testing.assert_series_equal(means, original_means, check_exact=False, rtol=0.3)
             pd.testing.assert_series_equal(stds, original_stds, check_exact=False, rtol=0.3)
 
-            random_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            tempfile = tempfile.NamedTemporaryFile()
+            df.to_csv(tempfile)
 
-            df.to_csv(f'{TEST_DIRECTORY_PATH}/napsumq_test_df_{random_id}.csv')
+            self.assertTrue(Path(tempfile.name).exists())
+            self.assertTrue(Path(tempfile.name).is_file())
 
-            self.assertTrue(file_exists(f'{TEST_DIRECTORY_PATH}/napsumq_test_df_{random_id}.csv'))
+    # Takes about ~ 1 minute to run
+    @pytest.mark.slow
+    def test_NAPSUMQ_model_with_laplace_approximation_without_IO(self):
+        column_feature_set = [
+            ('A', 'B'), ('B', 'C'), ('A', 'C')
+        ]
 
-        purge_test_directory(TEST_DIRECTORY_PATH)
+        model = NapsuMQModel()
+        result = model.fit(data=self.dataframe, rng=self.rng, epsilon=1, delta=(self.n ** (-2)),
+                           column_feature_set=column_feature_set,
+                           use_laplace_approximation=True)
+
+        datasets = result.generate_extended(rng=self.rng, num_data_per_parameter_sample=2000, num_parameter_samples=5)
+
+        self.assertEqual(len(datasets), 5)
+        self.assertEqual(datasets[0].shape, (500, 3))
+
+        original_means = self.dataframe.mean()
+        original_stds = self.dataframe.std()
+
+        for i, df in enumerate(datasets):
+            means = df.mean()
+            stds = df.std()
+            pd.testing.assert_series_equal(means, original_means, check_exact=False, rtol=0.3)
+            pd.testing.assert_series_equal(stds, original_stds, check_exact=False, rtol=0.3)

@@ -19,8 +19,8 @@ import numpy as np
 from scipy.special import softmax
 import jax
 
-from twinify.napsu_mq.maximum_entropy_distribution import MaximumEntropyDistribution
-from twinify.napsu_mq.binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
+from maximum_entropy_distribution import MaximumEntropyDistribution
+from binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
 from twinify.napsu_mq.marginal_query import MarginalQuery, QueryList, all_marginals, FullMarginalQuerySet
 
 

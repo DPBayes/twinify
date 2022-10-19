@@ -19,14 +19,32 @@ import numpyro
 import numpyro.infer.util as nummcmc_util
 from jax import random
 import twinify.napsu_mq.maximum_entropy_model as mem
-from twinify.napsu_mq.markov_network_jax import MarkovNetworkJax
+from twinify.napsu_mq.markov_network import MarkovNetwork
 
 
 def run_numpyro_mcmc(
-        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetworkJax,
+        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetwork,
         prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10, num_samples: int = 1000,
         num_warmup: int = 500, num_chains: int = 1, disable_progressbar: bool = False,
 ) -> numpyro.infer.MCMC:
+    """Run MCMC inference (NUTS) with Numpyro on maximum entropy distribution with multivariate normal prior
+
+    Args:
+        rng (jax.random.PRNGKey): Jax random key for MCMC
+        suff_stat (jax.numpy.ndarray): Noisy sufficient statistics array with DP noise added
+        n (int): Number of datapoints
+        sigma_DP (float): Noise standard deviation
+        max_ent_dist (MarkovNetwork): Markov network representation of maximum entropy distribution
+        prior_mu (float or jax.numpy.ndarray): Mean prior for multivariate normal distribution
+        prior_sigma (float): Standard deviation prior for multivariate normal distribution
+        num_samples (int): Number of samples for MCMC
+        num_warmup (int): Number of warm-up (burn-in) samples for MCMC
+        num_chains (int): Number of chains in MCMC
+        disable_progressbar (bool): Disable progressbar for MCMC
+
+    Returns:
+        mcmc: Numpyro inference MCMC object
+    """
     kernel = numpyro.infer.NUTS(model=mem.normal_prior_model_numpyro, max_tree_depth=12)
     mcmc = numpyro.infer.MCMC(
         kernel, num_warmup=num_warmup, num_samples=num_samples, num_chains=num_chains,
@@ -37,10 +55,29 @@ def run_numpyro_mcmc(
 
 
 def run_numpyro_mcmc_normalised(
-        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetworkJax,
+        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetwork,
         laplace_approx: numpyro.distributions.MultivariateNormal, prior_sigma: float = 10,
         num_samples: int = 1000, num_warmup: int = 500, num_chains: int = 1, disable_progressbar: bool = False,
 ) -> Tuple[numpyro.infer.MCMC, Callable]:
+    """Run MCMC inference (NUTS) with Numpyro on maximum entropy distribution with normalized multivariate normal prior
+
+    Args:
+        rng (jax.random.PRNGKey): Jax random key for MCMC
+        suff_stat (jax.numpy.ndarray): Noisy sufficient statistics array with DP noise added
+        n (int): Number of datapoints
+        sigma_DP (float): Noise standard deviation
+        max_ent_dist (MarkovNetwork): Markov network representation of maximum entropy distribution
+        laplace_approx (numpyro.distributions.MultivariateNormal): Laplace approximation of multivariate normal for MCMC
+        prior_sigma (float): Standard deviation prior for multivariate normal distribution
+        num_samples (int): Number of samples for MCMC
+        num_warmup (int): Number of warm-up (burn-in) samples for MCMC
+        num_chains (int): Number of chains in MCMC
+        disable_progressbar (bool): Disable progressbar for MCMC
+
+    Returns:
+        mcmc: Numpyro inference MCMC object
+        backtransform: Function to transform posterior values back to non-normalized space
+    """
     kernel = numpyro.infer.NUTS(model=mem.normal_prior_normalised_model_numpyro, max_tree_depth=12)
     mcmc = numpyro.infer.MCMC(
         kernel, num_warmup=num_warmup, num_samples=num_samples, num_chains=num_chains,
@@ -58,9 +95,24 @@ def run_numpyro_mcmc_normalised(
 
 
 def run_numpyro_laplace_approximation(
-        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetworkJax,
+        rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetwork,
         prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10
 ) -> Tuple[numpyro.distributions.MultivariateNormal, bool]:
+    """Run Laplace approximation on the maximum entropy distribution
+
+    Args:
+        rng (jax.random.PRNGKey): Jax random key for MCMC
+        suff_stat (jax.numpy.ndarray): Noisy sufficient statistics array with DP noise added
+        n (int): Number of datapoints
+        sigma_DP (float): Noise standard deviation
+        max_ent_dist (MarkovNetwork): Markov network representation of maximum entropy distribution
+        prior_mu (float or jax.numpy.ndarray): Mean prior for multivariate normal distribution
+        prior_sigma (float): Standard deviation prior for multivariate normal distribution
+
+    Returns:
+        laplace_approx: Laplace approximation for the maximum entropy distribution
+        result.success: Boolean value if approximation was successful
+    """
     init_lambdas, potential_fn, t, mt = nummcmc_util.initialize_model(
         rng, mem.normal_prior_model_numpyro, model_args=(suff_stat, n, sigma_DP, prior_mu, prior_sigma, max_ent_dist)
     )

@@ -11,21 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Optional, List, Dict, Iterable, Tuple
 
-from abc import ABC, abstractmethod
-from typing import Dict, Optional, List, Tuple, Iterable
-
+import jax
+import jax.numpy as jnp
+import numpy as np
 import pandas as pd
 
 from twinify.napsu_mq.junction_tree import JunctionTree
-from twinify.napsu_mq.log_factor import LogFactor
-from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
 from twinify.napsu_mq.undirected_graph import UndirectedGraph, greedy_ordering
-import numpy as np
+from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
+from twinify.napsu_mq.log_factor import LogFactor
+import functools
 
-class MarkovNetwork(ABC):
-    """A Markov network representation for MED.
-    """
+
+class MarkovNetwork:
+    """Jax implementation of a Markov network representation for MED."""
 
     def __init__(self, domain: Dict, queries: FullMarginalQuerySet, elimination_order: Optional[Iterable] = None,
                  debug_checks: Optional[bool] = True):
@@ -36,6 +37,7 @@ class MarkovNetwork(ABC):
             elimination_order (list, optional): Elimination order for variable elimination. Defaults to using a greedy ordering.
             debug_checks (bool, optional): Whether to enable debug checks for factor computations. Defaults to True.
         """
+
         self.debug_checks = debug_checks
         self.domain = domain
         self.queries = queries
@@ -56,38 +58,11 @@ class MarkovNetwork(ABC):
         self.suff_stat_d = len(self.flat_queries.queries)
         self.lambda_d = self.suff_stat_d
 
-    @abstractmethod
-    def lambda0(self, lambdas: np.ndarray) -> np.ndarray:
-        pass
-
-    @abstractmethod
-    def suff_stat_mean_bp(self, lambdas: np.ndarray) -> np.ndarray:
-        pass
-
-    @abstractmethod
-    def sample(self, lambdas: np.ndarray, n_sample: Optional[int] = 1) -> pd.DataFrame:
-        """Sample the distribution with given parameter values.
-        Args:
-            lambdas (numpy array): The parameter values.
-            n_sample (int, optional): The number of samples to generate. Defaults to 1.
-        Returns:
-            array (Pandas Dataframe): The generated samples.
-        """
-        pass
-
-    @abstractmethod
-    def log_factor_vector(self, lambdas: np.ndarray, variables):
-        pass
-
-    @abstractmethod
-    def compute_factors(self, lambdas: np.ndarray) -> List[LogFactor]:
-        """Compute the LogFactor objects used by other methods for given parameters.
-        Args:
-            lambdas (numpy array): The parameters.
-        Returns:
-            list(LogFactor): The resulting factors.
-        """
-        pass
+        self.suff_stat_mean = jax.jit(jax.grad(self.lambda0))
+        self.suff_stat_cov = jax.jit(jax.hessian(self.lambda0))
+        self.suff_stat_mean_bp = jax.jit(self.suff_stat_mean_bp)
+        self.suff_stat_cov_bp = jax.jit(jax.jacrev(self.suff_stat_mean_bp))
+        self.log_factor_class = LogFactor
 
     def suff_stat_mean_and_cov_bp(self, lambdas: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Compute sufficient statistic mean and covariance for given parameter values with belief propagation.
@@ -107,7 +82,7 @@ class MarkovNetwork(ABC):
         """
         return self.suff_stat_mean(lambdas), self.suff_stat_cov(lambdas)
 
-    def marginal_distribution_logits(self, factors: Iterable[LogFactor], variables: Iterable):
+    def marginal_distribution_logits(self, factors: Iterable[LogFactor], variables: List):
         to_eliminate = [var for var in self.elimination_order if var not in variables]
         result_factor = self.variable_elimination(factors, to_eliminate)
         proj_factor = result_factor.project(variables)
@@ -173,3 +148,67 @@ class MarkovNetwork(ABC):
         for variable in set(sender.variables).difference(set(separator)):
             product = product.marginalise(variable)
         receiver.messages.append((sender, product))
+
+    @functools.partial(jax.jit, static_argnums=0)
+    def lambda0(self, lambdas: jnp.ndarray) -> jnp.ndarray:
+        factors = self.compute_factors(lambdas)
+        result_factor = self.variable_elimination(factors, self.elimination_order)
+        return result_factor.values
+
+    def suff_stat_mean_bp(self, lambdas: jnp.ndarray) -> jnp.ndarray:
+        factors = self.compute_factors(lambdas)
+        result_factors = self.belief_propagation(factors)
+        result: jnp.ndarray = jnp.zeros(self.suff_stat_d)
+        for clique, indices in self.variable_associations.items():
+            node_variables = self.junction_tree.node_for_factor[clique]
+            factor = result_factors[node_variables]
+            for variable in set(node_variables).difference(clique):
+                factor = factor.marginalise(variable)
+            result = result.at[jnp.array(indices)].set(factor.query(self.queries.queries[clique]))
+        return result
+
+    def sample(self, rng: jax.random.PRNGKey, lambdas: jnp.ndarray, n_sample: Optional[int] = 1) -> pd.DataFrame:
+        """Sample the distribution with given parameter values.
+        Args:
+            lambdas (numpy array): The parameter values.
+            n_sample (int, optional): The number of samples to generate. Defaults to 1.
+        Returns:
+            array (Pandas Dataframe): The generated samples.
+        """
+        n_cols = len(self.domain.keys())
+        cols = self.domain.keys()
+        data = np.zeros((n_sample, n_cols), dtype=np.int64)
+        df = pd.DataFrame(data, columns=cols, dtype=int)
+        order = self.elimination_order[::-1]
+        batch_factors = [factor.add_batch_dim(n_sample) for factor in self.compute_factors(lambdas)]
+        for variable in order:
+            marginal = self.marginal_distribution_logits(batch_factors, [variable])
+            rng, key = jax.random.split(rng)
+            values = jax.random.categorical(key, marginal)
+            batch_factors = [factor.batch_condition(variable, values) if variable in factor.scope else factor for factor
+                             in batch_factors]
+            df.loc[:, variable] = values
+
+        return df
+
+    def log_factor_vector(self, lambdas: jnp.ndarray, variables: Iterable) -> jnp.ndarray:
+        vec = jnp.zeros(tuple(len(self.domain[var]) for var in variables))
+        for query_ind in self.variable_associations[variables]:
+            query_val = jnp.array(self.flat_queries.queries[query_ind].value)
+            vec = vec.at[tuple(query_val)].set(lambdas[query_ind])
+        return vec
+
+    def compute_factors(self, lambdas: jnp.ndarray) -> List[LogFactor]:
+        """Compute the LogFactor objects used by other methods for given parameters.
+        Args:
+            lambdas (numpy array): The parameters.
+        Returns:
+            list(LogFactor): The resulting factors.
+        """
+        return [
+                   LogFactor(factor_scope, self.log_factor_vector(lambdas, factor_scope), self.debug_checks)
+                   for factor_scope in self.variable_associations.keys()
+               ] + [
+                   LogFactor((variable,), jnp.zeros(len(self.domain[variable])), self.debug_checks)
+                   for variable in self.variables_not_in_queries
+               ]

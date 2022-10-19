@@ -19,10 +19,10 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 import jax
 import jax.numpy as jnp
-from twinify.napsu_mq.binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
+from binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
 from twinify.napsu_mq.marginal_query import *
-from twinify.napsu_mq.maximum_entropy_distribution import MaximumEntropyDistribution
-from twinify.napsu_mq.markov_network_jax import MarkovNetworkJax
+from maximum_entropy_distribution import MaximumEntropyDistribution
+from twinify.napsu_mq.markov_network import MarkovNetwork
 
 
 class MarkovNetworkTest(unittest.TestCase):
@@ -30,7 +30,7 @@ class MarkovNetworkTest(unittest.TestCase):
         self.data_gen = BinaryLogisticRegressionDataGenerator(jnp.arange(4).astype(jnp.double))
         self.queries = FullMarginalQuerySet([(0, 3), (1, 3), (2, 3), (4, 3), (0, 1)], self.data_gen.values_by_feature)
         self.full_queries = all_marginals([(0, 1, 2, 3, 4)], self.data_gen.values_by_feature)
-        self.mn = MarkovNetworkJax(self.data_gen.values_by_feature, self.queries)
+        self.mn = MarkovNetwork(self.data_gen.values_by_feature, self.queries)
         self.med = MaximumEntropyDistribution(self.data_gen.values_by_feature, self.queries.flatten())
 
         self.n_queries = len(self.queries.flatten().queries)

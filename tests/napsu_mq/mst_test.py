@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import unittest
-from twinify.napsu_mq.mst import *
 
 
 class MSTTest(unittest.TestCase):

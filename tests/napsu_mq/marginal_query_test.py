@@ -17,7 +17,7 @@ import unittest
 from functools import reduce
 from operator import mul
 from twinify.napsu_mq.marginal_query import *
-from twinify.napsu_mq.binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
+from binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
 
 
 class MarginalQueryTest(unittest.TestCase):

@@ -19,7 +19,7 @@ import scipy.optimize as optim
 
 
 def delta(epsilon: float, sens_per_sigma: float) -> float:
-    """Compute delta for given epsilon and sensitivity per noisåe standard deviation for the Gaussian mechanism.
+    """Compute delta for given epsilon and sensitivity per noise standard deviation for the Gaussian mechanism.
     Args:
         epsilon (float)
         sens_per_sigma (float): Sensitivity per noise standard deviation.

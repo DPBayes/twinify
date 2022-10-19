@@ -25,11 +25,18 @@ setuptools.setup(
     install_requires=[
         'pandas',
         'd3p @ git+https://github.com/DPBayes/d3p.git@1.0.0-rc.2#egg=d3p',
+        'graphviz',
+        'private-pgm @ git+https://github.com/ryan112358/private-pgm.git',
+        'arviz',
+        'dill'
     ],
     extras_require = {
         'examples': [
             'xlrd < 2.0',
-            'scikit-learn'
+            'scikit-learn',
+        ],
+        'dev': [
+            'pytest'
         ],
         'compatible-dependencies': "d3p[compatible-dependencies]",
         'tpu': "d3p[tpu]",
