@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master, stable ]
   pull_request:
-    branches: [ master, stable ]
+    branches: [ master, stable, twinify_v2 ]
 
 jobs:
   unittests:
