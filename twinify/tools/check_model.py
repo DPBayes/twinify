@@ -138,7 +138,7 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
         print("Postprocessing (using postprocess)")
         conditioned_postprocess_fn = lambda samples: postprocess_fn(samples, df, feature_names)
         reshape_and_postprocess_synthetic_data(
-            posterior_samples, conditioned_postprocess_fn, separate_output=True, num_parameter_samples=num_train_data#
+            posterior_samples, conditioned_postprocess_fn, separate_output=True
         )
 
         print("Everything okay!")
