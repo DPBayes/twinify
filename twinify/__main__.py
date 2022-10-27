@@ -252,7 +252,7 @@ def main():
         #   - if preprocessing involved data mapping, it is mapped back here
         conditioned_postprocess_fn = lambda posterior_samples: postprocess_fn(posterior_samples, df, feature_names)
         for i, (syn_df, encoded_syn_df) in enumerate(reshape_and_postprocess_synthetic_data(
-            posterior_samples, conditioned_postprocess_fn, args.separate_output, num_parameter_samples
+            posterior_samples, conditioned_postprocess_fn, args.separate_output
         )):
             if args.separate_output:
                 filename = f"{args.output_path}.{i}.csv"

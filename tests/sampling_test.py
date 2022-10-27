@@ -34,7 +34,7 @@ class SamplingTests(unittest.TestCase):
 
         i = 0
         for syn_df, _ in reshape_and_postprocess_synthetic_data(
-            samples, prepared_postprocess, separate_output=False, num_parameter_samples=2
+            samples, prepared_postprocess, separate_output=False
         ):
             i += 1
             self.assertEqual(syn_df.values.shape, (2*3, 5))
@@ -47,7 +47,7 @@ class SamplingTests(unittest.TestCase):
 
         i = 0
         for syn_df, _ in reshape_and_postprocess_synthetic_data(
-            samples, prepared_postprocess, separate_output=True, num_parameter_samples=2
+            samples, prepared_postprocess, separate_output=True
         ):
             i += 1
             self.assertEqual(syn_df.values.shape, (3, 5))
