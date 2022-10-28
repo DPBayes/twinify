@@ -72,7 +72,7 @@ def sample_synthetic_data(
     per_parameter_rngs = jax.random.split(sampling_rng, num_parameter_samples)
     ppd_samples = jax.vmap(sample_from_ppd)(per_parameter_rngs)
 
-    return ppd_samples
+    return {site: np.asarray(value) for site, value in ppd_samples.items()}
 
 PreparedPostprocessFunction = Callable[[Dict[str, jnp.ndarray]], pd.DataFrame]
 
@@ -120,7 +120,7 @@ def reshape_and_postprocess_synthetic_data(
         reshaped_v = jnp.reshape(v, new_shape)
         return reshaped_v
 
-    num_parameter_samples = posterior_samples.values()[0].shape[0]
+    num_parameter_samples = list(posterior_samples.values())[0].shape[0]
 
     posterior_samples_array = []
     if separate_output:

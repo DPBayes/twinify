@@ -24,7 +24,7 @@ class ResultIOTests(unittest.TestCase):
             loaded_result = load_twinify_run_result(f)
 
             self.assertTrue(
-                jax.tree_util.tree_all(jax.tree_util.tree_multimap(jnp.allclose, model_params, loaded_result.model_params))
+                jax.tree_util.tree_all(jax.tree_util.tree_map(jnp.allclose, model_params, loaded_result.model_params))
             )
             self.assertAlmostEqual(elbo, loaded_result.elbo)
             self.assertEqual(known_args, loaded_result.twinify_args)

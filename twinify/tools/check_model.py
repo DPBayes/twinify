@@ -102,7 +102,7 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
             parameter_sites = trace(seed(guide, jax.random.PRNGKey(0))).get_trace(*zeroed_train_data)
         except Exception as e: raise ModelException("Error while determining the sampling sites of parameter priors")
         parameter_sites = parameter_sites.keys()
-        prior_samples = {site: samples.squeeze(1) for site, samples in prior_samples.items() if site not in parameter_sites}
+        prior_samples = {site: np.asarray(samples.squeeze(1)) for site, samples in prior_samples.items() if site not in parameter_sites}
 
         print("Transforming prior samples to output domain to obtain dummy data (using postprocess)")
         _, syn_prior_encoded = postprocess_fn(prior_samples, df, feature_names)
@@ -128,17 +128,13 @@ def main(args: argparse.Namespace, unknown_args: Iterable[str]) -> int:
 
         print("Sampling from posterior distribution (using model, guide)")
         try:
-            # posterior_samples = Predictive(
-            #     model, guide = guide, params = posterior_params,
-            #     num_samples = num_train_data
-            # )(jax.random.PRNGKey(0))
             posterior_samples = sample_synthetic_data(model, guide, posterior_params, jax.random.PRNGKey(0), num_train_data, num_train_data)
         except Exception as e:
             raise ModelException("Error while obtaining posterior samples from model", base_exception=e)
         print("Postprocessing (using postprocess)")
         conditioned_postprocess_fn = lambda samples: postprocess_fn(samples, df, feature_names)
         reshape_and_postprocess_synthetic_data(
-            posterior_samples, conditioned_postprocess_fn, separate_output=True, num_parameter_samples=num_train_data#
+            posterior_samples, conditioned_postprocess_fn, separate_output=True
         )
 
         print("Everything okay!")
