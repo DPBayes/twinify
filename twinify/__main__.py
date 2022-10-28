@@ -39,6 +39,8 @@ import d3p.random
 import chacha.defs
 import secrets
 
+from twinify.dpvi import DPVIModel, DPVIResult
+
 from twinify import __version__
 from twinify.results import store_twinify_run_result
 # from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
@@ -162,60 +164,36 @@ def main():
                 print("\tSplit {} has {} entries with {} features each.".format(i, x.shape[0], 1 if x.ndim == 1 else x.shape[1]))
 
         # compute DP values
-        # TODO need to make this fail safely
-        batch_size = q_to_batch_size(args.sampling_ratio, num_data)
-
-        if not args.no_privacy:
-            target_delta = args.delta
-            if target_delta is None:
-                target_delta = 1. / num_data
-            if target_delta * num_data > 1.:
-                print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
-                    "which the maximum value that is usually considered safe!".format(
-                        target_delta, 1. / num_data
-                    ))
-                x = input("Continue? (type YES ): ")
-                if x != "YES":
-                    print("Aborting...")
-                    return 4
-                print("Continuing... (YOU HAVE BEEN WARNED!)")
-
-            num_compositions = int(args.num_epochs / args.sampling_ratio)
-            dp_sigma, epsilon, _ = approximate_sigma_remove_relation(
-                args.epsilon, target_delta, args.sampling_ratio, num_compositions
-            )
-            sigma_per_sample = dp_sigma / q_to_batch_size(args.sampling_ratio, num_data)
-            print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
-                "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, epsilon, target_delta))
-            # TODO: warn for high noise? but when is it too high? what is a good heuristic?
-
-            do_training = lambda inference_rng: train_model(
-                inference_rng,
-                d3p.random,
-                model, guide,
-                train_data,
-                batch_size=batch_size,
-                num_data=num_data,
-                num_epochs=args.num_epochs,
-                dp_scale=dp_sigma,
-                clipping_threshold=args.clipping_threshold
-            )
-        else:
-            print("!!!!! WARNING !!!!! PRIVACY FEATURES HAVE BEEN DISABLED!")
-            do_training = lambda inference_rng: train_model_no_dp(
-                inference_rng,
-                model, guide,
-                train_data,
-                batch_size=batch_size,
-                num_data=num_data,
-                num_epochs=args.num_epochs
-            )
+        target_delta = args.delta
+        if target_delta is None:
+            target_delta = 0.1 / num_data
+        if target_delta * num_data > 1.:
+            print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
+                "which the maximum value that is usually considered safe!".format(
+                    target_delta, 1. / num_data
+                ))
+            x = input("Continue? (type YES ): ")
+            if x != "YES":
+                print("Aborting...")
+                return 4
+            print("Continuing... (YOU HAVE BEEN WARNED!)")
 
         inference_rng, sampling_rng = initialize_rngs(args.seed)
 
-        # learn posterior distributions
+        output_sampling_sites = ["xs"] # TODO: need to sort these out
+        dpvi_model = DPVIModel(model, output_sampling_sites, guide)
+
+        num_iter = DPVIModel.num_iterations_for_epochs(args.num_epochs, args.sampling_ratio)
         try:
-            posterior_params, elbo = do_training(inference_rng)
+            dpvi_result: DPVIResult = dpvi_model.fit(
+                train_data,
+                inference_rng,
+                args.epsilon,
+                target_delta,
+                args.clipping_threshold,
+                num_iter,
+                args.sampling_ratio
+            )
         except (InferenceException, FloatingPointError):
             print("################################## ERROR ##################################")
             print("!!!!! The inference procedure encountered a NaN value (not a number). !!!!!")
@@ -225,9 +203,18 @@ def main():
             print("Aborting...")
             return 2
 
+        dp_sigma = dpvi_result.privacy_parameters.dp_noise
+        act_epsilon = dpvi_result.privacy_parameters.epsilon
+        act_delta = dpvi_result.privacy_parameters.delta
+        sigma_per_sample = dp_sigma / DPVIModel.batch_size_for_subsample_ratio(args.sampling_ratio, num_data)
+        print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
+            "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, act_epsilon, act_delta))
+        # TODO: warn for high noise? but when is it too high? what is a good heuristic?
+
         # Store learned model parameters
         # TODO: we should have a mode for twinify that allows to rerun the sampling without training, using stored parameters
-        store_twinify_run_result(f"{args.output_path}.p", posterior_params, elbo, args, unknown_args, __version__)
+        dpvi_result.store(f"{args.output_path}.p")
+        # TODO: previous twinify would store the entire provided arguments, for reproducability; this is not the case anymore; can we somehow reinstate this?
 
         # sample synthetic data
         print("Model learning complete; now sampling data!")
@@ -243,8 +230,12 @@ def main():
             print("They will be stored in separate data sets for each parameter posterior sample.")
         else:
             print("They will be stored in a single large data set.")
-        posterior_samples = sample_synthetic_data(
-            model, guide, posterior_params, sampling_rng, num_parameter_samples, args.num_synthetic_records_per_parameter_sample
+
+        posterior_samples = dpvi_result.generate_extended(
+            sampling_rng,
+            args.num_synthetic_records_per_parameter_sample,
+            num_parameter_samples,
+            single_dataframe=not args.separate_output
         )
 
         # postprocess: so that the synthetic twin looks like the original data

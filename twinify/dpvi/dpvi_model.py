@@ -9,6 +9,7 @@ from numpy.typing import ArrayLike
 import jax
 import jax.numpy as jnp
 
+import d3p.minibatch
 import d3p.random
 import d3p.dputil
 import numpyro.infer
@@ -81,3 +82,19 @@ class DPVIModel(InferenceModel):
             rng, d3p.random, self._model, self._guide, (data,), batch_size, num_data, dp_scale, num_epochs, clipping_threshold
         )
         return DPVIResult(self._model, self._guide, params, self._output_sample_sites)
+
+    @staticmethod
+    def num_iterations_for_epochs(num_epochs: int, subsample_ratio: float) -> int:
+        return int(num_epochs / subsample_ratio)
+
+    @staticmethod
+    def num_epochs_for_iterations(num_iterations: int, subsample_ratio: float) -> int:
+        return int(np.ceil(num_iterations * subsample_ratio))
+
+    @staticmethod
+    def batch_size_for_subsample_ratio(subsample_ratio: float, num_data: int) -> int:
+        return d3p.minibatch.q_to_batch_size(subsample_ratio, num_data)
+
+    @staticmethod
+    def subsample_ratio_for_batch_size(batch_size: int, num_data: int) -> float:
+        return d3p.minibatch.batch_size_to_q(batch_size, num_data)

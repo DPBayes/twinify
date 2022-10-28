@@ -2,6 +2,7 @@ import os
 import pickle
 
 from typing import BinaryIO, Optional, Callable, BinaryIO, Dict, Union, Iterable, Tuple
+from collections import namedtuple
 
 import pandas as pd
 
@@ -18,6 +19,8 @@ import twinify.serialization
 ModelFunction = Callable
 GuideFunction = Callable
 
+PrivacyParameters = namedtuple("PrivacyLevel", ["epsilon", "delta", "dp_noise"])
+
 
 class DPVIResult(InferenceResult):
 
@@ -25,13 +28,17 @@ class DPVIResult(InferenceResult):
             model: ModelFunction,
             guide: GuideFunction,
             parameters: Dict[str, ArrayLike],
-            output_sample_sites: Iterable[str]
+            output_sample_sites: Iterable[str],
+            privacy_parameters: PrivacyParameters,
+            final_elbo: float
         ) -> None:
 
         self._model = model
         self._guide = guide
         self._params = parameters
         self._output_sample_sites = tuple(output_sample_sites)
+        self._privacy_params = privacy_parameters
+        self._final_elbo = final_elbo
 
     def generate_extended(self,
             rng: d3p.random.PRNGState,
@@ -82,16 +89,18 @@ class DPVIResult(InferenceResult):
             from twinify.dpvi.dpvi_model import DPVIModel
             guide = DPVIModel.create_default_guide(model)
 
-        parameters, output_sample_sites = DPVIResultIO.load_params_from_io(read_io)
+        parameters, output_sample_sites, privacy_parameters, final_elbo = DPVIResultIO.load_params_from_io(read_io)
 
-        return DPVIResult(model, guide, parameters, output_sample_sites)
+        return DPVIResult(model, guide, parameters, output_sample_sites, privacy_parameters, final_elbo)
 
     @classmethod
     def _is_file_stored_result_from_io(cls, read_io: BinaryIO) -> bool:
         return DPVIResultIO.is_file_stored_result_from_io(read_io, reset_cursor=True)
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
-        return DPVIResultIO.store_params_to_io(write_io, self._params)
+        return DPVIResultIO.store_params_to_io(
+            write_io, self._params, self._output_sample_sites, self._privacy_params, self._final_elbo
+        )
 
     @property
     def guide(self) -> GuideFunction:
@@ -104,6 +113,16 @@ class DPVIResult(InferenceResult):
     @property
     def parameters(self) -> Dict[str, ArrayLike]:
         return jax.tree_map(lambda x: np.copy(x), self._params)
+
+    @property
+    def privacy_parameters(self) -> float:
+        """ The privacy parameters: epsilon, delta and standard deviation of noise applied during inference. """
+        return self._privacy_params
+
+    @property
+    def final_elbo(self) -> float:
+        """ The final ELBO achieved by the inference (on the training data). """
+        return self._final_elbo
 
 
 class DPVIResultIO:
@@ -127,7 +146,12 @@ class DPVIResultIO:
         # parameters = twinify.serialization.read_params(read_io, treedef)
         # raise NotImplementedError("need to figure out how to get model and guide here")
         stored_data = pickle.load(read_io)
-        return stored_data['params'], stored_data['output_sample_sites']
+        return (
+            stored_data['params'],
+            stored_data['output_sample_sites'],
+            stored_data['privacy_parameters'],
+            stored_data['final_elbo'],
+        )
 
     @staticmethod
     def is_file_stored_result_from_io(read_io: BinaryIO, reset_cursor: bool) -> bool:
@@ -144,12 +168,21 @@ class DPVIResultIO:
         return False
 
     @staticmethod
-    def store_params_to_io(write_io: BinaryIO, params: Dict[str, ArrayLike], output_sample_sites: Iterable[str]) -> None:
+    def store_params_to_io(
+            write_io: BinaryIO,
+            params: Dict[str, ArrayLike],
+            output_sample_sites: Iterable[str],
+            privacy_parameters: PrivacyParameters,
+            final_elbo: float
+        ) -> None:
+
         assert write_io.writable()
 
         data = {
             'params': params,
-            'output_sample_sites': list(output_sample_sites)
+            'output_sample_sites': list(output_sample_sites),
+            'privacy_parameters': privacy_parameters,
+            'final_elbo': final_elbo,
         }
 
         write_io.write(DPVIResultIO.IDENTIFIER)
