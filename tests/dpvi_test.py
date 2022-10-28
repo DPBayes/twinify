@@ -9,7 +9,7 @@ import pandas as pd
 
 import d3p.random
 
-import twinify.dpvi
+import twinify.dpvi.dpvi_model
 
 class DPVITests(unittest.TestCase):
 
@@ -36,7 +36,7 @@ class DPVITests(unittest.TestCase):
         output_sample_sites = ['xs']
 
         rng = d3p.random.PRNGKey(96392153)
-        dpvi_model = twinify.dpvi.DPVIModel(model, output_sample_sites)
+        dpvi_model = twinify.dpvi.dpvi_model.DPVIModel(model, output_sample_sites)
         dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon = 1., delta = 1e-6, clipping_threshold = 4., num_iter = 30000, q = 0.01)
 
         num_synthetic_data_sets = 10
