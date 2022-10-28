@@ -1,6 +1,6 @@
 import pandas as pd
 
-from typing import BinaryIO, Optional, Callable, Any, BinaryIO, Dict, Union, Iterable
+from typing import BinaryIO, Optional, Callable, Any, BinaryIO, Dict, Union, Iterable, Tuple
 
 import os
 import pickle
@@ -8,6 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 import jax
 import jax.numpy as jnp
+from functools import reduce
 
 import d3p.random
 import d3p.dputil
@@ -24,23 +25,41 @@ GuideFunction = Callable
 
 class DPVIModel(InferenceModel):
 
-    def __init__(self, model: ModelFunction, guide: Optional[GuideFunction] = None) -> None:
+    def __init__(
+            self,
+            model: ModelFunction,
+            output_sample_sites: Iterable[str],
+            guide: Optional[GuideFunction] = None
+        ) -> None:
+        """
+        Initialises a probabilistic model for performing differentially-private
+        variational inference.
+
+        Args:
+            model (ModelFunction): A numpyro model function that programmatically describes the probabilistic model
+                which generates the data.
+            output_sample_sites (Iterable[str]): Optional collection of identifiers/names of the sample sites in `model` that
+                produce the data. Used to correctly order the columns of the generated synthetic data.
+            guide (GuideFunction): Optional numpyro function that programmatically describes the variational approximation
+                to the true posterior distribution.
+        """
+        # TODO: make output_sample_sites optional with the following behaviour:
+        # If set to None,
+        # the samples sites in `model` that have the `obs` keyword are assumed to produce the output columns
+        # in the order of their appearance in the model.
+
         super().__init__()
         self._model = model
+        self._output_sample_sites = output_sample_sites
 
         if guide is None:
             guide = self.create_default_guide(model)
 
         self._guide = guide
 
-    @classmethod
-    @property
-    def default_guide_class(cls):
-        return numpyro.infer.autoguide.AutoDiagonalNormal
-
     @staticmethod
     def create_default_guide(model: ModelFunction) -> GuideFunction:
-        return DPVIModel.default_guide_class(model)
+        return numpyro.infer.autoguide.AutoDiagonalNormal(model)
 
     def fit(self,
             data: pd.DataFrame,
@@ -56,25 +75,33 @@ class DPVIModel(InferenceModel):
         num_data = data.size
         batch_size = int(num_data * q)
         num_epochs = int(num_iter * q)
-        dp_scale = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter)
+        dp_scale, _, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
         params, _ = twinify.infer.train_model(
-            rng, d3p.random, self._model, self._guide, data, batch_size, num_data, dp_scale, num_epochs, clipping_threshold
+            rng, d3p.random, self._model, self._guide, (data,), batch_size, num_data, dp_scale, num_epochs, clipping_threshold
         )
-        return DPVIResult(self._model, self._guide, params)
+        return DPVIResult(self._model, self._guide, params, self._output_sample_sites)
 
 
 class DPVIResult(InferenceResult):
 
-    def __init__(self, model: ModelFunction, guide: GuideFunction, parameters: Dict[str, ArrayLike]) -> None:
+    def __init__(self,
+            model: ModelFunction,
+            guide: GuideFunction,
+            parameters: Dict[str, ArrayLike],
+            output_sample_sites: Iterable[str]
+        ) -> None:
+
         self._model = model
         self._guide = guide
         self._params = parameters
+        self._output_sample_sites = tuple(output_sample_sites)
 
     def generate_extended(self,
             rng: d3p.random.PRNGState,
             num_data_per_parameter_sample: int,
             num_parameter_samples: int,
-            single_dataframe: Optional[bool] = False) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
+            single_dataframe: Optional[bool] = False
+        ) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
 
         jax_rng = d3p.random.convert_to_jax_rng_key(rng)
         samples = twinify.sampling.sample_synthetic_data(
@@ -88,24 +115,38 @@ class DPVIResult(InferenceResult):
             reshaped_v = jnp.reshape(v, new_shape)
             return reshaped_v
 
+        def _sites_to_output_df(samples: Dict[str, jnp.array]) -> pd.DataFrame:
+            try:
+                output_samples_np = np.hstack([samples[site] for site in self._output_sample_sites])
+                output_samples_df = pd.DataFrame(output_samples_np)
+                return output_samples_df
+            except KeyError:
+                # TODO: meaningful error message
+                raise
+
         if single_dataframe:
-            samples = {k: _squash_sample_dims(v) for k, v in samples.items()}
-            return pd.DataFrame(samples)
+            samples_df = _sites_to_output_df({k: _squash_sample_dims(v) for k, v in samples.items()})
+            return samples_df
         else:
             for i in range(num_parameter_samples):
-                local_samples = {k: v[i] for k, v in samples.items()}
-                yield pd.DataFrame(local_samples)
-
+                local_samples_df = _sites_to_output_df({k: pd.DataFrame(np.asarray(v[i])) for k, v in samples.items()})
+                yield local_samples_df
         # TODO: currently performs no post-processing / remapping of integer values to categoricals
 
     @classmethod
-    def _load_from_io(cls, read_io: BinaryIO, model: ModelFunction, guide: Optional[GuideFunction] = None, **kwargs) -> 'InferenceResult':
+    def _load_from_io(
+            cls, read_io: BinaryIO,
+            model: ModelFunction,
+            guide: Optional[GuideFunction] = None,
+            **kwargs
+        ) -> 'InferenceResult':
+
         if guide is None:
             guide = DPVIModel.create_default_guide(model)
 
-        parameters = DPVIResultIO.load_params_from_io(read_io)
+        parameters, output_sample_sites = DPVIResultIO.load_params_from_io(read_io)
 
-        return DPVIResult(model, guide, parameters)
+        return DPVIResult(model, guide, parameters, output_sample_sites)
 
     @classmethod
     def _is_file_stored_result_from_io(cls, read_io: BinaryIO) -> bool:
@@ -134,7 +175,7 @@ class DPVIResultIO:
 
     @staticmethod
     # def load_from_io(read_io: BinaryIO, treedef: jax.tree_util.PyTreeDef) -> DPVIResult:
-    def load_params_from_io(read_io: BinaryIO) -> Dict[str, ArrayLike]:
+    def load_params_from_io(read_io: BinaryIO) -> Tuple[Dict[str, ArrayLike], Iterable[str]]:
         assert read_io.readable()
 
         if not DPVIResultIO.is_file_stored_result_from_io(read_io, reset_cursor=False):
@@ -146,7 +187,8 @@ class DPVIResultIO:
 
         # parameters = twinify.serialization.read_params(read_io, treedef)
         # raise NotImplementedError("need to figure out how to get model and guide here")
-        return pickle.load(read_io)
+        stored_data = pickle.load(read_io)
+        return stored_data['params'], stored_data['output_sample_sites']
 
     @staticmethod
     def is_file_stored_result_from_io(read_io: BinaryIO, reset_cursor: bool) -> bool:
@@ -163,10 +205,15 @@ class DPVIResultIO:
         return False
 
     @staticmethod
-    def store_params_to_io(write_io: BinaryIO, params: Dict[str, ArrayLike]) -> None:
+    def store_params_to_io(write_io: BinaryIO, params: Dict[str, ArrayLike], output_sample_sites: Iterable[str]) -> None:
         assert write_io.writable()
+
+        data = {
+            'params': params,
+            'output_sample_sites': list(output_sample_sites)
+        }
 
         write_io.write(DPVIResultIO.IDENTIFIER)
         write_io.write(DPVIResultIO.CURRENT_IO_VERSION_BYTES)
-        pickle.dump(params, write_io)
+        pickle.dump(data, write_io)
         # twinify.serialization.write_params(params, write_io)
