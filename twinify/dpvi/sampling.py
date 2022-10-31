@@ -19,11 +19,11 @@ import jax.numpy as jnp
 from numpyro.infer import Predictive
 from typing import Dict, Iterable, Callable, Tuple
 
-from twinify.model_loading import TModelFunction, TGuideFunction
+from twinify.dpvi import ModelFunction, GuideFunction
 
 def sample_synthetic_data(
-        model: TModelFunction,
-        guide: TGuideFunction,
+        model: ModelFunction,
+        guide: GuideFunction,
         posterior_params: Dict[str, jnp.ndarray],
         sampling_rng: jnp.ndarray,
         num_parameter_samples: int,

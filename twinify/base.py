@@ -1,13 +1,13 @@
 import abc
 import pandas as pd
 from typing import Union, Optional, Iterable, BinaryIO
-from d3p.random import PRNGState
+import d3p.random
 
 class InferenceModel(metaclass=abc.ABCMeta):
     """ A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. """
 
     @abc.abstractmethod
-    def fit(self, data: pd.DataFrame, rng: PRNGState, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
+    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
         """ Compute the parameter posterior (approximation) for a given data set, hyperparameters and privacy bounds.
 
         Args:
@@ -25,7 +25,7 @@ class InferenceResult(metaclass=abc.ABCMeta):
     for a particular `InferenceModel`. """
 
     def generate(self,
-            rng: PRNGState,
+            rng: d3p.random.PRNGState,
             dataset_size: int,
             num_datasets: Optional[int] = 1,
             ) -> Iterable[pd.DataFrame]:
@@ -40,11 +40,11 @@ class InferenceResult(metaclass=abc.ABCMeta):
             - dataset_size: The size of a single generated data set.
             - num_datasets: How many data sets to generate.
         """
-        return self.generate_extended(rng, num_datasets, dataset_size, single_dataframe=False)
+        return self.generate_extended(rng, dataset_size, num_datasets, single_dataframe=False)
 
     @abc.abstractmethod
     def generate_extended(self,
-            rng: PRNGState,
+            rng: d3p.random.PRNGState,
             num_data_per_parameter_sample: int,
             num_parameter_samples: int,
             single_dataframe: Optional[bool] = False) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:

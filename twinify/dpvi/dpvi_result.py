@@ -1,8 +1,7 @@
 import os
 import pickle
 
-from typing import BinaryIO, Optional, Callable, BinaryIO, Dict, Union, Iterable, Tuple
-from collections import namedtuple
+from typing import BinaryIO, Optional, Dict, Union, Iterable, Tuple
 
 import pandas as pd
 
@@ -10,16 +9,13 @@ import numpy as np
 from numpy.typing import ArrayLike
 import jax
 import jax.numpy as jnp
+import numpyro
 
 import d3p.random
 from twinify.base import InferenceResult, InvalidFileFormatException
-import twinify.sampling
+from twinify.dpvi import ModelFunction, GuideFunction, PrivacyLevel
 import twinify.serialization
-
-ModelFunction = Callable
-GuideFunction = Callable
-
-PrivacyParameters = namedtuple("PrivacyLevel", ["epsilon", "delta", "dp_noise"])
+from twinify.dpvi.sampling import sample_synthetic_data
 
 
 class DPVIResult(InferenceResult):
@@ -29,7 +25,7 @@ class DPVIResult(InferenceResult):
             guide: GuideFunction,
             parameters: Dict[str, ArrayLike],
             output_sample_sites: Iterable[str],
-            privacy_parameters: PrivacyParameters,
+            privacy_parameters: PrivacyLevel,
             final_elbo: float
         ) -> None:
 
@@ -37,7 +33,7 @@ class DPVIResult(InferenceResult):
         self._guide = guide
         self._params = parameters
         self._output_sample_sites = tuple(output_sample_sites)
-        self._privacy_params = privacy_parameters
+        self._privacy_level = privacy_parameters
         self._final_elbo = final_elbo
 
     def generate_extended(self,
@@ -47,9 +43,40 @@ class DPVIResult(InferenceResult):
             single_dataframe: Optional[bool] = False
         ) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
 
-        jax_rng = d3p.random.convert_to_jax_rng_key(rng)
-        samples = twinify.sampling.sample_synthetic_data(
-            self._model, self._guide, self._params, jax_rng, num_parameter_samples, num_data_per_parameter_sample
+        # @jax.jit
+        # def sample_from_ppd(rng_key):
+        #     """ Samples a single parameter vector and
+        #         num_record_samples_per_parameter_sample based on it.
+        #     """
+        #     parameter_sampling_rng, record_sampling_rng = jax.random.split(rng_key)
+
+        #     # sample single parameter vector
+        #     posterior_sampler = numpyro.infer.Predictive(
+        #         self._guide, params=self._params, num_samples=1
+        #     )
+        #     posterior_samples = posterior_sampler(parameter_sampling_rng)
+        #     # models always add a superfluous batch dimensions, squeeze it
+        #     posterior_samples = {k: v.squeeze(0) for k,v in posterior_samples.items()}
+
+        #     # sample num_data_per_parameter_sample data samples
+        #     ppd_sampler = numpyro.infer.Predictive(self._model, posterior_samples, batch_ndims=0)
+        #     per_sample_rngs = jax.random.split(
+        #         record_sampling_rng, num_data_per_parameter_sample
+        #     )
+        #     ppd_samples = jax.vmap(ppd_sampler)(per_sample_rngs)
+        #     # models always add a superfluous batch dimensions, squeeze it
+        #     ppd_samples = {k: v.squeeze(1) for k, v in ppd_samples.items()}
+
+        #     return ppd_samples
+
+        # sampling_rng = d3p.random.convert_to_jax_rng_key(rng)
+        # per_parameter_rngs = jax.random.split(sampling_rng, num_parameter_samples)
+        # ppd_samples = jax.vmap(sample_from_ppd)(per_parameter_rngs)
+
+        # samples = {site: np.asarray(value) for site, value in ppd_samples.items()}
+        sampling_rng = d3p.random.convert_to_jax_rng_key(rng)
+        samples = sample_synthetic_data(
+            self._model, self._guide, self._params, sampling_rng, num_parameter_samples, num_data_per_parameter_sample
         )
 
         def _squash_sample_dims(v: jnp.array) -> jnp.array:
@@ -72,9 +99,9 @@ class DPVIResult(InferenceResult):
             samples_df = _sites_to_output_df({k: _squash_sample_dims(v) for k, v in samples.items()})
             return samples_df
         else:
-            for i in range(num_parameter_samples):
-                local_samples_df = _sites_to_output_df({k: pd.DataFrame(np.asarray(v[i])) for k, v in samples.items()})
-                yield local_samples_df
+            return [
+                _sites_to_output_df({k: pd.DataFrame(v[i]) for k, v in samples.items()}) for i in range(num_parameter_samples)
+            ]
         # TODO: currently performs no post-processing / remapping of integer values to categoricals
 
     @classmethod
@@ -99,7 +126,7 @@ class DPVIResult(InferenceResult):
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
         return DPVIResultIO.store_params_to_io(
-            write_io, self._params, self._output_sample_sites, self._privacy_params, self._final_elbo
+            write_io, self._params, self._output_sample_sites, self._privacy_level, self._final_elbo
         )
 
     @property
@@ -115,9 +142,9 @@ class DPVIResult(InferenceResult):
         return jax.tree_map(lambda x: np.copy(x), self._params)
 
     @property
-    def privacy_parameters(self) -> float:
+    def privacy_level(self) -> float:
         """ The privacy parameters: epsilon, delta and standard deviation of noise applied during inference. """
-        return self._privacy_params
+        return self._privacy_level
 
     @property
     def final_elbo(self) -> float:
@@ -149,7 +176,7 @@ class DPVIResultIO:
         return (
             stored_data['params'],
             stored_data['output_sample_sites'],
-            stored_data['privacy_parameters'],
+            stored_data['privacy_level'],
             stored_data['final_elbo'],
         )
 
@@ -172,7 +199,7 @@ class DPVIResultIO:
             write_io: BinaryIO,
             params: Dict[str, ArrayLike],
             output_sample_sites: Iterable[str],
-            privacy_parameters: PrivacyParameters,
+            privacy_level: PrivacyLevel,
             final_elbo: float
         ) -> None:
 
@@ -181,7 +208,7 @@ class DPVIResultIO:
         data = {
             'params': params,
             'output_sample_sites': list(output_sample_sites),
-            'privacy_parameters': privacy_parameters,
+            'privacy_level': privacy_level,
             'final_elbo': final_elbo,
         }
 

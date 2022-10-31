@@ -1,28 +1,56 @@
+# Copyright 2020 twinify Developers and their Assignees
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import pandas as pd
 
-from typing import BinaryIO, Optional, Callable, Any, BinaryIO, Dict, Union, Iterable, Tuple
+from typing import Optional, Callable, Iterable
 
-import os
-import pickle
 import numpy as np
-from numpy.typing import ArrayLike
 import jax
 import jax.numpy as jnp
 
 import d3p.minibatch
 import d3p.random
 import d3p.dputil
+import d3p.svi
 import numpyro.infer
-import twinify.infer
-from twinify.base import InferenceModel, InferenceResult, InvalidFileFormatException
-import twinify.serialization
-import twinify.sampling
+from twinify.base import InferenceModel, InferenceResult
 
+from twinify.dpvi import PrivacyLevel, ModelFunction, GuideFunction
 from twinify.dpvi.dpvi_result import DPVIResult
 
 
-ModelFunction = Callable
-GuideFunction = Callable
+class InferenceException(Exception):
+
+    def __init__(self, iteration: int, total_iterations: int) -> None:
+        self._iteration = iteration
+        self._total_iterations = total_iterations
+        super().__init__(
+            f"Inference encountered NaN value after {iteration}/{total_iterations} iterations {self.progress}."
+        )
+
+    @property
+    def iteration(self) -> int:
+        return self._iteration
+
+    @property
+    def total_iterations(self) -> int:
+        return self._total_iterations
+
+    @property
+    def progress(self) -> float:
+        return self._iteration / self._total_iterations
 
 
 class DPVIModel(InferenceModel):
@@ -70,7 +98,8 @@ class DPVIModel(InferenceModel):
             delta: float,
             clipping_threshold: float,
             num_iter: int,
-            q: float) -> InferenceResult:
+            q: float,
+            silent: bool = False) -> InferenceResult:
 
         # TODO: this currently assumes that data is fully numeric (i.e., categoricals are numbers, not labels)
 
@@ -78,10 +107,52 @@ class DPVIModel(InferenceModel):
         batch_size = int(num_data * q)
         num_epochs = int(num_iter * q)
         dp_scale, _, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
-        params, _ = twinify.infer.train_model(
-            rng, d3p.random, self._model, self._guide, (data,), batch_size, num_data, dp_scale, num_epochs, clipping_threshold
+
+        optimizer = numpyro.optim.Adam(1e-3)
+
+        svi = d3p.svi.DPSVI(
+            self._model, self._guide, optimizer, numpyro.infer.Trace_ELBO(),
+            num_obs_total=num_data, clipping_threshold=clipping_threshold,
+            dp_scale=dp_scale, rng_suite=d3p.random
         )
-        return DPVIResult(self._model, self._guide, params, self._output_sample_sites)
+
+        svi_rng, init_batch_rng, epochs_rng = d3p.random.split(rng, 3)
+
+        data = np.asarray(data)
+        init_batching, get_batch = d3p.minibatch.subsample_batchify_data((data,), batch_size, rng_suite=d3p.random)
+        _, batchify_state = init_batching(init_batch_rng)
+
+        batch = get_batch(0, batchify_state)
+        svi_state = svi.init(svi_rng, *batch)
+
+        @jax.jit
+        def train_epoch(num_epoch_iter, svi_state, batchify_state):
+            def train_iteration(i, state_and_loss):
+                svi_state, loss = state_and_loss
+                batch = get_batch(i, batchify_state)
+                svi_state, iter_loss = svi.update(svi_state, *batch)
+                return (svi_state, loss + iter_loss / num_epoch_iter)
+
+            return jax.lax.fori_loop(0, num_epoch_iter, train_iteration, (svi_state, 0.))
+
+        for i in range(num_epochs):
+            batchify_rng = d3p.random.fold_in(epochs_rng, i)
+            num_batches, batchify_state = init_batching(batchify_rng)
+
+            svi_state, loss = train_epoch(num_batches, svi_state, batchify_state)
+            if np.isnan(loss):
+                raise InferenceException((i + 1) * num_batches, num_epochs * num_batches)
+            loss /= num_data
+            if not silent: print("epoch {}: loss {}".format(i, loss))
+
+        params = svi.get_params(svi_state)
+        return DPVIResult(
+            self._model, self._guide,
+            params,
+            self._output_sample_sites,
+            PrivacyLevel(epsilon, delta, dp_scale),
+            loss
+        )
 
     @staticmethod
     def num_iterations_for_epochs(num_epochs: int, subsample_ratio: float) -> int:

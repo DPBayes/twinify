@@ -21,14 +21,11 @@ Twinify main script.
 from jax.config import config
 config.update("jax_enable_x64", True)
 
-from d3p.minibatch import q_to_batch_size
-from d3p.dputil import approximate_sigma_remove_relation
 from numpyro.infer.autoguide import AutoDiagonalNormal
 
-from twinify.infer import train_model, train_model_no_dp, InferenceException
-import twinify.automodel as automodel
+import twinify.dpvi.modelling.automodel as automodel
 from twinify.model_loading import ModelException, load_custom_numpyro_model
-from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
+from twinify.dpvi.sampling import reshape_and_postprocess_synthetic_data
 
 import numpy as np
 
@@ -36,15 +33,10 @@ import pandas as pd
 
 import argparse
 import d3p.random
-import chacha.defs
-import secrets
 
-from twinify.dpvi import DPVIModel, DPVIResult
+from twinify.dpvi import DPVIModel, DPVIResult, InferenceException
 
 from twinify import __version__
-from twinify.results import store_twinify_run_result
-# from twinify.illustrate import plot_missing_values, plot_margins, plot_covariance_heatmap
-# import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
@@ -67,8 +59,6 @@ parser.add_argument("--separate_output", default=False, action='store_true', hel
 parser.add_argument("--version", action='version', version=__version__)
 
 def initialize_rngs(seed):
-    if seed is None:
-        seed = secrets.randbits(chacha.defs.ChaChaKeySizeInBits)
     master_rng = d3p.random.PRNGKey(seed)
     print(f"RNG seed: {seed}")
 
@@ -137,8 +127,6 @@ def main():
             if args.drop_na:
                 train_df = train_df.dropna()
 
-            # TODO normalize?
-
             # data preprocessing: determines number of categories for Categorical
             #   distribution and maps categorical values in the data to ints
             for feature in features:
@@ -203,9 +191,9 @@ def main():
             print("Aborting...")
             return 2
 
-        dp_sigma = dpvi_result.privacy_parameters.dp_noise
-        act_epsilon = dpvi_result.privacy_parameters.epsilon
-        act_delta = dpvi_result.privacy_parameters.delta
+        dp_sigma = dpvi_result.privacy_level.dp_noise
+        act_epsilon = dpvi_result.privacy_level.epsilon
+        act_delta = dpvi_result.privacy_level.delta
         sigma_per_sample = dp_sigma / DPVIModel.batch_size_for_subsample_ratio(args.sampling_ratio, num_data)
         print("Will apply noise with std deviation {:.2f} (~ {:.2f} per element in batch) to achieve privacy epsilon "\
             "of {:.3f} (for delta {:.2e}) ".format(dp_sigma, sigma_per_sample, act_epsilon, act_delta))

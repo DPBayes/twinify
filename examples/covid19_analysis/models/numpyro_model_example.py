@@ -2,8 +2,7 @@ import jax.numpy as np
 import numpyro.distributions as dist
 from numpyro.primitives import sample, plate
 
-from twinify.na_model import NAModel
-from twinify.interface import get_feature, sample_combined
+from twinify.dpvi.modelling import get_feature, sample_combined, NAModel
 
 def preprocess(df):
     """
