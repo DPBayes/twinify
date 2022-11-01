@@ -171,7 +171,6 @@ def main():
         output_sampling_sites = ["xs"] # TODO: need to sort these out
         dpvi_model = DPVIModel(model, output_sampling_sites, guide)
 
-        num_iter = DPVIModel.num_iterations_for_epochs(args.num_epochs, args.sampling_ratio)
         try:
             dpvi_result: DPVIResult = dpvi_model.fit(
                 train_data,
@@ -179,7 +178,7 @@ def main():
                 args.epsilon,
                 target_delta,
                 args.clipping_threshold,
-                num_iter,
+                args.num_epochs,
                 args.sampling_ratio
             )
         except (InferenceException, FloatingPointError):

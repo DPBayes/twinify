@@ -119,15 +119,15 @@ class DPVIModel(InferenceModel):
             epsilon: float,
             delta: float,
             clipping_threshold: float,
-            num_iter: int,
+            num_epochs: int, # TODO: ultimately this should be num_iters for more flexibility, but the whole pipeline is currently geared towards num_epochs
             q: float,
             silent: bool = False) -> DPVIResult:
 
         # TODO: this currently assumes that data is fully numeric (i.e., categoricals are numbers, not labels)
 
         num_data = data.shape[0]
-        batch_size = int(num_data * q)
-        num_epochs = int(num_iter * q)
+        batch_size = self.batch_size_for_subsample_ratio(q, num_data)
+        num_iter = self.num_iterations_for_epochs(num_epochs, q)
         dp_scale, _, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
 
         optimizer = numpyro.optim.Adam(1e-3)
