@@ -11,15 +11,16 @@ import tempfile
 import d3p.random
 
 from twinify.dpvi import DPVIModel, DPVIResult, PrivacyLevel
+from twinify.dpvi.modelling import slice_feature
 
 
 def model(data = None, num_obs_total = None):
     batch_size = 1
-    xs, ys = None, None
+    # xs, ys = None, None
     if data is not None:
         batch_size = np.shape(data)[0]
-        xs = data[:, :2]
-        ys = data[:, -1:]
+        # xs = data[:, :2]
+        # ys = data[:, -1:]
     if num_obs_total is None:
         num_obs_total = batch_size
 
@@ -27,8 +28,8 @@ def model(data = None, num_obs_total = None):
     sig = sample('sig', dists.InverseGamma(1.), sample_shape=(3,))
     with plate('obs', num_obs_total, batch_size):
         # simulating multiple sample sites that are not sampled in the order they appear in the data
-        ys = sample('ys', dists.Normal(mu[0], sig[0]), obs=ys).reshape(-1, 1)
-        xs = sample('xs', dists.MultivariateNormal(mu[1:], jnp.diag(sig[1:])), obs=xs)
+        ys = sample('ys', dists.Normal(mu[0], sig[0]), obs=slice_feature(data, -1)).reshape(-1, 1)
+        xs = sample('xs', dists.MultivariateNormal(mu[1:], jnp.diag(sig[1:])), obs=slice_feature(data, 0, -1))
 
     return jnp.hstack((xs, ys))
 
@@ -40,7 +41,7 @@ class DPVITests(unittest.TestCase):
         L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
         mu = np.array([2., -3., 0])
         xs = np.random.randn(10000, 3) @ L.T + mu
-        # xs_df = pd.DataFrame(xs, columns=('first', 'second')) # TODO: DPVIResult must do postprocessing for column names; not yet implemented
+        # xs_df = pd.DataFrame(xs, columns=('first', 'second', 'third')) # TODO: DPVIResult must do postprocessing for column names; not yet implemented
         xs_df = pd.DataFrame(xs)
 
         epsilon = 4.
