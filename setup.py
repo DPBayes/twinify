@@ -21,8 +21,10 @@ setuptools.setup(
     packages=setuptools.find_packages(include=['twinify', 'twinify.*']),
     python_requires='>=3.7',
     install_requires=[
-        'pandas',
+        'pandas >= 1.3.4, < 2.0',
         'd3p @ git+https://github.com/DPBayes/d3p.git@master#egg=d3p',
+        'tqdm >= 4.62, < 5.0',
+        'numpy >= 1.21, < 2.0'
     ],
     extras_require = {
         'examples': [
