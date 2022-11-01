@@ -35,7 +35,7 @@ def model(data = None, num_obs_total = None):
 
 class DPVITests(unittest.TestCase):
 
-    def test_inference_and_sampling(self):
+    def test_inference_and_sampling(self) -> None:
         np.random.seed(82634593)
         L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
         mu = np.array([2., -3., 0])
@@ -69,6 +69,38 @@ class DPVITests(unittest.TestCase):
 
         self.assertTrue(np.allclose(xs_df.to_numpy().mean(0), merged_df.to_numpy().mean(0), atol=1e-1))
         self.assertTrue(np.allclose(xs_df.to_numpy().std(0, ddof=-1), merged_df.to_numpy().std(0, ddof=-1), atol=1e-1))
+
+    def test_num_iterations_for_epochs(self) -> None:
+        num_epochs = 10
+        subsample_ratio = 0.33
+        expected_num_iter = 30
+
+        num_iter = DPVIModel.num_iterations_for_epochs(num_epochs, subsample_ratio)
+        self.assertEqual(expected_num_iter, num_iter)
+
+    def test_num_epochs_for_iterations(self) -> None:
+        num_iter = 30
+        subsample_ratio = 0.33
+        expected_num_epochs = 10
+
+        num_epochs = DPVIModel.num_epochs_for_iterations(num_iter, subsample_ratio)
+        self.assertEqual(expected_num_epochs, num_epochs)
+
+    def test_batch_size_for_subsample_ratio(self) -> None:
+        num_data = 1000
+        subsample_ratio = 0.0301
+        expected_batch_size = 30
+
+        batch_size = DPVIModel.batch_size_for_subsample_ratio(subsample_ratio, num_data)
+        self.assertEqual(expected_batch_size, batch_size)
+
+    def test_subsample_ratio_for_batch_size(self) -> None:
+        num_data = 1000
+        batch_size = 30
+        expected_subsample_ratio = 0.03
+
+        subsample_ratio = DPVIModel.subsample_ratio_for_batch_size(batch_size, num_data)
+        self.assertEqual(expected_subsample_ratio, subsample_ratio)
 
 
 class DPVIResultTests(unittest.TestCase):
