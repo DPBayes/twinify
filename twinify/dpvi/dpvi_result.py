@@ -1,7 +1,7 @@
 import os
 import pickle
 
-from typing import BinaryIO, Optional, Dict, Union, Iterable, Tuple
+from typing import BinaryIO, Optional, Dict, Union, Iterable, Tuple, Any
 
 import pandas as pd
 
@@ -18,13 +18,16 @@ import twinify.serialization
 from twinify.dpvi.sampling import sample_synthetic_data
 
 
+class SamplingException(Exception):
+    pass
+
+
 class DPVIResult(InferenceResult):
 
     def __init__(self,
             model: ModelFunction,
             guide: GuideFunction,
             parameters: Dict[str, ArrayLike],
-            output_sample_sites: Iterable[str],
             privacy_parameters: PrivacyLevel,
             final_elbo: float
         ) -> None:
@@ -32,9 +35,23 @@ class DPVIResult(InferenceResult):
         self._model = model
         self._guide = guide
         self._params = parameters
-        self._output_sample_sites = tuple(output_sample_sites)
         self._privacy_level = privacy_parameters
         self._final_elbo = final_elbo
+
+    __twinify_model_output_site = '_twinify_output'
+
+    @staticmethod
+    def _mark_model_outputs(model: ModelFunction) -> ModelFunction:
+        def _model_wrapper(data: Optional[ArrayLike]=None, *args, **kwargs) -> Any:
+            """ Wraps a model function and captures the return value in a sampling site named `_twinify_output`,
+            which `DPVIResult` uses to read the generated synthetic data from.
+            """
+            samples = model(*args, **kwargs)
+            if len(jnp.shape(samples)) != 2:
+                raise SamplingException("A numpyro model for twinify must return the sampled data as a single two-dimensional array.")
+            numpyro.deterministic(DPVIResult.__twinify_model_output_site, samples)
+            return samples
+        return _model_wrapper
 
     def generate_extended(self,
             rng: d3p.random.PRNGState,
@@ -43,64 +60,30 @@ class DPVIResult(InferenceResult):
             single_dataframe: Optional[bool] = False
         ) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
 
-        # @jax.jit
-        # def sample_from_ppd(rng_key):
-        #     """ Samples a single parameter vector and
-        #         num_record_samples_per_parameter_sample based on it.
-        #     """
-        #     parameter_sampling_rng, record_sampling_rng = jax.random.split(rng_key)
-
-        #     # sample single parameter vector
-        #     posterior_sampler = numpyro.infer.Predictive(
-        #         self._guide, params=self._params, num_samples=1
-        #     )
-        #     posterior_samples = posterior_sampler(parameter_sampling_rng)
-        #     # models always add a superfluous batch dimensions, squeeze it
-        #     posterior_samples = {k: v.squeeze(0) for k,v in posterior_samples.items()}
-
-        #     # sample num_data_per_parameter_sample data samples
-        #     ppd_sampler = numpyro.infer.Predictive(self._model, posterior_samples, batch_ndims=0)
-        #     per_sample_rngs = jax.random.split(
-        #         record_sampling_rng, num_data_per_parameter_sample
-        #     )
-        #     ppd_samples = jax.vmap(ppd_sampler)(per_sample_rngs)
-        #     # models always add a superfluous batch dimensions, squeeze it
-        #     ppd_samples = {k: v.squeeze(1) for k, v in ppd_samples.items()}
-
-        #     return ppd_samples
-
-        # sampling_rng = d3p.random.convert_to_jax_rng_key(rng)
-        # per_parameter_rngs = jax.random.split(sampling_rng, num_parameter_samples)
-        # ppd_samples = jax.vmap(sample_from_ppd)(per_parameter_rngs)
-
-        # samples = {site: np.asarray(value) for site, value in ppd_samples.items()}
         sampling_rng = d3p.random.convert_to_jax_rng_key(rng)
         samples = sample_synthetic_data(
-            self._model, self._guide, self._params, sampling_rng, num_parameter_samples, num_data_per_parameter_sample
+            self._mark_model_outputs(self._model), self._guide,
+            self._params, sampling_rng,
+            num_parameter_samples,
+            num_data_per_parameter_sample
         )
 
-        def _squash_sample_dims(v: jnp.array) -> jnp.array:
-            old_shape = jnp.shape(v)
-            assert len(old_shape) >= 2
+        samples = samples[self.__twinify_model_output_site]
+
+        assert samples.shape[:2] == (num_parameter_samples, num_data_per_parameter_sample)
+
+        def _squash_sample_dims(v: np.array) -> np.array:
+            old_shape = np.shape(v)
             new_shape = (old_shape[0] * old_shape[1], *old_shape[2:])
-            reshaped_v = jnp.reshape(v, new_shape)
+            reshaped_v = np.reshape(v, new_shape)
             return reshaped_v
 
-        def _sites_to_output_df(samples: Dict[str, jnp.array]) -> pd.DataFrame:
-            try:
-                output_samples_np = np.hstack([samples[site] for site in self._output_sample_sites])
-                output_samples_df = pd.DataFrame(output_samples_np)
-                return output_samples_df
-            except KeyError:
-                # TODO: meaningful error message
-                raise
-
         if single_dataframe:
-            samples_df = _sites_to_output_df({k: _squash_sample_dims(v) for k, v in samples.items()})
+            samples_df = pd.DataFrame(_squash_sample_dims(samples))
             return samples_df
         else:
             return [
-                _sites_to_output_df({k: pd.DataFrame(v[i]) for k, v in samples.items()}) for i in range(num_parameter_samples)
+                pd.DataFrame(samples[i]) for i in range(num_parameter_samples)
             ]
         # TODO: currently performs no post-processing / remapping of integer values to categoricals
 
@@ -116,9 +99,9 @@ class DPVIResult(InferenceResult):
             from twinify.dpvi.dpvi_model import DPVIModel
             guide = DPVIModel.create_default_guide(model)
 
-        parameters, output_sample_sites, privacy_parameters, final_elbo = DPVIResultIO.load_params_from_io(read_io)
+        parameters, privacy_parameters, final_elbo = DPVIResultIO.load_params_from_io(read_io)
 
-        return DPVIResult(model, guide, parameters, output_sample_sites, privacy_parameters, final_elbo)
+        return DPVIResult(model, guide, parameters, privacy_parameters, final_elbo)
 
     @classmethod
     def _is_file_stored_result_from_io(cls, read_io: BinaryIO) -> bool:
@@ -126,7 +109,7 @@ class DPVIResult(InferenceResult):
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
         return DPVIResultIO.store_params_to_io(
-            write_io, self._params, self._output_sample_sites, self._privacy_level, self._final_elbo
+            write_io, self._params, self._privacy_level, self._final_elbo
         )
 
     @property
@@ -175,7 +158,6 @@ class DPVIResultIO:
         stored_data = pickle.load(read_io)
         return (
             stored_data['params'],
-            stored_data['output_sample_sites'],
             stored_data['privacy_level'],
             stored_data['final_elbo'],
         )
@@ -198,7 +180,6 @@ class DPVIResultIO:
     def store_params_to_io(
             write_io: BinaryIO,
             params: Dict[str, ArrayLike],
-            output_sample_sites: Iterable[str],
             privacy_level: PrivacyLevel,
             final_elbo: float
         ) -> None:
@@ -207,7 +188,6 @@ class DPVIResultIO:
 
         data = {
             'params': params,
-            'output_sample_sites': list(output_sample_sites),
             'privacy_level': privacy_level,
             'final_elbo': final_elbo,
         }

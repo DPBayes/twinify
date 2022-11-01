@@ -12,33 +12,47 @@ import d3p.random
 
 from twinify.dpvi import DPVIModel, DPVIResult, PrivacyLevel
 
+
+def model(data = None, num_obs_total = None):
+    batch_size = 1
+    xs, ys = None, None
+    if data is not None:
+        batch_size = np.shape(data)[0]
+        xs = data[:, :2]
+        ys = data[:, -1:]
+    if num_obs_total is None:
+        num_obs_total = batch_size
+
+    mu = sample('mu', dists.Normal(0, 10), sample_shape=(3,))
+    sig = sample('sig', dists.InverseGamma(1.), sample_shape=(3,))
+    with plate('obs', num_obs_total, batch_size):
+        # simulating multiple sample sites that are not sampled in the order they appear in the data
+        ys = sample('ys', dists.Normal(mu[0], sig[0]), obs=ys).reshape(-1, 1)
+        xs = sample('xs', dists.MultivariateNormal(mu[1:], jnp.diag(sig[1:])), obs=xs)
+
+    return jnp.hstack((xs, ys))
+
+
 class DPVITests(unittest.TestCase):
 
-    def test(self):
+    def test_inference_and_sampling(self):
         np.random.seed(82634593)
-        L = np.array([[1., .87], [0, .3]])
-        mu = np.array([2., -3.])
-        xs = np.random.randn(10000, 2) @ L.T + mu
+        L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
+        mu = np.array([2., -3., 0])
+        xs = np.random.randn(10000, 3) @ L.T + mu
         # xs_df = pd.DataFrame(xs, columns=('first', 'second')) # TODO: DPVIResult must do postprocessing for column names; not yet implemented
         xs_df = pd.DataFrame(xs)
 
-        def model(xs = None, num_obs_total = None):
-            batch_size = 1
-            if xs is not None:
-                batch_size = np.shape(xs)[0]
-            if num_obs_total is None:
-                num_obs_total = batch_size
-
-            mu = sample('mu', dists.Normal(0, 10), sample_shape=(2,))
-            sig = sample('sig', dists.InverseGamma(1.), sample_shape=(2,))
-            with plate('obs', num_obs_total, batch_size):
-                sample('xs', dists.MultivariateNormal(mu, jnp.diag(sig)), obs=xs)
-
-        output_sample_sites = ['xs']
+        epsilon = 4.
+        delta = 1e-6
 
         rng = d3p.random.PRNGKey(96392153)
-        dpvi_model = DPVIModel(model, output_sample_sites)
-        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon = 1., delta = 1e-6, clipping_threshold = 4., num_iter = 30000, q = 0.01)
+        dpvi_model = DPVIModel(model)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_iter=30000, q=0.01, silent=True)
+
+        self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
+        self.assertEqual(delta, dpvi_fit.privacy_level.delta)
+        self.assertIsNotNone(dpvi_fit.parameters)
 
         num_synthetic_data_sets = 10
         num_samples_per_set = 1000
@@ -62,27 +76,15 @@ class DPVIResultTests(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        def model(xs = None, num_obs_total = None):
-            batch_size = 1
-            if xs is not None:
-                batch_size = np.shape(xs)[0]
-            if num_obs_total is None:
-                num_obs_total = batch_size
-
-            mu = sample('mu', dists.Normal(0, 10), sample_shape=(2,))
-            sig = sample('sig', dists.InverseGamma(1.), sample_shape=(2,))
-            with plate('obs', num_obs_total, batch_size):
-                sample('xs', dists.MultivariateNormal(mu, jnp.diag(sig)), obs=xs)
-
         self.model = model
 
-        def guide(xs = None, num_obs_total = None):
-            mu_loc = param("mu_loc", jnp.zeros((2,)))
-            mu_std = param("mu_std", jnp.zeros((2,)) + .1, constraint=dists.constraints.positive)
+        def guide(data = None, num_obs_total = None):
+            mu_loc = param("mu_loc", jnp.zeros((3,)))
+            mu_std = param("mu_std", jnp.zeros((3,)) + .1, constraint=dists.constraints.positive)
             sample('mu', dists.Normal(mu_loc, mu_std))
 
-            sig_loc = param("sig_loc", jnp.zeros((2,)))
-            sig_std = param("sig_std", jnp.zeros((2,)) + .1, constraint=dists.constraints.positive)
+            sig_loc = param("sig_loc", jnp.zeros((3,)))
+            sig_std = param("sig_std", jnp.zeros((3,)) + .1, constraint=dists.constraints.positive)
             sig_unconstrained = sample('sig_unconstrained', dists.Normal(sig_loc, sig_std))
             sig = dists.transforms.biject_to(dists.constraints.positive)(sig_unconstrained)
             sample('sig', dists.Delta(sig))
@@ -90,19 +92,18 @@ class DPVIResultTests(unittest.TestCase):
         self.guide = guide
 
         self.params = {
-            'mu_loc': jnp.array([0.3, -0.2]),
-            'mu_std': jnp.array([0.1, 0.1]),
-            'sig_loc': jnp.array([-0.12237, 0.235]),
-            'sig_std': jnp.array([0.1, 0.1]),
+            'mu_loc': jnp.array([0.3, -0.2, 0.0]),
+            'mu_std': jnp.array([0.1, 0.1, 0.1]),
+            'sig_loc': jnp.array([-0.12237, 0.235, .44]),
+            'sig_std': jnp.array([0.1, 0.1, 0.1]),
         }
 
-        self.output_sample_sites = ["xs"]
         self.privacy_params = PrivacyLevel(1., 1e-4, 2.1)
         self.final_elbo = 1.67
 
     def test_init(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.output_sample_sites, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
         )
 
         self.assertTrue(
@@ -113,9 +114,9 @@ class DPVIResultTests(unittest.TestCase):
         self.assertEqual(self.privacy_params, result.privacy_level)
         self.assertEqual(self.final_elbo, result.final_elbo)
 
-    def test_generate(self) -> None:
+    def test_generate_extended(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.output_sample_sites, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
         )
 
         num_data_per_parameter = 100
@@ -127,11 +128,11 @@ class DPVIResultTests(unittest.TestCase):
         self.assertEqual(2, len(syn_data_sets))
         for syn_data in syn_data_sets:
             self.assertIsInstance(syn_data, pd.DataFrame)
-            self.assertEqual(syn_data.shape, (num_data_per_parameter, 2))
+            self.assertEqual(syn_data.shape, (num_data_per_parameter, 3))
 
     def test_generate_extended_single_dataset(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.output_sample_sites, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
         )
 
         num_data_per_parameter = 100
@@ -142,12 +143,12 @@ class DPVIResultTests(unittest.TestCase):
 
         print(type(syn_data))
         self.assertIsInstance(syn_data, pd.DataFrame)
-        self.assertEqual(syn_data.shape, (num_parameter_samples * num_data_per_parameter, 2))
+        self.assertEqual(syn_data.shape, (num_parameter_samples * num_data_per_parameter, 3))
 
 
     def test_store_and_load(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.output_sample_sites, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
         )
 
         with tempfile.TemporaryFile("w+b") as f:

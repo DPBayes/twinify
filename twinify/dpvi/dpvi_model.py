@@ -14,7 +14,7 @@
 
 import pandas as pd
 
-from typing import Optional, Callable, Iterable
+from typing import Optional
 
 import numpy as np
 import jax
@@ -25,7 +25,7 @@ import d3p.random
 import d3p.dputil
 import d3p.svi
 import numpyro.infer
-from twinify.base import InferenceModel, InferenceResult
+from twinify.base import InferenceModel
 
 from twinify.dpvi import PrivacyLevel, ModelFunction, GuideFunction
 from twinify.dpvi.dpvi_result import DPVIResult
@@ -58,7 +58,6 @@ class DPVIModel(InferenceModel):
     def __init__(
             self,
             model: ModelFunction,
-            output_sample_sites: Iterable[str],
             guide: Optional[GuideFunction] = None
         ) -> None:
         """
@@ -68,19 +67,11 @@ class DPVIModel(InferenceModel):
         Args:
             model (ModelFunction): A numpyro model function that programmatically describes the probabilistic model
                 which generates the data.
-            output_sample_sites (Iterable[str]): Collection of identifiers/names of the sample sites in `model` that
-                produce the data. Used to correctly order the columns of the generated synthetic data.
             guide (GuideFunction): Optional numpyro function that programmatically describes the variational approximation
                 to the true posterior distribution.
         """
-        # TODO: make output_sample_sites optional with the following behaviour:
-        # If set to None,
-        # the samples sites in `model` that have the `obs` keyword are assumed to produce the output columns
-        # in the order of their appearance in the model.
-
         super().__init__()
         self._model = model
-        self._output_sample_sites = output_sample_sites
 
         if guide is None:
             guide = self.create_default_guide(model)
@@ -99,7 +90,7 @@ class DPVIModel(InferenceModel):
             clipping_threshold: float,
             num_iter: int,
             q: float,
-            silent: bool = False) -> InferenceResult:
+            silent: bool = False) -> DPVIResult:
 
         # TODO: this currently assumes that data is fully numeric (i.e., categoricals are numbers, not labels)
 
@@ -111,7 +102,8 @@ class DPVIModel(InferenceModel):
         optimizer = numpyro.optim.Adam(1e-3)
 
         svi = d3p.svi.DPSVI(
-            self._model, self._guide, optimizer, numpyro.infer.Trace_ELBO(),
+            self._model, self._guide,
+            optimizer, numpyro.infer.Trace_ELBO(),
             num_obs_total=num_data, clipping_threshold=clipping_threshold,
             dp_scale=dp_scale, rng_suite=d3p.random
         )
@@ -149,7 +141,6 @@ class DPVIModel(InferenceModel):
         return DPVIResult(
             self._model, self._guide,
             params,
-            self._output_sample_sites,
             PrivacyLevel(epsilon, delta, dp_scale),
             loss
         )

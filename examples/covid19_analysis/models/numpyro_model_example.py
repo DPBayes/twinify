@@ -2,7 +2,7 @@ import jax.numpy as np
 import numpyro.distributions as dist
 from numpyro.primitives import sample, plate
 
-from twinify.dpvi.modelling import get_feature, sample_combined, NAModel
+from twinify.dpvi.modelling import get_feature, NAModel
 
 def preprocess(df):
     """
@@ -63,4 +63,4 @@ def model(x=None, num_obs_total=None):
 
         y_leuko = sample('Leukocytes', leuko_na_dist, obs=x_leuko)
         y_rhino = sample('Rhinovirus/Enterovirus', rhino_test_na_dist, obs=x_rhino)
-        y = sample_combined(y_leuko, y_rhino)
+    return np.hstack(y_leuko, y_rhino)
