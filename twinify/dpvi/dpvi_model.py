@@ -14,11 +14,12 @@
 
 import pandas as pd
 
-from typing import Optional
+from typing import Optional, Any, Tuple
 
 import numpy as np
 import jax
 import jax.numpy as jnp
+import jax.experimental.host_callback as hcb
 
 import d3p.minibatch
 import d3p.random
@@ -26,6 +27,7 @@ import d3p.dputil
 import d3p.svi
 import numpyro.infer
 from twinify.base import InferenceModel
+from tqdm import tqdm
 
 from twinify.dpvi import PrivacyLevel, ModelFunction, GuideFunction
 from twinify.dpvi.dpvi_result import DPVIResult
@@ -37,7 +39,7 @@ class InferenceException(Exception):
         self._iteration = iteration
         self._total_iterations = total_iterations
         super().__init__(
-            f"Inference encountered NaN value after {iteration}/{total_iterations} iterations {self.progress}."
+            f"Inference encountered NaN value after {iteration}/{total_iterations} iterations {self.progress*100:.3f} %."
         )
 
     @property
@@ -51,6 +53,35 @@ class InferenceException(Exception):
     @property
     def progress(self) -> float:
         return self._iteration / self._total_iterations
+
+
+class SilenceableProgressBar:
+
+    def __init__(self, total: int, silent: bool) -> None:
+        self._silent = silent
+        if not self._silent:
+            self._tqdm = tqdm(total=total, desc="epochs")
+
+    @staticmethod
+    def static_update(tqdm, silent: bool, loss: float) -> None:
+        if not silent:
+            tqdm.set_postfix_str(f"ELBO {loss:.3f}")
+            tqdm.update(1)
+
+    def update(self, loss: float) -> None:
+        self.static_update(self._tqdm, self._silent, loss)
+
+    def update_from_jax(self, loss: float) -> None:
+        def _update_callback(loss, transforms):
+            self.static_update(self._tqdm, self._silent, loss)
+
+        if not self._silent:
+            hcb.id_tap(_update_callback, loss)
+
+    def close(self) -> None:
+        if not self._silent:
+            self._tqdm.close()
+
 
 
 class DPVIModel(InferenceModel):
@@ -94,7 +125,7 @@ class DPVIModel(InferenceModel):
 
         # TODO: this currently assumes that data is fully numeric (i.e., categoricals are numbers, not labels)
 
-        num_data = data.size
+        num_data = data.shape[0]
         batch_size = int(num_data * q)
         num_epochs = int(num_iter * q)
         dp_scale, _, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
@@ -117,25 +148,56 @@ class DPVIModel(InferenceModel):
         batch = get_batch(0, batchify_state)
         svi_state = svi.init(svi_rng, *batch)
 
+        bar = SilenceableProgressBar(num_epochs, silent)
+
+        def is_nan_in_state(svi_state) -> bool:
+            params = svi.get_params(svi_state)
+            return jnp.logical_not(
+                jnp.all(jnp.array(
+                    jax.tree_util.tree_leaves(
+                        jax.tree_util.tree_map(
+                            lambda x: jnp.logical_not(jnp.any(jnp.isnan(x))),
+                            params
+                        )
+                    )
+                ))
+            )
+
         @jax.jit
-        def train_epoch(num_epoch_iter, svi_state, batchify_state):
+        def loop_cond(args):
+            """ While loop condition. Stop if:
+                - have reached desired number of epochs
+                - any inferred parameter is NaN, indicating failure -> abort
+            """
+            cur_epoch, svi_state, _ = args
+            no_nans = jnp.logical_not(is_nan_in_state(svi_state))
+            return jnp.logical_and(cur_epoch < num_epochs, no_nans)
+
+        @jax.jit
+        def train_epoch(args):
+            e, svi_state, _ = args
+
+            batchify_rng = d3p.random.fold_in(epochs_rng, e)
+            num_batches, batchify_state = init_batching(batchify_rng)
+
             def train_iteration(i, state_and_loss):
                 svi_state, loss = state_and_loss
                 batch = get_batch(i, batchify_state)
                 svi_state, iter_loss = svi.update(svi_state, *batch)
-                return (svi_state, loss + iter_loss / num_epoch_iter)
+                return (svi_state, loss + iter_loss / (num_batches * num_data))
 
-            return jax.lax.fori_loop(0, num_epoch_iter, train_iteration, (svi_state, 0.))
+            new_svi_state, new_loss = jax.lax.fori_loop(0, num_batches, train_iteration, (svi_state, 0.))
 
-        for i in range(num_epochs):
-            batchify_rng = d3p.random.fold_in(epochs_rng, i)
-            num_batches, batchify_state = init_batching(batchify_rng)
+            bar.update_from_jax(new_loss)
 
-            svi_state, loss = train_epoch(num_batches, svi_state, batchify_state)
-            if np.isnan(loss):
-                raise InferenceException((i + 1) * num_batches, num_epochs * num_batches)
-            loss /= num_data
-            if not silent: print("epoch {}: loss {}".format(i, loss))
+            return e + 1, new_svi_state, new_loss
+
+        final_epoch, svi_state, loss = jax.lax.while_loop(loop_cond, train_epoch, (0, svi_state, 0.))
+
+        if is_nan_in_state(svi_state):
+            raise InferenceException(final_epoch + 1, num_epochs)
+
+        bar.close()
 
         params = svi.get_params(svi_state)
         return DPVIResult(

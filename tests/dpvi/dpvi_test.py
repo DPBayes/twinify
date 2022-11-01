@@ -10,7 +10,7 @@ import tempfile
 
 import d3p.random
 
-from twinify.dpvi import DPVIModel, DPVIResult, PrivacyLevel
+from twinify.dpvi import DPVIModel, DPVIResult, PrivacyLevel, InferenceException
 from twinify.dpvi.modelling import slice_feature
 
 
@@ -70,6 +70,72 @@ class DPVITests(unittest.TestCase):
 
         self.assertTrue(np.allclose(xs_df.to_numpy().mean(0), merged_df.to_numpy().mean(0), atol=1e-1))
         self.assertTrue(np.allclose(xs_df.to_numpy().std(0, ddof=-1), merged_df.to_numpy().std(0, ddof=-1), atol=1e-1))
+
+    def test_fit_aborts_for_nan(self) -> None:
+        np.random.seed(82634593)
+        L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
+        mu = np.array([2., -3., 0])
+        xs = np.random.randn(100, 3) @ L.T + mu
+        xs[0] = np.zeros((xs.shape[-1],)) * np.nan
+        xs_df = pd.DataFrame(xs)
+
+        epsilon = 4.
+        delta = 1e-6
+
+        rng = d3p.random.PRNGKey(96392153)
+        dpvi_model = DPVIModel(model)
+        with self.assertRaises(InferenceException):
+            dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_iter=10, q=0.1, silent=True)
+
+    def test_fit_works(self) -> None:
+        np.random.seed(82634593)
+        L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
+        mu = np.array([2., -3., 0])
+        xs = np.random.randn(100, 3) @ L.T + mu
+        xs_df = pd.DataFrame(xs)
+
+        epsilon = 4.
+        delta = 1e-6
+
+        rng = d3p.random.PRNGKey(96392153)
+        dpvi_model = DPVIModel(model)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_iter=10, q=0.1, silent=False)
+
+        self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
+        self.assertEqual(delta, dpvi_fit.privacy_level.delta)
+        self.assertTrue(dpvi_fit.privacy_level.dp_noise > 0)
+        self.assertIsNotNone(dpvi_fit.parameters)
+
+        self.assertIn('auto_loc', dpvi_fit.parameters)
+        self.assertEqual((6,), dpvi_fit.parameters['auto_loc'].shape)
+        self.assertIn('auto_scale', dpvi_fit.parameters)
+        self.assertEqual((6,), dpvi_fit.parameters['auto_scale'].shape)
+
+
+    def test_fit_works_silent(self) -> None:
+        np.random.seed(82634593)
+        L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
+        mu = np.array([2., -3., 0])
+        xs = np.random.randn(100, 3) @ L.T + mu
+        xs_df = pd.DataFrame(xs)
+
+        epsilon = 4.
+        delta = 1e-6
+
+        rng = d3p.random.PRNGKey(96392153)
+        dpvi_model = DPVIModel(model)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_iter=10, q=0.1, silent=True)
+
+        self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
+        self.assertEqual(delta, dpvi_fit.privacy_level.delta)
+        self.assertTrue(dpvi_fit.privacy_level.dp_noise > 0)
+        self.assertIsNotNone(dpvi_fit.parameters)
+
+        self.assertIn('auto_loc', dpvi_fit.parameters)
+        self.assertEqual((6,), dpvi_fit.parameters['auto_loc'].shape)
+        self.assertIn('auto_scale', dpvi_fit.parameters)
+        self.assertEqual((6,), dpvi_fit.parameters['auto_scale'].shape)
+
 
     def test_num_iterations_for_epochs(self) -> None:
         num_epochs = 10
