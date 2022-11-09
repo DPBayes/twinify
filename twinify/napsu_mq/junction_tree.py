@@ -58,7 +58,7 @@ class JunctionTree:
     """
 
     def __init__(self, nodes: Set['TreeNode'], edges: Dict[Tuple['TreeNode', 'TreeNode'], Set['TreeNode']],
-                 cliques: Iterable[Tuple], enable_checks=False):
+                 cliques: Iterable[Tuple]):
         """Create the junction tree explicitly.
         Args:
             nodes (set): The nodes of the junction tree.
@@ -68,16 +68,8 @@ class JunctionTree:
         self.nodes = nodes
         self.edges = edges
         self.cliques = cliques
-        self.enable_checks = enable_checks
 
-        if self.enable_checks is True:
-            self.check_self()
-
-    def check_self(self) -> None:
-        self.init_factor_assignments()
-        self.check_nodes_edges()
-        self.init_node_orders()
-
+    # Only used with belief propagation, consider removing this with belief propagation
     def init_factor_assignments(self) -> None:
         factor_assignment = {}
         for scope in self.cliques:
@@ -93,6 +85,7 @@ class JunctionTree:
             for factor in factors:
                 self.node_for_factor[factor] = node
 
+    # Only used with belief propagation, consider removing this with belief propagation
     def init_node_orders(self) -> None:
         self.root_variables: 'TreeNode' = list(self.nodes)[0]
         self.downward_order = self.compute_downward_order(self.root_variables)
@@ -126,7 +119,7 @@ class JunctionTree:
                     node_stack.append(neighbour)
 
     @staticmethod
-    def from_variable_elimination(feature_sets: Iterable[Tuple[T, T]], elimination_order: Iterable, **kwargs) -> 'JunctionTree':
+    def from_variable_elimination(feature_sets: Iterable[Tuple[T, T]], elimination_order: Iterable) -> 'JunctionTree':
         """Create a junction tree from a variable elimination run.
         Args:
             feature_sets (list(tuple)): The factor scopes of the variable elimination.
@@ -141,7 +134,7 @@ class JunctionTree:
         for variable in elimination_order:
             factors = JunctionTree.eliminate_var(factors, variable, nodes, edges)
 
-        jt = JunctionTree(nodes, edges, feature_sets, **kwargs)
+        jt = JunctionTree(nodes, edges, feature_sets)
         return jt
 
     @staticmethod
@@ -192,8 +185,7 @@ class JunctionTree:
                         self.add_edge((large_neighbour, neighbour))
 
             else:
-                if self.enable_checks is True:
-                    self.check_nodes_edges()
+                self.check_nodes_edges()
                 self.init_factor_assignments()
                 self.init_node_orders()
                 return

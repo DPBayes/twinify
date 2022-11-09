@@ -49,7 +49,6 @@ class DataFrameDataTest(unittest.TestCase):
         self.assertTrue((converted_df2 == self.df3).all().all())
         self.assertTrue((converted_df2.columns == self.df3.columns).all())
 
-
     def test_int_df_to_cat_df2(self):
         converted_df = self.df_data2.int_df_to_cat_df(self.df_data2.int_df)
         self.assertTrue((converted_df == self.df2).all().all())

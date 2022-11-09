@@ -25,7 +25,7 @@ class JunctionTreeTest(unittest.TestCase):
         ]
         self.graph1 = UndirectedGraph.from_edge_list(self.query_sets1)
         self.order1 = greedy_ordering(self.graph1)
-        self.jt1 = JunctionTree.from_variable_elimination(self.query_sets1, self.order1, enable_checks=True)
+        self.jt1 = JunctionTree.from_variable_elimination(self.query_sets1, self.order1)
         self.jt1.remove_redundant_nodes()
 
         self.query_sets2 = [
@@ -34,7 +34,7 @@ class JunctionTreeTest(unittest.TestCase):
         ]
         self.graph2 = UndirectedGraph.from_edge_list(self.query_sets2)
         self.order2 = greedy_ordering(self.graph2)
-        self.jt2 = JunctionTree.from_variable_elimination(self.query_sets2, self.order2, enable_checks=True)
+        self.jt2 = JunctionTree.from_variable_elimination(self.query_sets2, self.order2)
         self.jt2.remove_redundant_nodes()
 
         self.query_sets3 = [
@@ -42,7 +42,7 @@ class JunctionTreeTest(unittest.TestCase):
         ]
         self.graph3 = UndirectedGraph.from_clique_list(self.query_sets3)
         self.order3 = greedy_ordering(self.graph3)
-        self.jt3 = JunctionTree.from_variable_elimination(self.query_sets3, self.order3, enable_checks=True)
+        self.jt3 = JunctionTree.from_variable_elimination(self.query_sets3, self.order3)
         self.jt3.remove_redundant_nodes()
 
         self.query_sets4 = [
@@ -51,13 +51,13 @@ class JunctionTreeTest(unittest.TestCase):
         ]
         self.graph4 = UndirectedGraph.from_clique_list(self.query_sets4)
         self.order4 = greedy_ordering(self.graph4)
-        self.jt4 = JunctionTree.from_variable_elimination(self.query_sets4, self.order4, enable_checks=True)
+        self.jt4 = JunctionTree.from_variable_elimination(self.query_sets4, self.order4)
         self.jt4.remove_redundant_nodes()
 
         self.query_sets5 = [(0, 3), (1, 3), (2, 3), (0, 1)]
         self.graph5 = UndirectedGraph.from_clique_list(self.query_sets5)
         self.order5 = greedy_ordering(self.graph5)
-        self.jt5 = JunctionTree.from_variable_elimination(self.query_sets5, self.order5, enable_checks=True)
+        self.jt5 = JunctionTree.from_variable_elimination(self.query_sets5, self.order5)
         self.jt5.remove_redundant_nodes()
 
     def test_nodes_edges(self):

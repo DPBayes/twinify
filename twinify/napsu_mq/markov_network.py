@@ -122,6 +122,10 @@ class MarkovNetwork:
         Returns:
             dict: Dict containing the LogFactor for each set factor scope in the Markov network.
         """
+
+        self.junction_tree.init_factor_assignments()
+        self.junction_tree.init_node_orders()
+
         for node in self.junction_tree.upward_order:
             node.reset()
             node.potential = LogFactor.list_product(

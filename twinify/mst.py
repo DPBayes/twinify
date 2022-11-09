@@ -22,7 +22,19 @@ and does not rely on public provisional data for measurement selection.
 """
 
 
-def MST_selection(data: Dataset, epsilon: float, delta: float, cliques_to_include: Iterable = []):
+def MST_selection(data: Dataset, epsilon: float, delta: float, cliques_to_include: Iterable[Tuple[str, str]] = []):
+    """Select marginal queries from dataset and cliques
+
+    Args:
+        data (Dataset): Dataset for selection
+        epsilon (float): Epsilon for DP mechanism
+        delta (float): Delta for DP mechanism
+        cliques_to_include (List[Tuple]): Cliques to include in the queries
+
+    Returns:
+        Marginal queries for probabilistic model
+    """
+
     rho = accounting.eps_delta_budget_to_rho_budget(epsilon, delta)
     sigma = np.sqrt(3 / (2 * rho))
     cliques = [(col,) for col in data.domain]
@@ -33,6 +45,16 @@ def MST_selection(data: Dataset, epsilon: float, delta: float, cliques_to_includ
 
 
 def MST(data: Dataset, epsilon: float, delta: float) -> Dataset:
+    """MST algorithm to generate synthetic data from sensitive dataset
+
+    Args:
+        data (Dataset): Dataset for MST
+        epsilon (float): Epsilon for DP mechanism
+        delta (float): Delta for DP mechanism
+
+    Returns:
+        Synthetic dataset
+    """
     rho = accounting.eps_delta_budget_to_rho_budget(epsilon, delta)
     sigma = np.sqrt(3 / (2 * rho))
     cliques = [(col,) for col in data.domain]
@@ -48,6 +70,18 @@ def MST(data: Dataset, epsilon: float, delta: float) -> Dataset:
 
 def measure(data: Dataset, cliques: List, sigma: float, weights: np.ndarray = None) -> List[
     Tuple[scipy.sparse.coo_matrix, np.ndarray, float, List]]:
+    """Measure marginals with noisy measurements
+
+    Args:
+        data (Dataset): Dataset
+        cliques (List): Cliques to measure
+        sigma (float): Noise scale
+        weights (np.ndarray): Weight for each measurement
+
+    Returns:
+        Measurement log of noisy measurements from marginals
+    """
+
     if weights is None:
         weights = np.ones(len(cliques))
     weights = np.array(weights) / np.linalg.norm(weights)
@@ -60,7 +94,17 @@ def measure(data: Dataset, cliques: List, sigma: float, weights: np.ndarray = No
     return measurements
 
 
-def compress_domain(data: Dataset, measurements: List[Tuple]) -> Tuple[Dataset, List, Callable]:
+def compress_domain(data: Dataset, measurements: Iterable[Tuple]) -> Tuple[Dataset, List, Callable]:
+    """Compress domain for dataset
+
+    Args:
+        data (Dataset): Dataset to compress
+        measurements (List[Tuple]): Measurement log
+
+    Returns:
+        Dataset in new domain, new measurements, function to undo compression
+    """
+
     supports = {}
     new_measurements = []
     for Q, y, sigma, proj in measurements:
@@ -80,15 +124,40 @@ def compress_domain(data: Dataset, measurements: List[Tuple]) -> Tuple[Dataset, 
     return transform_data(data, supports), new_measurements, undo_compress_fn
 
 
-# TODO: add type to q
-def exponential_mechanism(q: Any, eps: float, sensitivity: float, prng=np.random, monotonic=False) -> np.ndarray:
+def exponential_mechanism(q: np.ndarray, eps: float, sensitivity: float, sampling_func: Callable = np.random.choice,
+                          monotonic=False) -> np.ndarray:
+    """Exponential mechanism for differential privacy
+
+    Args:
+        q (np.ndarray):
+        eps (float): Epsilon for DP mechanism
+        sensitivity (float): Sensitivity of the function
+        sampling_func (function): Function to generate random sample
+        monotonic: Is monotonic function
+
+    Returns:
+        Selected highly weighted pair with differential privacy
+    """
+
     coef = 1.0 if monotonic else 0.5
     scores = coef * eps / sensitivity * q
     probas = np.exp(scores - logsumexp(scores))
-    return prng.choice(q.size, p=probas)
+    return sampling_func(q.size, p=probas)
 
 
-def select(data: Dataset, rho: float, measurement_log: List[Tuple], cliques: Iterable = []) -> List:
+def select(data: Dataset, rho: float, measurement_log: Iterable[Tuple],
+           cliques: Iterable[Tuple[str, str]] = []) -> List:
+    """Select the low dimensional marginal from dataset and measurements
+
+    Args:
+        data (Dataset): Dataset for selection
+        rho (float): Privacy parameter for rho-zCDP
+        measurement_log (Iterable[Tuple]): Log of noisy measurements
+        cliques (Iterable[Tuple]): Cliques to include
+
+    Returns:
+        List of marginal queries
+    """
     engine = FactoredInference(data.domain, iters=1000)
     est = engine.estimate(measurement_log)
 
@@ -121,6 +190,15 @@ def select(data: Dataset, rho: float, measurement_log: List[Tuple], cliques: Ite
 
 
 def transform_data(data: Dataset, supports: Mapping) -> Dataset:
+    """Transform dataset to new domain
+
+    Args:
+        data (Dataset): Dataset
+        supports (Support): Support
+
+    Returns:
+        Dataset in new domain
+    """
     df = data.df.copy()
     newdom = {}
     for col in data.domain:
@@ -143,6 +221,15 @@ def transform_data(data: Dataset, supports: Mapping) -> Dataset:
 
 
 def reverse_data(data: Dataset, supports: Mapping) -> Dataset:
+    """Dataset expressed in new domain
+
+    Args:
+        data (Dataset): Dataset
+        supports (Mapping): Supports for new domain
+
+    Returns:
+        Dataset with new domain
+    """
     df = data.df.copy()
     newdom = {}
     for col in data.domain:
