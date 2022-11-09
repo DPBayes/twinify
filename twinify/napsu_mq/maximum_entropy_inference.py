@@ -104,20 +104,20 @@ def run_numpyro_laplace_approximation(
 ) -> Tuple[numpyro.distributions.MultivariateNormal, bool]:
     """Run Laplace approximation on the maximum entropy distribution
 
-        Args:
-            rng (jax.random.PRNGKey): Jax random key for MCMC
-            suff_stat (jax.numpy.ndarray): Noisy sufficient statistics array with DP noise added
-            n (int): Number of datapoints
-            sigma_DP (float): Noise standard deviation
-            max_ent_dist (MarkovNetwork): Markov network representation of maximum entropy distribution
-            prior_mu (float or jax.numpy.ndarray): Mean prior for multivariate normal distribution
-            prior_sigma (float): Standard deviation prior for multivariate normal distribution
-            max_retries (int): Times to retry the approximation
+    Args:
+        rng (jax.random.PRNGKey): Jax random key for MCMC
+        suff_stat (jax.numpy.ndarray): Noisy sufficient statistics array with DP noise added
+        n (int): Number of datapoints
+        sigma_DP (float): Noise standard deviation
+        max_ent_dist (MarkovNetwork): Markov network representation of maximum entropy distribution
+        prior_mu (float or jax.numpy.ndarray): Mean prior for multivariate normal distribution
+        prior_sigma (float): Standard deviation prior for multivariate normal distribution
+        max_retries (int): Times to retry the approximation
 
-        Returns:
-            laplace_approx: Laplace approximation for the maximum entropy distribution
-            result.success: Boolean value if approximation was successful
-        """
+    Returns:
+        laplace_approx: Laplace approximation for the maximum entropy distribution
+        result.success: Boolean value if approximation was successful
+    """
 
     key, *subkeys = random.split(rng, max_retries + 1)
     fail_count = 0
