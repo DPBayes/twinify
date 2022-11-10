@@ -57,7 +57,9 @@ class DPVITests(unittest.TestCase):
 
         num_synthetic_data_sets = 10
         num_samples_per_set = 1000
-        dfs = list(dpvi_fit.generate_extended(d3p.random.PRNGKey(8902635), num_samples_per_set, num_synthetic_data_sets))
+        dfs = list(dpvi_fit.generate(
+            d3p.random.PRNGKey(8902635), num_synthetic_data_sets, num_samples_per_set, single_dataframe=False
+        ))
 
         for i, df in enumerate(dfs):
             self.assertIsInstance(df, pd.DataFrame)
@@ -213,15 +215,15 @@ class DPVIResultTests(unittest.TestCase):
         self.assertEqual(self.privacy_params, result.privacy_level)
         self.assertEqual(self.final_elbo, result.final_elbo)
 
-    def test_generate_extended(self) -> None:
+    def test_generate(self) -> None:
         result = DPVIResult(
             self.model, self.guide, self.params, self.privacy_params, self.final_elbo
         )
 
         num_data_per_parameter = 100
         num_parameter_samples = 2
-        syn_data_sets = list(result.generate_extended(
-            d3p.random.PRNGKey(1142), num_data_per_parameter, num_parameter_samples, single_dataframe=False
+        syn_data_sets = list(result.generate(
+            d3p.random.PRNGKey(1142), num_parameter_samples, num_data_per_parameter, single_dataframe=False
         ))
 
         self.assertEqual(2, len(syn_data_sets))
@@ -229,15 +231,15 @@ class DPVIResultTests(unittest.TestCase):
             self.assertIsInstance(syn_data, pd.DataFrame)
             self.assertEqual(syn_data.shape, (num_data_per_parameter, 3))
 
-    def test_generate_extended_single_dataset(self) -> None:
+    def test_generate_single_dataset(self) -> None:
         result = DPVIResult(
             self.model, self.guide, self.params, self.privacy_params, self.final_elbo
         )
 
         num_data_per_parameter = 100
         num_parameter_samples = 2
-        syn_data = result.generate_extended(
-            d3p.random.PRNGKey(1142), num_data_per_parameter, num_parameter_samples, single_dataframe=True
+        syn_data = result.generate(
+            d3p.random.PRNGKey(1142), num_parameter_samples, num_data_per_parameter
         )
 
         print(type(syn_data))

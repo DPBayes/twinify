@@ -83,7 +83,6 @@ class SilenceableProgressBar:
             self._tqdm.close()
 
 
-
 class DPVIModel(InferenceModel):
 
     def __init__(

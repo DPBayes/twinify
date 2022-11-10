@@ -53,11 +53,11 @@ class DPVIResult(InferenceResult):
             return samples
         return _model_wrapper
 
-    def generate_extended(self,
+    def generate(self,
             rng: d3p.random.PRNGState,
-            num_data_per_parameter_sample: int,
             num_parameter_samples: int,
-            single_dataframe: Optional[bool] = False
+            num_data_per_parameter_sample: int = 1,
+            single_dataframe: bool = True
         ) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
 
         sampling_rng = d3p.random.convert_to_jax_rng_key(rng)

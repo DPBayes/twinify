@@ -26,10 +26,10 @@ class InferenceResult(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def generate(self,
-            rng: PRNGState,
+            rng: d3p.random.PRNGState,
             num_parameter_samples: int,
             num_data_per_parameter_sample: int = 1,
-            single_dataframe: Optional[bool] = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
+            single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         """ Samples a number of samples from the parameter posterior (approximation) and generates the given number of
         data points per parameter samples.
 

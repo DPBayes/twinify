@@ -152,7 +152,7 @@ class NapsuMQResult(InferenceResult):
             rng: d3p.random.PRNGState,
             num_parameter_samples: int,
             num_data_per_parameter_sample: int = 1,
-            single_dataframe: Optional[bool] = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
+            single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         jax_rng = d3p.random.convert_to_jax_rng_key(rng)
         mnjax = self._markov_network
         posterior_values = self.posterior_values
