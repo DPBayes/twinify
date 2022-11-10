@@ -112,7 +112,9 @@ class DataFrameData:
 
         for column in int_df:
             if column in category_mapping:
-                cat_df[column] = pd.Categorical(int_df[column]).rename_categories(category_mapping[column])
+                cat_df[column] = pd.Categorical(
+                    int_df[column], np.arange(len(category_mapping[column]))
+                ).rename_categories(category_mapping[column])
 
         return cat_df
 

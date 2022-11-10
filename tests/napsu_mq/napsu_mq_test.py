@@ -20,9 +20,11 @@ import jax.random
 import numpy as np
 import pandas as pd
 import pytest
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryFile
 from binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
 from twinify.napsu_mq.napsu_mq import NapsuMQResult, NapsuMQModel
+from twinify.napsu_mq.markov_network import MarkovNetwork
+from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
 
 
 class TestNapsuMQ(unittest.TestCase):
@@ -151,3 +153,88 @@ class TestNapsuMQ(unittest.TestCase):
             stds = df.std()
             pd.testing.assert_series_equal(means, original_means, check_exact=False, rtol=0.3)
             pd.testing.assert_series_equal(stds, original_stds, check_exact=False, rtol=0.3)
+
+    # Takes about ~ 1 minute to run
+    @pytest.mark.slow
+    def test_NAPSUMQ_model_without_IO_single_dataset(self):
+        column_feature_set = [
+            ('A', 'B'), ('B', 'C'), ('A', 'C')
+        ]
+
+        rng = d3p.random.PRNGKey(85511235)
+        inference_rng, sampling_rng = d3p.random.split(rng)
+
+        model = NapsuMQModel(column_feature_set=column_feature_set)
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)),
+                           column_feature_set=column_feature_set,
+                           use_laplace_approximation=True)
+
+        dataset = result.generate(
+            rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=True
+        )
+
+        self.assertIsInstance(dataset, pd.DataFrame)
+        self.assertEqual(dataset.shape, (2500, 3))
+
+        original_means = self.dataframe.mean()
+        original_stds = self.dataframe.std()
+
+        means = dataset.mean()
+        stds = dataset.std()
+        pd.testing.assert_series_equal(means, original_means, check_exact=False, rtol=0.3)
+        pd.testing.assert_series_equal(stds, original_stds, check_exact=False, rtol=0.3)
+
+
+class TestNapsuMQResult(unittest.TestCase):
+
+    def test_generate_single_df(self) -> None:
+
+        domain = {'A': np.arange(4), 'B': np.arange(3)}
+        categories = {'A': ('A', 'B', 'C', 'D'), 'B': ('x', 'y', 'z')}
+
+        mn = MarkovNetwork(domain, FullMarginalQuerySet([('A', 'B')], domain))
+        posterior_values = np.zeros((1000, 2), dtype=int)
+        result = NapsuMQResult(mn, posterior_values, categories)
+
+        samples = result.generate(d3p.random.PRNGKey(15412), 100)
+
+        self.assertIsInstance(samples, pd.DataFrame)
+        self.assertEqual(samples.shape, (100, 2))
+        self.assertEqual(tuple(samples.columns), ('A', 'B'))
+        self.assertEqual(tuple(samples['A'].dtype.categories), categories['A'])
+        self.assertEqual(tuple(samples['B'].dtype.categories), categories['B'])
+
+    def test_generate_multi_df(self) -> None:
+
+        domain = {'A': np.arange(4), 'B': np.arange(3)}
+
+        mn = MarkovNetwork(domain, FullMarginalQuerySet([('A', 'B')], domain))
+        posterior_values = np.zeros((1000, 2), dtype=int)
+        result = NapsuMQResult(mn, posterior_values, {'A': ['A', 'B', 'C', 'D', ], 'B': ['x', 'y', 'z']})
+
+        samples = result.generate(d3p.random.PRNGKey(15412), 100, num_data_per_parameter_sample=20, single_dataframe=False)
+
+        self.assertEqual(100, len(samples))
+        self.assertEqual(samples[0].shape, (20, 2))
+        self.assertEqual(tuple(samples[0].columns), ('A', 'B'))
+
+    def test_store_and_load(self) -> None:
+
+        domain = {'A': np.arange(4), 'B': np.arange(3)}
+
+        mn = MarkovNetwork(domain, FullMarginalQuerySet([('A', 'B')], domain))
+        posterior_values = np.zeros((1000, 2), dtype=int)
+        result = NapsuMQResult(mn, posterior_values, {'A': ['A', 'B', 'C', 'D', ], 'B': ['x', 'y', 'z']})
+
+        samples = result.generate(d3p.random.PRNGKey(15412), 100)
+
+        with TemporaryFile('w+b') as f:
+            result.store(f)
+
+            f.seek(0)
+            loaded_result = NapsuMQResult.load(f)
+
+        loaded_samples = loaded_result.generate(d3p.random.PRNGKey(15412), 100)
+
+        self.assertTrue(np.all(samples.values == loaded_samples.values))
+
