@@ -46,7 +46,7 @@ class NapsuMQModel(InferenceModel):
         self.column_feature_set = column_feature_set
         self.use_laplace_approximation = use_laplace_approximation
 
-    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
+    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, query_sets: List = None,
             **kwargs) -> 'NapsuMQResult':
         """Fit differentially private NAPSU-MQ model from data.
 
@@ -55,6 +55,7 @@ class NapsuMQModel(InferenceModel):
             rng (d3p.random.PRNGState): d3p PRNG key
             epsilon (float): Epsilon for differential privacy mechanism
             delta (float): Delta for differential privacy mechanism
+            query_sets (List): Marginal queries
 
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
@@ -65,11 +66,14 @@ class NapsuMQModel(InferenceModel):
         dataframe = DataFrameData(data)
         category_mapping = DataFrameData.get_category_mapping(data)
         n, d = dataframe.int_array.shape
-        domain_key_list = list(dataframe.values_by_col.keys())
-        domain_value_count_list = [len(dataframe.values_by_col[key]) for key in domain_key_list]
-        domain = Domain(domain_key_list, domain_value_count_list)
-        query_sets = MST_selection(Dataset(dataframe.int_df, domain), epsilon, delta,
-                                   cliques_to_include=column_feature_set)
+
+        if query_sets is None:
+            domain_key_list = list(dataframe.values_by_col.keys())
+            domain_value_count_list = [len(dataframe.values_by_col[key]) for key in domain_key_list]
+            domain = Domain(domain_key_list, domain_value_count_list)
+            query_sets = MST_selection(Dataset(dataframe.int_df, domain), epsilon, delta,
+                                       cliques_to_include=column_feature_set)
+
         queries = FullMarginalQuerySet(query_sets, dataframe.values_by_col)
         queries = queries.get_canonical_queries()
         mnjax = MarkovNetwork(dataframe.values_by_col, queries)

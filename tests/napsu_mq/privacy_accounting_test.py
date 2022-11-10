@@ -17,7 +17,6 @@ import unittest
 import numpy as np
 
 import twinify.napsu_mq.privacy_accounting as privacy_accounting
-import twinify.napsu_mq.privacy_accounting_zcdp as privacy_accounting_zcdp
 from scipy import special
 
 
@@ -89,41 +88,14 @@ class PrivacyAccountingTest(unittest.TestCase):
         self.assertAlmostEqual(sens_per_sigma, 4)
 
     def test_eps_delta_budget_to_rho_budget(self):
-        rho = privacy_accounting_zcdp.eps_delta_budget_to_rho_budget(epsilon=0.5, delta=0.1)
+        rho = privacy_accounting.eps_delta_budget_to_rho_budget(epsilon=0.5, delta=0.1)
         epsilon_derived_from_rho = calculate_epsilon_from_rho(rho=rho, delta=0.1)
         self.assertAlmostEqual(epsilon_derived_from_rho, 0.5)
 
-        rho = privacy_accounting_zcdp.eps_delta_budget_to_rho_budget(epsilon=1, delta=0.01)
+        rho = privacy_accounting.eps_delta_budget_to_rho_budget(epsilon=1, delta=0.01)
         epsilon_derived_from_rho = calculate_epsilon_from_rho(rho=rho, delta=0.01)
         self.assertAlmostEqual(epsilon_derived_from_rho, 1)
 
-        rho = privacy_accounting_zcdp.eps_delta_budget_to_rho_budget(epsilon=10, delta=0.01)
+        rho = privacy_accounting.eps_delta_budget_to_rho_budget(epsilon=10, delta=0.01)
         epsilon_derived_from_rho = calculate_epsilon_from_rho(rho=rho, delta=0.01)
         self.assertAlmostEqual(epsilon_derived_from_rho, 10)
-
-    def test_gaussian_mechanism_sigma(self):
-        rho = 4
-        sensitivity = 4
-        sigma_zcdp = privacy_accounting_zcdp.gauss_mechanism_sigma(rho=rho, sensitivity=sensitivity)
-        sensitivity_from_rho = calculate_sensitivity_from_rho(sigma=sigma_zcdp, rho=rho)
-        self.assertAlmostEqual(sensitivity_from_rho, sensitivity ** 2)
-
-        rho = 1
-        sensitivity = 10
-        sigma_zcdp = privacy_accounting_zcdp.gauss_mechanism_sigma(rho=rho, sensitivity=sensitivity)
-        sensitivity_from_rho = calculate_sensitivity_from_rho(sigma=sigma_zcdp, rho=rho)
-        self.assertAlmostEqual(sensitivity_from_rho, sensitivity ** 2)
-
-        rho = 1/2
-        sensitivity = 2
-        sigma_zcdp = privacy_accounting_zcdp.gauss_mechanism_sigma(rho=rho, sensitivity=sensitivity)
-        sensitivity_from_rho = calculate_sensitivity_from_rho(sigma=sigma_zcdp, rho=rho)
-        self.assertAlmostEqual(sensitivity_from_rho, sensitivity ** 2)
-
-    def test_gauss_mechanism_composition(self):
-        sigma1 = privacy_accounting_zcdp.gauss_mechanism_sigma(rho=5, sensitivity=4)
-        sigma2 = privacy_accounting_zcdp.gauss_mechanism_sigma(rho=5, sensitivity=4)
-
-        composition_result = privacy_accounting_zcdp.gauss_mechanism_composition_sigma(rho=5,
-                                                                                       sensitivity_counts=[(4, 2)])
-        self.assertAlmostEqual(sigma1**2 + sigma2**2, composition_result**2)

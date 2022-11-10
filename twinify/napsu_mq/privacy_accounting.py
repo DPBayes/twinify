@@ -64,3 +64,15 @@ def sigma(epsilon: float, delta_bound: float, sensitivity: float, sigma_upper_bo
         float: The required noise standard deviation.
     """
     return sensitivity / find_sens_per_sigma(epsilon, delta_bound, sigma_upper_bound)
+
+
+def eps_delta_budget_to_rho_budget(epsilon: float, delta: float) -> float:
+    """Convert (epsilon, delta)-DP to rho-zCDP.
+    Args:
+        epsilon (float)
+        delta (float)
+    Returns:
+        float: rho
+    """
+    beta = np.sqrt(-np.log(delta))
+    return (np.sqrt(beta ** 2 + epsilon) - beta) ** 2

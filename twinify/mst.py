@@ -10,7 +10,7 @@ from scipy import sparse
 from disjoint_set import DisjointSet
 import networkx as nx
 import itertools
-import twinify.napsu_mq.privacy_accounting_zcdp as accounting
+import twinify.napsu_mq.privacy_accounting as accounting
 from scipy.special import logsumexp
 
 """
@@ -22,7 +22,7 @@ and does not rely on public provisional data for measurement selection.
 """
 
 
-def MST_selection(data: Dataset, epsilon: float, delta: float, cliques_to_include: Iterable[Tuple[str, str]] = []):
+def MST_selection(data: Dataset, epsilon: float, delta: float, cliques_to_include: Iterable[Tuple[str, str]] = []) -> List:
     """Select marginal queries from dataset and cliques
 
     Args:
@@ -147,7 +147,7 @@ def exponential_mechanism(q: np.ndarray, eps: float, sensitivity: float, samplin
 
 def select(data: Dataset, rho: float, measurement_log: Iterable[Tuple],
            cliques: Iterable[Tuple[str, str]] = []) -> List:
-    """Select the low dimensional marginal from dataset and measurements
+    """Select the low dimensional marginals from dataset and measurements
 
     Args:
         data (Dataset): Dataset for selection
