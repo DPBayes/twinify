@@ -147,21 +147,12 @@ class NapsuMQResult(InferenceResult):
     def _load_from_io(cls, read_io: BinaryIO, **kwargs) -> 'NapsuMQResult':
         return NapsuMQResultIO.load_from_io(read_io)
 
-    def generate_extended(self, rng: d3p.random.PRNGState, num_data_per_parameter_sample: int,
-                          num_parameter_samples: int,
-                          single_dataframe: Optional[bool] = False) -> Union[List[pd.DataFrame], pd.DataFrame]:
-        """Generate new synthetic datasets from NAPSU-MQ model
-
-        Args:
-            rng (d3p.random.PRNGState): d3p PRNG key
-            num_data_per_parameter_sample: Number of synthetic datapoints for each dataset
-            num_parameter_samples: Number of datasets
-            single_dataframe: Return generated data in single dataframe vs list of dataframes
-
-        Returns:
-            List[pd.Dataframe] or pd.Dataframe: Synthetic dataset/datasets
-        """
-
+    def generate(
+            self,
+            rng: d3p.random.PRNGState,
+            num_parameter_samples: int,
+            num_data_per_parameter_sample: int = 1,
+            single_dataframe: Optional[bool] = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         jax_rng = d3p.random.convert_to_jax_rng_key(rng)
         mnjax = self._markov_network
         posterior_values = self.posterior_values

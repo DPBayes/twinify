@@ -56,7 +56,9 @@ class TestNapsuMQ(unittest.TestCase):
                            use_laplace_approximation=False)
 
 
-        datasets = result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
+        datasets = result.generate(
+            rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=False
+        )
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
@@ -96,7 +98,9 @@ class TestNapsuMQ(unittest.TestCase):
         loaded_result: NapsuMQResult = NapsuMQResult.load(napsu_result_read_file)
         napsu_result_file.close()
 
-        datasets = loaded_result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
+        datasets = loaded_result.generate(
+            rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=False
+        )
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
@@ -132,7 +136,9 @@ class TestNapsuMQ(unittest.TestCase):
                            column_feature_set=column_feature_set,
                            use_laplace_approximation=True)
 
-        datasets = result.generate_extended(rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5)
+        datasets = result.generate(
+            rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=False
+        )
 
         self.assertEqual(len(datasets), 5)
         self.assertEqual(datasets[0].shape, (500, 3))
