@@ -216,4 +216,3 @@ class NapsuMQResultIO:
         write_io.write(NapsuMQResultIO.IDENTIFIER)
         write_io.write(NapsuMQResultIO.CURRENT_IO_VERSION_BYTES)
         write_io.write(result)
-        write_io.close()

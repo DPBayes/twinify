@@ -93,8 +93,8 @@ class TestNapsuMQ(unittest.TestCase):
         with open(napsu_result_file.name, 'wb') as file:
             result.store(file)
 
-            self.assertTrue(Path(napsu_result_file.name).exists())
-            self.assertTrue(Path(napsu_result_file.name).is_file())
+        self.assertTrue(Path(napsu_result_file.name).exists())
+        self.assertTrue(Path(napsu_result_file.name).is_file())
 
         napsu_result_read_file = open(napsu_result_file.name, "rb")
         loaded_result: NapsuMQResult = NapsuMQResult.load(napsu_result_read_file)
