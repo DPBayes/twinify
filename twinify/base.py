@@ -24,42 +24,36 @@ class InferenceResult(metaclass=abc.ABCMeta):
     """ A posterior parameter (approximation) resulting from privacy-preserving inference on a data set
     for a particular `InferenceModel`. """
 
-    def generate(self,
-            rng: d3p.random.PRNGState,
-            dataset_size: int,
-            num_datasets: Optional[int] = 1,
-            ) -> Iterable[pd.DataFrame]:
-        """ Samples a given number of data sets of the given size.
-
-        Returns an iterable collection of data frames, each representing one generated data set. Each of the data frames
-        "looks" like the original data this `InferenceResult` was obtained from, i.e., it has identical column names
-        and categorical labels (if any).
-
-        Args:
-            - rng: A seeded state for the d3p.random secure random number generator.
-            - dataset_size: The size of a single generated data set.
-            - num_datasets: How many data sets to generate.
-        """
-        return self.generate_extended(rng, dataset_size, num_datasets, single_dataframe=False)
-
     @abc.abstractmethod
-    def generate_extended(self,
-            rng: d3p.random.PRNGState,
-            num_data_per_parameter_sample: int,
+    def generate(self,
+            rng: PRNGState,
             num_parameter_samples: int,
-            single_dataframe: Optional[bool] = False) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
+            num_data_per_parameter_sample: int = 1,
+            single_dataframe: Optional[bool] = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         """ Samples a number of samples from the parameter posterior (approximation) and generates the given number of
         data points per parameter samples.
 
-        By default returns an iterable collection of data frames, each containing the data points samples for a single
-        parameter sample. If the `single_dataframe` argument is set to `True`, a single dataframe containing all samples
-        is returned. Each of the data frames "looks" like the original data this `InferenceResult` was obtained from,
+        By default returns a single data frame samples from the posterior predictive distribution, i.e.,
+        for each data records first a parameter value is drawn from the parameter posterior distribution, then
+        the data record is sampled from the model conditioned on that parameter value. `num_parameter_samples`
+        in this case determines the number of data records included in the returned data frame.
+
+        This behavior can be customized to sample more than one data record per parameter sample by setting argument
+        `num_data_per_parameter_sample` to a value larger than 1, in which case the total number of records
+        returned is `num_parameter_samples * num_data_per_parameter_sample`.
+
+        Setting `single_dataframe = False` causes the method to return an iterable collection of data frames,
+        each of which contains all data records sampled for a single parameter samples, i.e., in this case
+        this method returns `num_parameter_samples` data frames each of containing `num_data_per_parameter_sample`
+        records.
+
+        Each of the data frames "looks" like the original data this `InferenceResult` was obtained from,
         i.e., it has identical column names and categorical labels (if any).
 
         Args:
             - rng: A seeded state for the d3p.random secure random number generator.
+            - num_parameter_samples: How often to sample from the parameter posterior approximation.
             - num_data_per_parameter_sample: How many data points to generate for each parameter sample.
-            - num_parameter_samples: How often to sample from the parameter posterior (approximation).
             - single_dataframe: Whether to combine data samples into a single data frame or return separate data frames.
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not implement generate_extended yet.")

@@ -2,7 +2,7 @@ name: Unittests
 
 on:
   push:
-    branches: [ master, stable ]
+    branches: [ master, stable, twinifyv2 ]
   pull_request:
     branches: [ master, stable, twinifyv2 ]
 
