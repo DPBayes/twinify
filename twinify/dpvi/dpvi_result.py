@@ -16,6 +16,7 @@ from twinify.base import InferenceResult, InvalidFileFormatException
 from twinify.dpvi import ModelFunction, GuideFunction, PrivacyLevel
 import twinify.serialization
 from twinify.dpvi.sampling import sample_synthetic_data
+from twinify.dataframe_data import DataDescription
 
 
 class SamplingException(Exception):
@@ -29,7 +30,8 @@ class DPVIResult(InferenceResult):
             guide: GuideFunction,
             parameters: Dict[str, ArrayLike],
             privacy_parameters: PrivacyLevel,
-            final_elbo: float
+            final_elbo: float,
+            data_description: DataDescription,
         ) -> None:
 
         self._model = model
@@ -37,6 +39,7 @@ class DPVIResult(InferenceResult):
         self._params = parameters
         self._privacy_level = privacy_parameters
         self._final_elbo = final_elbo
+        self._data_description = data_description
 
     __twinify_model_output_site = '_twinify_output'
 
@@ -79,13 +82,12 @@ class DPVIResult(InferenceResult):
             return reshaped_v
 
         if single_dataframe:
-            samples_df = pd.DataFrame(_squash_sample_dims(samples))
+            samples_df = self._data_description.map_to_categorical(_squash_sample_dims(samples))
             return samples_df
         else:
             return [
-                pd.DataFrame(samples[i]) for i in range(num_parameter_samples)
+                self._data_description.map_to_categorical(samples[i]) for i in range(num_parameter_samples)
             ]
-        # TODO: currently performs no post-processing / remapping of integer values to categoricals
 
     @classmethod
     def _load_from_io(
@@ -99,9 +101,9 @@ class DPVIResult(InferenceResult):
             from twinify.dpvi.dpvi_model import DPVIModel
             guide = DPVIModel.create_default_guide(model)
 
-        parameters, privacy_parameters, final_elbo = DPVIResultIO.load_params_from_io(read_io)
+        parameters, privacy_parameters, final_elbo, data_description = DPVIResultIO.load_params_from_io(read_io)
 
-        return DPVIResult(model, guide, parameters, privacy_parameters, final_elbo)
+        return DPVIResult(model, guide, parameters, privacy_parameters, final_elbo, data_description)
 
     @classmethod
     def _is_file_stored_result_from_io(cls, read_io: BinaryIO) -> bool:
@@ -109,7 +111,7 @@ class DPVIResult(InferenceResult):
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
         return DPVIResultIO.store_params_to_io(
-            write_io, self._params, self._privacy_level, self._final_elbo
+            write_io, self._params, self._privacy_level, self._final_elbo, self._data_description
         )
 
     @property
@@ -134,6 +136,10 @@ class DPVIResult(InferenceResult):
         """ The final ELBO achieved by the inference (on the training data). """
         return self._final_elbo
 
+    @property
+    def data_description(self) -> DataDescription:
+        return self._data_description
+
 
 class DPVIResultIO:
 
@@ -154,12 +160,12 @@ class DPVIResultIO:
             raise InvalidFileFormatException(DPVIResult, "Stored data uses an unknown storage format version.")
 
         # parameters = twinify.serialization.read_params(read_io, treedef)
-        # raise NotImplementedError("need to figure out how to get model and guide here")
         stored_data = pickle.load(read_io)
         return (
             stored_data['params'],
             stored_data['privacy_level'],
             stored_data['final_elbo'],
+            stored_data['data_description'],
         )
 
     @staticmethod
@@ -181,7 +187,8 @@ class DPVIResultIO:
             write_io: BinaryIO,
             params: Dict[str, ArrayLike],
             privacy_level: PrivacyLevel,
-            final_elbo: float
+            final_elbo: float,
+            data_description: DataDescription
         ) -> None:
 
         assert write_io.writable()
@@ -190,6 +197,7 @@ class DPVIResultIO:
             'params': params,
             'privacy_level': privacy_level,
             'final_elbo': final_elbo,
+            'data_description': data_description,
         }
 
         write_io.write(DPVIResultIO.IDENTIFIER)

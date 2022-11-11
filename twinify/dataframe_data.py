@@ -11,8 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Tuple, List, Union, Mapping, Iterable
-from pandas.api.types import is_integer_dtype, is_categorical_dtype
+from typing import Tuple, List, Union, Mapping, Iterable, Any, Dict, TypeVar
+from pandas.api.types import is_integer_dtype, is_categorical_dtype, is_float_dtype, is_string_dtype, is_bool_dtype
 import pandas as pd
 import itertools
 from functools import reduce
@@ -21,6 +21,95 @@ import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+Dtype = TypeVar("Dtype")
+class DataDescription:
+
+    def __init__(self, dtypes: Mapping[str, Dtype]) -> None:
+        self._dtypes = dict(dtypes)
+
+    @staticmethod
+    def from_dataframe(df: pd.DataFrame, strings_to_categories: bool = True) -> "DataDescription":
+        dtypes = dict()
+        for col in df.columns:
+            dtype = df[col].dtype
+            if is_string_dtype(dtype):
+                if not strings_to_categories:
+                    raise ValueError(f"Input may not contain columns of dtype string unless strings_to_categories is True. Column: {col}.")
+
+                dtype = pd.CategoricalDtype(df[col].unique())
+            if not (is_categorical_dtype(dtype) or is_integer_dtype(dtype) or is_float_dtype(dtype) or is_bool_dtype(dtype)):
+                raise ValueError(f"Only float, integer or categorical dtypes are currently supported, but column {col} has dtype {dtype}.")
+
+            dtypes[col] = dtype
+
+        return DataDescription(dtypes)
+
+    @property
+    def columns(self) -> Iterable[str]:
+        return self._dtypes.keys()
+
+    @property
+    def num_columns(self) -> int:
+        return len(self.columns)
+
+    @property
+    def dtypes(self) -> Dict[str, Dtype]:
+        return self._dtypes.copy()
+
+    @property
+    def all_columns_discrete(self) -> bool:
+        return np.all([
+            not is_float_dtype(dtype) for dtype in self._dtypes.values()
+        ])
+
+    @staticmethod
+    def _map_column_to_numeric(x: pd.Series) -> pd.Series:
+        assert (
+            is_categorical_dtype(x.dtype) or
+            is_float_dtype(x.dtype) or
+            is_integer_dtype(x.dtype) or
+            is_bool_dtype(x.dtype)
+        )
+        if is_categorical_dtype(x.dtype):
+            return x.cat.codes
+        return x
+
+    def map_to_numeric(self, categorical_df: pd.DataFrame) -> pd.DataFrame:
+        numeric_df = categorical_df.copy()
+        for col, dtype in self._dtypes.items():
+            numeric_df[col] = self._map_column_to_numeric(numeric_df[col].astype(dtype))
+        return numeric_df
+
+    @staticmethod
+    def _are_all_values_integers(x: pd.Series) -> bool:
+        return np.allclose(x - x.astype(int), 0.)
+
+    def map_to_categorical(self, numeric_df_or_array: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
+        if isinstance(numeric_df_or_array, pd.DataFrame):
+            numeric_df = numeric_df_or_array
+        else:
+            shape = np.shape(numeric_df_or_array)
+            if len(shape) != 2 or shape[1] != len(self.columns):
+                raise ValueError(f"Array must be two-dimensional with a second dimension of size {len(self.columns)}, had shape {shape}.")
+            numeric_df = pd.DataFrame(numeric_df_or_array, columns=self.columns)
+
+        categorical_df = pd.DataFrame()
+
+        for col, dtype in self._dtypes.items():
+            col_values = numeric_df[col]
+            if is_categorical_dtype(dtype):
+                if not self._are_all_values_integers(col_values):
+                    raise ValueError(f"Cannot map column {col} to categories because the input were no integers.")
+
+                categorical_df[col] = pd.Categorical.from_codes(col_values.astype(int), dtype=dtype)
+            else:
+                categorical_df[col] = col_values.astype(dtype)
+        return categorical_df
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DataDescription) and self._dtypes == other._dtypes
 
 
 class DataFrameData:

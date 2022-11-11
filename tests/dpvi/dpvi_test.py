@@ -7,20 +7,19 @@ from numpyro.primitives import sample, plate, param
 from numpyro import distributions as dists
 import pandas as pd
 import tempfile
+import pytest
 
 import d3p.random
 
 from twinify.dpvi import DPVIModel, DPVIResult, PrivacyLevel, InferenceException
 from twinify.dpvi.modelling import slice_feature
+from twinify.dataframe_data import DataDescription
 
 
 def model(data = None, num_obs_total = None):
     batch_size = 1
-    # xs, ys = None, None
     if data is not None:
         batch_size = np.shape(data)[0]
-        # xs = data[:, :2]
-        # ys = data[:, -1:]
     if num_obs_total is None:
         num_obs_total = batch_size
 
@@ -28,21 +27,37 @@ def model(data = None, num_obs_total = None):
     sig = sample('sig', dists.InverseGamma(1.), sample_shape=(3,))
     with plate('obs', num_obs_total, batch_size):
         # simulating multiple sample sites that are not sampled in the order they appear in the data
-        ys = sample('ys', dists.Normal(mu[0], sig[0]), obs=slice_feature(data, -1)).reshape(-1, 1)
-        xs = sample('xs', dists.MultivariateNormal(mu[1:], jnp.diag(sig[1:])), obs=slice_feature(data, 0, -1))
+        ys = sample('ys', dists.Normal(mu[0], sig[0]), obs=slice_feature(data, -2, -1)).reshape(-1, 1)
+        xs = sample('xs', dists.MultivariateNormal(mu[1:], jnp.diag(sig[1:])), obs=slice_feature(data, 0, -2))
+        cats = sample('cats', dists.Categorical(probs=np.array([.5, .5, .5])), obs=slice_feature(data, -1)).reshape(-1, 1)
 
-    return jnp.hstack((xs, ys))
+    return jnp.hstack((xs, ys, cats))
 
 
 class DPVITests(unittest.TestCase):
 
-    def test_inference_and_sampling(self) -> None:
+    def setUp(self) -> None:
+        self.data_description = DataDescription({
+            'first': np.dtype(np.float64),
+            'second': np.dtype(np.float64),
+            'third': np.dtype(np.float32),
+            'cats!': pd.CategoricalDtype(["cat1", "cat2", "cat3"])
+        })
+
         np.random.seed(82634593)
         L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
         mu = np.array([2., -3., 0])
         xs = np.random.randn(10000, 3) @ L.T + mu
-        # xs_df = pd.DataFrame(xs, columns=('first', 'second', 'third')) # TODO: DPVIResult must do postprocessing for column names; not yet implemented
-        xs_df = pd.DataFrame(xs)
+        cs = np.random.choice(3, size=(10000,))
+        cs = pd.Series(pd.Categorical.from_codes(cs, dtype=self.data_description.dtypes['cats!']))
+        xs_df = pd.DataFrame(xs, columns=('first', 'second', 'third'))
+        xs_df['cats!'] = cs
+        xs_df['third'] = xs_df['third'].astype(np.float32)
+        self.xs_df = xs_df
+
+    @pytest.mark.slow
+    def test_inference_and_sampling(self) -> None:
+        xs_df = self.xs_df
 
         epsilon = 4.
         delta = 1e-6
@@ -54,24 +69,26 @@ class DPVITests(unittest.TestCase):
         self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
         self.assertIsNotNone(dpvi_fit.parameters)
+        self.assertEqual(self.data_description, dpvi_fit.data_description)
 
         num_synthetic_data_sets = 10
         num_samples_per_set = 1000
-        dfs = list(dpvi_fit.generate(
+        dfs = dpvi_fit.generate(
             d3p.random.PRNGKey(8902635), num_synthetic_data_sets, num_samples_per_set, single_dataframe=False
-        ))
+        )
 
         for i, df in enumerate(dfs):
             self.assertIsInstance(df, pd.DataFrame)
             self.assertEqual((num_samples_per_set, xs_df.shape[1]), df.shape)
-            self.assertEqual(list(xs_df.columns), list(df.columns)) # TODO: DPVIResult must do postprocessing for column names; not yet implemented
+            self.assertEqual(tuple(xs_df.columns), tuple(df.columns))
+            self.assertTrue((xs_df.dtypes == df.dtypes).all())
 
         self.assertEqual(num_synthetic_data_sets - 1, i)
 
         merged_df: pd.DataFrame = pd.concat(dfs)
 
-        self.assertTrue(np.allclose(xs_df.to_numpy().mean(0), merged_df.to_numpy().mean(0), atol=1e-1))
-        self.assertTrue(np.allclose(xs_df.to_numpy().std(0, ddof=-1), merged_df.to_numpy().std(0, ddof=-1), atol=1e-1))
+        self.assertTrue(np.allclose(xs_df[xs_df.columns[:-1]].to_numpy().mean(0), merged_df[merged_df.columns[:-1]].to_numpy().mean(0), atol=1e-1))
+        self.assertTrue(np.allclose(xs_df[xs_df.columns[:-1]].to_numpy().std(0, ddof=-1), merged_df[merged_df.columns[:-1]].to_numpy().std(0, ddof=-1), atol=1e-1))
 
     def test_fit_aborts_for_nan(self) -> None:
         np.random.seed(82634593)
@@ -90,12 +107,7 @@ class DPVITests(unittest.TestCase):
             dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_epochs=1, q=0.1, silent=True)
 
     def test_fit_works(self) -> None:
-        np.random.seed(82634593)
-        L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
-        mu = np.array([2., -3., 0])
-        xs = np.random.randn(100, 3) @ L.T + mu
-        xs_df = pd.DataFrame(xs)
-
+        xs_df = self.xs_df
         epsilon = 4.
         delta = 1e-6
 
@@ -107,6 +119,7 @@ class DPVITests(unittest.TestCase):
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
         self.assertTrue(dpvi_fit.privacy_level.dp_noise > 0)
         self.assertIsNotNone(dpvi_fit.parameters)
+        self.assertEqual(self.data_description, dpvi_fit.data_description)
 
         self.assertIn('auto_loc', dpvi_fit.parameters)
         self.assertEqual((6,), dpvi_fit.parameters['auto_loc'].shape)
@@ -115,12 +128,7 @@ class DPVITests(unittest.TestCase):
 
 
     def test_fit_works_silent(self) -> None:
-        np.random.seed(82634593)
-        L = np.array([[1., 0, 0], [.87, .3, 0], [0, 0, .5]])
-        mu = np.array([2., -3., 0])
-        xs = np.random.randn(100, 3) @ L.T + mu
-        xs_df = pd.DataFrame(xs)
-
+        xs_df = self.xs_df
         epsilon = 4.
         delta = 1e-6
 
@@ -132,12 +140,12 @@ class DPVITests(unittest.TestCase):
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
         self.assertTrue(dpvi_fit.privacy_level.dp_noise > 0)
         self.assertIsNotNone(dpvi_fit.parameters)
+        self.assertEqual(self.data_description, dpvi_fit.data_description)
 
         self.assertIn('auto_loc', dpvi_fit.parameters)
         self.assertEqual((6,), dpvi_fit.parameters['auto_loc'].shape)
         self.assertIn('auto_scale', dpvi_fit.parameters)
         self.assertEqual((6,), dpvi_fit.parameters['auto_scale'].shape)
-
 
     def test_num_iterations_for_epochs(self) -> None:
         num_epochs = 10
@@ -202,9 +210,16 @@ class DPVIResultTests(unittest.TestCase):
         self.privacy_params = PrivacyLevel(1., 1e-4, 2.1)
         self.final_elbo = 1.67
 
+        self.data_description = DataDescription({
+            'first': np.dtype(np.float64),
+            'second': np.dtype(np.float64),
+            'third': np.dtype(np.float32),
+            'cats!': pd.CategoricalDtype(["cat1", "cat2", "cat3"])
+        })
+
     def test_init(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
         )
 
         self.assertTrue(
@@ -217,7 +232,7 @@ class DPVIResultTests(unittest.TestCase):
 
     def test_generate(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
         )
 
         num_data_per_parameter = 100
@@ -229,11 +244,14 @@ class DPVIResultTests(unittest.TestCase):
         self.assertEqual(2, len(syn_data_sets))
         for syn_data in syn_data_sets:
             self.assertIsInstance(syn_data, pd.DataFrame)
-            self.assertEqual(syn_data.shape, (num_data_per_parameter, 3))
+            self.assertEqual(syn_data.shape, (num_data_per_parameter, 4))
+            self.assertEqual(tuple(self.data_description.columns), tuple(syn_data.columns))
+            for col in syn_data.columns:
+                self.assertEqual(self.data_description.dtypes[col], syn_data[col].dtype)
 
     def test_generate_single_dataset(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
         )
 
         num_data_per_parameter = 100
@@ -242,14 +260,15 @@ class DPVIResultTests(unittest.TestCase):
             d3p.random.PRNGKey(1142), num_parameter_samples, num_data_per_parameter
         )
 
-        print(type(syn_data))
         self.assertIsInstance(syn_data, pd.DataFrame)
-        self.assertEqual(syn_data.shape, (num_parameter_samples * num_data_per_parameter, 3))
-
+        self.assertEqual(syn_data.shape, (num_parameter_samples * num_data_per_parameter, 4))
+        self.assertEqual(tuple(self.data_description.columns), tuple(syn_data.columns))
+        for col in syn_data.columns:
+            self.assertEqual(self.data_description.dtypes[col], syn_data[col].dtype)
 
     def test_store_and_load(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo
+            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
         )
 
         with tempfile.TemporaryFile("w+b") as f:
@@ -265,12 +284,12 @@ class DPVIResultTests(unittest.TestCase):
             )
             self.assertEqual(self.privacy_params, loaded_result.privacy_level)
             self.assertEqual(self.final_elbo, loaded_result.final_elbo)
-
+            self.assertEqual(self.data_description, loaded_result.data_description)
 
             result_samples = result.generate(d3p.random.PRNGKey(567), 10, 1)
             loaded_result_samples = loaded_result.generate(d3p.random.PRNGKey(567), 10, 1)
             self.assertTrue(
-                np.allclose(result_samples[0].values, loaded_result_samples[0].values)
+                (result_samples.values == loaded_result_samples.values).all().all()
             )
 
 

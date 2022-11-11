@@ -31,6 +31,7 @@ from tqdm import tqdm
 
 from twinify.dpvi import PrivacyLevel, ModelFunction, GuideFunction
 from twinify.dpvi.dpvi_result import DPVIResult
+from twinify.dataframe_data import DataDescription
 
 
 class InferenceException(Exception):
@@ -140,7 +141,9 @@ class DPVIModel(InferenceModel):
 
         svi_rng, init_batch_rng, epochs_rng = d3p.random.split(rng, 3)
 
-        data = np.asarray(data)
+        data_description = DataDescription.from_dataframe(data)
+
+        data = np.asarray(data_description.map_to_numeric(data))
         init_batching, get_batch = d3p.minibatch.subsample_batchify_data((data,), batch_size, rng_suite=d3p.random)
         _, batchify_state = init_batching(init_batch_rng)
 
@@ -203,7 +206,8 @@ class DPVIModel(InferenceModel):
             self._model, self._guide,
             params,
             PrivacyLevel(epsilon, delta, dp_scale),
-            loss
+            loss,
+            data_description
         )
 
     @staticmethod

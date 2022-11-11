@@ -16,7 +16,112 @@
 import unittest
 import itertools
 import pandas as pd
-from twinify.dataframe_data import DataFrameData
+import numpy as np
+from twinify.dataframe_data import DataFrameData, DataDescription
+
+class DataDescriptionTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.dtypes = {
+            'int': np.dtype(np.int32),
+            'low_prec_float': np.dtype(np.float32),
+            'high_prec_float': np.dtype(np.float64),
+            'strings!': pd.CategoricalDtype(['this is a string', 'this is another string']),
+            'cats!': pd.CategoricalDtype(['first_cat', 'second_cat', 'third_cat']),
+        }
+
+        ints = np.arange(4, dtype=np.int32)
+        low_prec_floats = np.arange(4, dtype=np.float32)
+        high_prec_floats = np.linspace(-2, 3.3, num=4, dtype=np.float64)
+        strings = np.array([0, 0, 0, 1], dtype=np.int8)
+        cats = np.array([0, 2, 2, 0], dtype=np.int8)
+        self.cat_and_string_df = pd.DataFrame({
+            'int': ints,
+            'low_prec_float': low_prec_floats,
+            'high_prec_float': high_prec_floats,
+            'strings!': np.array([self.dtypes["strings!"].categories[i] for i in strings]),
+            'cats!': pd.Categorical.from_codes(cats, dtype=self.dtypes['cats!']),
+        })
+        self.cat_df = pd.DataFrame({
+            'int': ints,
+            'low_prec_float': low_prec_floats,
+            'high_prec_float': high_prec_floats,
+            'strings!': pd.Categorical.from_codes(strings, dtype=self.dtypes['strings!']),
+            'cats!': pd.Categorical.from_codes(cats, dtype=self.dtypes['cats!']),
+        })
+        self.num_df = pd.DataFrame({
+            'int': ints,
+            'low_prec_float': low_prec_floats,
+            'high_prec_float': high_prec_floats,
+            'strings!': strings,
+            'cats!': cats,
+        })
+
+    def test_init(self) -> None:
+        data_description = DataDescription(self.dtypes)
+        self.assertDictEqual(self.dtypes, data_description.dtypes)
+        self.assertEqual(self.dtypes.keys(), data_description.columns)
+        self.assertEqual(len(self.dtypes.keys()), data_description.num_columns)
+        self.assertFalse(data_description.all_columns_discrete)
+
+    def test_equals(self) -> None:
+        dd1 = DataDescription(self.dtypes)
+        dd2 = DataDescription(self.dtypes)
+
+        assert dd1 is not dd2
+
+        self.assertEqual(dd1, dd2)
+
+        other_dtypes = self.dtypes.copy()
+        other_dtypes['int'] = np.dtype(np.int64)
+        dd3 = DataDescription(other_dtypes)
+        self.assertNotEqual(dd1, dd3)
+
+        self.assertNotEqual(dd1, object())
+
+    def test_all_columns_discrete(self) -> None:
+        dtypes = dict()
+        for col in ['int', 'strings!', 'cats!']:
+            dtypes[col] = self.dtypes[col]
+
+        data_description = DataDescription(dtypes)
+        self.assertEqual(len(dtypes.keys()), data_description.num_columns)
+        self.assertTrue(data_description.all_columns_discrete)
+
+    def test_map_to_numeric(self) -> None:
+        data_description = DataDescription(self.dtypes)
+
+        num_df = data_description.map_to_numeric(self.cat_and_string_df)
+
+        self.assertEqual(tuple(self.num_df.columns), tuple(num_df.columns))
+        self.assertTrue((self.num_df == num_df).all().all())
+        self.assertTrue((self.num_df.dtypes == num_df.dtypes).all())
+
+    def test_map_to_categorical(self) -> None:
+        data_description = DataDescription(self.dtypes)
+
+        cat_df = data_description.map_to_categorical(self.num_df)
+
+        self.assertEqual(tuple(self.cat_df.columns), tuple(cat_df.columns))
+        self.assertTrue((self.cat_df == cat_df).all().all())
+        self.assertTrue((self.cat_df.dtypes == cat_df.dtypes).all())
+
+    def test_map_to_categorical_array(self) -> None:
+        data_description = DataDescription(self.dtypes)
+        num_array = np.asarray(self.num_df)
+
+        cat_df = data_description.map_to_categorical(num_array)
+
+        self.assertEqual(tuple(self.cat_df.columns), tuple(cat_df.columns))
+        self.assertTrue((self.cat_df == cat_df).all().all())
+        self.assertTrue((self.cat_df.dtypes == cat_df.dtypes).all())
+
+    def test_from_dataframe(self) -> None:
+        data_description = DataDescription.from_dataframe(self.cat_and_string_df)
+
+        expected = DataDescription(self.dtypes)
+
+        self.assertEqual(expected, data_description)
 
 
 class DataFrameDataTest(unittest.TestCase):
