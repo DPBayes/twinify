@@ -26,7 +26,7 @@ from twinify.mst import MST_selection
 from twinify.base import InferenceModel, InferenceResult, InvalidFileFormatException
 from twinify.napsu_mq.markov_network import MarkovNetwork
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
-from twinify.dataframe_data import DataFrameData
+from twinify.dataframe_data import DataFrameData, DataDescription
 import twinify.napsu_mq.privacy_accounting as privacy_accounting
 import twinify.napsu_mq.maximum_entropy_inference as mei
 import d3p.random
@@ -64,11 +64,10 @@ class NapsuMQModel(InferenceModel):
         use_laplace_approximation = self.use_laplace_approximation
 
         dataframe = DataFrameData(data)
-        category_mapping = DataFrameData.get_category_mapping(data)
-        n, d = dataframe.int_array.shape
+        n, d = dataframe.int_df.shape
 
         if query_sets is None:
-            domain_key_list = list(dataframe.values_by_col.keys())
+            domain_key_list = list(dataframe.columns)
             domain_value_count_list = [len(dataframe.values_by_col[key]) for key in domain_key_list]
             domain = Domain(domain_key_list, domain_value_count_list)
             query_sets = MST_selection(Dataset(dataframe.int_df, domain), epsilon, delta,
@@ -77,7 +76,7 @@ class NapsuMQModel(InferenceModel):
         queries = FullMarginalQuerySet(query_sets, dataframe.values_by_col)
         queries = queries.get_canonical_queries()
         mnjax = MarkovNetwork(dataframe.values_by_col, queries)
-        suff_stat = np.sum(queries.flatten()(dataframe.int_array), axis=0)
+        suff_stat = np.sum(queries.flatten()(dataframe.int_df.to_numpy()), axis=0)
 
         # determine Gaussian mech DP noise level for given privacy level
         sensitivity = np.sqrt(2 * len(query_sets))
@@ -110,7 +109,7 @@ class NapsuMQModel(InferenceModel):
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
             posterior_values = posterior_values.lambdas.values.transpose()
 
-        return NapsuMQResult(mnjax, posterior_values, category_mapping)
+        return NapsuMQResult(mnjax, posterior_values, dataframe.data_description)
 
 
 class NapsuMQResult(InferenceResult):
@@ -120,11 +119,11 @@ class NapsuMQResult(InferenceResult):
     """
 
     def __init__(self, markov_network: MarkovNetwork, posterior_values: jnp.ndarray,
-                 category_mapping: Mapping) -> None:
+                 data_description: DataDescription) -> None:
         super().__init__()
         self._markov_network = markov_network
         self._posterior_values = posterior_values
-        self._category_mapping = category_mapping
+        self._data_description = data_description
 
     @property
     def markov_network(self) -> MarkovNetwork:
@@ -135,8 +134,8 @@ class NapsuMQResult(InferenceResult):
         return self._posterior_values
 
     @property
-    def category_mapping(self) -> Mapping:
-        return self._category_mapping
+    def data_description(self) -> DataDescription:
+        return self._data_description
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
         assert write_io.writable()
@@ -163,8 +162,7 @@ class NapsuMQResult(InferenceResult):
                         syn_data_key, posterior_value
                         in list(zip(data_keys, posterior_sample))]
 
-        dataframes = [DataFrameData.apply_category_mapping(syn_data, self._category_mapping) for syn_data
-                      in syn_datasets]
+        dataframes = [self.data_description.map_to_categorical(syn_data) for syn_data in syn_datasets]
 
         if single_dataframe is True:
             combined_dataframe = pd.concat(dataframes, ignore_index=True)

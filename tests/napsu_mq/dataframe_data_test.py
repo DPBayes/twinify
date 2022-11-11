@@ -60,7 +60,7 @@ class DataDescriptionTest(unittest.TestCase):
     def test_init(self) -> None:
         data_description = DataDescription(self.dtypes)
         self.assertDictEqual(self.dtypes, data_description.dtypes)
-        self.assertEqual(self.dtypes.keys(), data_description.columns)
+        self.assertEqual(tuple(self.dtypes.keys()), tuple(data_description.columns))
         self.assertEqual(len(self.dtypes.keys()), data_description.num_columns)
         self.assertFalse(data_description.all_columns_discrete)
 
@@ -213,56 +213,6 @@ class DataFrameDataTest(unittest.TestCase):
             inds, values = self.df_data.int_query_to_str_query(inds, values)
             self.assertListEqual(inds, q_ind)
             self.assertListEqual(values, q_value)
-
-    def test_get_categorical_mapping(self):
-        categorical_mapping = DataFrameData.get_category_mapping(self.df_data.base_df)
-
-        true_mapping = {
-            "col1": {
-                0: "val1",
-                1: "val2",
-                2: "val3",
-                3: "val4"
-            },
-            "col2": {
-                0: "cal1",
-                1: "cal2",
-                2: "cal3",
-                3: "cal4"
-            },
-            "col3": {
-                0: "mal1",
-                1: "mal2",
-                2: "mal3",
-                3: "mal4"
-            },
-        }
-
-        self.assertDictEqual(categorical_mapping, true_mapping)
-
-        categorical_mapping2 = DataFrameData.get_category_mapping(self.df_data2.base_df)
-
-        true_mapping2 = {
-            "A": {
-                0: "False",
-                1: "True"
-            },
-            "B": {
-                0: "False",
-                1: "True"
-            }
-        }
-
-        self.assertDictEqual(categorical_mapping2, true_mapping2)
-
-    def test_apply_categorical_mapping(self):
-        categorical_mapping = DataFrameData.get_category_mapping(self.df_data.base_df)
-        df_with_categorical_mapping = DataFrameData.apply_category_mapping(self.df_data.int_df, categorical_mapping)
-        pd.testing.assert_frame_equal(self.df_data.base_df, df_with_categorical_mapping)
-
-        categorical_mapping2 = DataFrameData.get_category_mapping(self.df_data2.base_df)
-        df_with_categorical_mapping2 = DataFrameData.apply_category_mapping(self.df_data2.int_df, categorical_mapping2)
-        pd.testing.assert_frame_equal(self.df_data2.base_df, df_with_categorical_mapping2)
 
     def test_mixed_dataframe_initialization(self):
         true_int_dataframe = pd.DataFrame({
