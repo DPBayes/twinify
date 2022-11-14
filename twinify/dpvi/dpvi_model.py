@@ -139,7 +139,7 @@ class DPVIModel(InferenceModel):
         dp_scale, act_epsilon, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
 
         if verbose:
-            scale_per_sample = dp_scale / DPVIModel.batch_size_for_subsample_ratio(args.sampling_ratio, num_data)
+            scale_per_sample = dp_scale / DPVIModel.batch_size_for_subsample_ratio(self._subsample_ratio, num_data)
             print(f"Applied noise with std deviation {dp_scale:.2f} (~ {scale_per_sample:.2f} per element in batch)"
                 f" to achieve privacy epsilon of {act_epsilon:.3f} (for delta {delta:.2e}). "
             )
