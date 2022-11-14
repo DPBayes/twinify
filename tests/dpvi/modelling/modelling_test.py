@@ -39,3 +39,9 @@ class ModellingTests(unittest.TestCase):
     def test_slice_feature_multi_strided_None(self) -> None:
         feats = slice_feature(None, 0, 3, 2)
         self.assertIsNone(feats)
+
+    def test_slice_feature_dtype(self) -> None:
+        feats = slice_feature(self.data, 1, 3, dtype=jnp.int32)
+        expected_feats = self.data[:, 1:3].astype(jnp.int32)
+
+        self.assertTrue(np.all(expected_feats == feats))

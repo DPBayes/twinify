@@ -29,7 +29,7 @@ def model(data = None, num_obs_total = None):
         # simulating multiple sample sites that are not sampled in the order they appear in the data
         ys = sample('ys', dists.Normal(mu[0], sig[0]), obs=slice_feature(data, -2, -1)).reshape(-1, 1)
         xs = sample('xs', dists.MultivariateNormal(mu[1:], jnp.diag(sig[1:])), obs=slice_feature(data, 0, -2))
-        cats = sample('cats', dists.Categorical(probs=np.array([.5, .5, .5])), obs=slice_feature(data, -1)).reshape(-1, 1)
+        cats = sample('cats', dists.Categorical(probs=np.array([.5, .5, .5])), obs=slice_feature(data, -1, dtype=jnp.int64)).reshape(-1, 1)
 
     return jnp.hstack((xs, ys, cats))
 

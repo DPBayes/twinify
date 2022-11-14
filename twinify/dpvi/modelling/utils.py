@@ -24,7 +24,8 @@ def slice_feature(
         x: Optional[jnp.ndarray],
         feature_idx_start: int,
         feature_idx_limit: Optional[int] = None,
-        stride: int = 1
+        stride: int = 1,
+        dtype: Optional[jnp.dtype] = None
     ):
     """
     Returns a slice over the feature dimension (axis 1) of a data set. Returns
@@ -41,8 +42,12 @@ def slice_feature(
         feature_idx_start (int) : Feature index of where to start the slice.
         feature_idx_limit (int, None): Optional feature index where to stop the slice.
         stride (int): Optional stride, defaults to 1.
+        dtype (jnp.dtype, None): Optional output dtype to convert the slice to.
     """
     if x is None:
         return None
 
-    return jax.lax.slice_in_dim(x, feature_idx_start, feature_idx_limit, stride, axis=1)
+    if dtype is None:
+        dtype = jnp.dtype(x)
+
+    return jax.lax.slice_in_dim(x, feature_idx_start, feature_idx_limit, stride, axis=1).astype(dtype)
