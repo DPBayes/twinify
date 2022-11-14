@@ -24,7 +24,7 @@ setuptools.setup(
         'pandas >= 1.3.4, < 2.0',
         'd3p @ git+https://github.com/DPBayes/d3p.git@master#egg=d3p',
         'tqdm >= 4.62, < 5.0',
-        'numpy >= 1.21, < 2.0'
+        'numpy >= 1.21, < 2.0',
         'graphviz >= 0.20.1, < 1.0.0',
         'private-pgm @ git+https://github.com/ryan112358/private-pgm.git@557c077708d3559212a8f65dff3eccd3fd244abb',
         'arviz >= 0.12.1, < 1.0.0',
