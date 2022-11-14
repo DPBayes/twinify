@@ -4,11 +4,12 @@ import jax.numpy as jnp
 import numpyro.distributions as dists
 from numpyro.primitives import sample, plate
 from twinify.dpvi import ModelFunction
+from twinify import DataDescription
 import argparse
 from typing import Iterable
 
-def model_factory(args: argparse.Namespace, orig_data: pd.DataFrame) -> ModelFunction:
-    d = orig_data.shape[-1]
+def model_factory(args: argparse.Namespace, data_description: DataDescription) -> ModelFunction:
+    d = data_description.num_columns
     print(f"Privacy parameter epsilon is {args.epsilon}")
 
     def model(z = None, num_obs_total = None) -> None:
@@ -21,7 +22,7 @@ def model_factory(args: argparse.Namespace, orig_data: pd.DataFrame) -> ModelFun
         mu = sample('mu', dists.Normal(args.prior_mu).expand_by((d,)).to_event(1))
         sigma = sample('sigma', dists.InverseGamma(1.).expand_by((d,)).to_event(1))
         with plate('batch', num_obs_total, batch_size):
-            sample('x', dists.Normal(mu, sigma).to_event(1), obs=z)
+            return sample('x', dists.Normal(mu, sigma).to_event(1), obs=z)
 
     return model
 

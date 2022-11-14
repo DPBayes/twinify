@@ -9,19 +9,19 @@ from typing import Any, Callable, Tuple, Iterable, Dict, Union, Optional, Sequen
 import twinify.dpvi
 from twinify.dpvi.modelling import automodel
 from numpyro.infer.autoguide import AutoDiagonalNormal
+from twinify import DataDescription
 import os
 import argparse
 
 __all__ = ['load_custom_numpyro_model', 'ModelException', 'NumpyroModelParsingUnknownException', 'NumpyroModelParsingException']
 
-TPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int]]
-TWrappedPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFrame], int, Sequence[str]]]
-TWrappedPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame, Sequence[str]], Tuple[pd.DataFrame, pd.DataFrame]]
-TPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame], Tuple[pd.DataFrame, pd.DataFrame]]
-TOldPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
+TPreprocessFunction = Callable[[pd.DataFrame], Union[pd.DataFrame, pd.Series]]
+TGuardedPreprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
+TPostprocessFunction = Callable[[np.ndarray, DataDescription], Union[pd.DataFrame, pd.Series]]
+TGuardedPostprocessFunction = Callable[[np.ndarray, DataDescription], pd.DataFrame]
 TModelFunction = twinify.dpvi.ModelFunction
 TGuideFunction = twinify.dpvi.GuideFunction
-TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], pd.DataFrame], Union[TModelFunction, Tuple[TModelFunction, TGuideFunction]]]
+TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], DataDescription], Union[TModelFunction, Tuple[TModelFunction, TGuideFunction]]]
 
 
 class ModelException(Exception):
@@ -72,10 +72,10 @@ class NumpyroModelParsingUnknownException(NumpyroModelParsingException):
         self.__init__(f"Uncategorised error while trying to access function '{function_name}' from model module.", base_exception)
 
 
-def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TWrappedPreprocessFunction:
+def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TGuardedPreprocessFunction:
     def wrapped_preprocess(train_df):
         try:
-            retval = preprocess_fn(train_df)
+            train_data = preprocess_fn(train_df)
         except TypeError as e:
             if str(e).find('positional argument') != -1:
                 raise ModelException("FAILED DURING PREPROCESSING DATA", "Custom preprocessing functions must accept a single pandas.DataFrame as argument.")
@@ -84,74 +84,40 @@ def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TWrappedPreprocessFu
         except Exception as e:
             raise ModelException("FAILED DURING PREPROCESSING DATA", base_exception=e) from e
 
-        if isinstance(retval, (pd.DataFrame, pd.Series)):
-            train_data = (retval,)
-            num_data = len(retval)
-        else:
-            try:
-                train_data, num_data = retval
-            except:
-                raise ModelException("FAILED DURING PREPROCESSING DATA", "Custom preprocessing functions must return (train_data, num_data), where train_data is a tuple of pandas.DataFrame or pandas.Series and num_data is the number of data points.")
-            if isinstance(train_data, (pd.DataFrame, pd.Series)):
-                train_data = (train_data,)
+        if not isinstance(train_data, (pd.DataFrame, pd.Series)):
+            raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return a pandas.DataFrame or pandas.Series, but returned a {type(train_data)} instead.")
 
-        if not isinstance(train_data, Iterable):
-            raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame or pandas.Series as first returned value, but returned a {type(train_data)} instead.")
+        if isinstance(train_data, pd.Series):
+            train_data = train_data.to_frame()
 
-        all_feature_names = []
-        for df in train_data:
-            if isinstance(df, pd.DataFrame):
-                all_feature_names += list(df.columns)
-            elif isinstance(df, pd.Series):
-                all_feature_names.append(df.name)
-            else:
-                raise ModelException("FAILED DURING PREPROCESSING DATA", f"Custom preprocessing functions must return an (iterable of) pandas.DataFrame or pandas.Series as first returned value, but at least one {type(df)} was returned.")
-
-
-        return train_data, num_data, all_feature_names
+        return train_data
 
     return wrapped_preprocess
 
 
 @guard_preprocess
 def default_preprocess(train_df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
-    return train_df, len(train_df)
+    return train_df
 
-def guard_postprocess(postprocess_fn: Union[TPostprocessFunction, TOldPostprocessFunction]) -> TWrappedPostprocessFunction:
-    num_parameters = len(inspect.signature(postprocess_fn).parameters)
-    if num_parameters == 1:
-        print("WARNING: Custom postprocessing function using old signature, which is deprecated!")
-        def wrapped_postprocess_old(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
-            try:
-                if 'x' not in posterior_samples:
-                    raise ModelException("FAILED DURING POSTPROCESSING DATA", f"For the specified postprocessing function with a single argument, the 'model'  function must combine all features at sample site 'x'.")
-                syn_data = posterior_samples['x']
-                if syn_data.shape[-1] != len(feature_names):
-                    raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Number of features in synthetic data ({syn_data.shape[-1]}) does not match number of features used in training ({len(feature_names)}).")
-                syn_data = pd.DataFrame(syn_data, columns = feature_names)
-                encoded_syn_data = postprocess_fn(syn_data)
-                if not isinstance(encoded_syn_data, pd.DataFrame):
-                    raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Custom postprocessing functions must return a pd.DataFrame, got {type(encoded_syn_data)}")
-                return syn_data, encoded_syn_data
-            except ModelException as e: raise e
-            except Exception as e: raise ModelException("FAILED DURING POSTPROCESSING DATA", base_exception=e) from e
-        return wrapped_postprocess_old
-    else:
-        def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], orig_df: pd.DataFrame, feature_names: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
-            try:
-                retval = postprocess_fn(posterior_samples, orig_df)
-            except TypeError as e:
-                if str(e).find('positional argument') != -1:
-                    raise ModelException("FAILED DURING POSTPROCESSING DATA", "Custom postprocessing functions must accept two single pandas.DataFrame as arguments.")
-                else:
-                    raise e
-            except Exception as e:
-                raise ModelException("FAILED DURING POSTPROCESSING DATA", base_exception=e) from e
-            if not isinstance(retval, tuple) or len(retval) != 2 or not isinstance(retval[0], pd.DataFrame) or not isinstance(retval[1], pd.DataFrame):
-                got_msg = f"({', '.join(type(x) for x in retval)})" if isinstance(retval, tuple) else type(retval)
-                raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Custom postprocessing functions must return (syn_data, encoded_syn_data), each being a pd.DataFrame; got {got_msg}.")
-            return retval
-        return wrapped_postprocess
+def guard_postprocess(postprocess_fn: TPostprocessFunction) -> TGuardedPostprocessFunction:
+    def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], data_description: DataDescription) -> pd.DataFrame:
+        try:
+            retval = postprocess_fn(posterior_samples, data_description)
+        except TypeError as e:
+            if str(e).find('positional argument') != -1:
+                raise ModelException("FAILED DURING POSTPROCESSING DATA", "Custom postprocessing functions must accept a numpy array and a DataDescription as arguments.")
+            else:
+                raise e
+        except Exception as e:
+            raise ModelException("FAILED DURING POSTPROCESSING DATA", base_exception=e) from e
+
+        if not isinstance(retval, (pd.DataFrame, pd.Series)):
+            raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Custom postprocessing functions must return a single pd.DataFrame (or pd.Series); got {type(retval)}.")
+
+        if isinstance(retval, pd.Series):
+            retval = retval.to_frame()
+        return retval
+    return wrapped_postprocess
 
 def guard_model(model_fn: TModelFunction) -> TModelFunction:
     def wrapped_model(*args, **kwargs) -> Any:
@@ -168,7 +134,7 @@ def guard_model(model_fn: TModelFunction) -> TModelFunction:
 
 def load_custom_numpyro_model(
         model_path: str, args: argparse.Namespace, unknown_args: Iterable[str], orig_data: pd.DataFrame
-    ) -> Tuple[TModelFunction, TGuideFunction, TWrappedPreprocessFunction, TWrappedPostprocessFunction]:
+    ) -> Tuple[TModelFunction, TGuideFunction, TGuardedPreprocessFunction, TGuardedPostprocessFunction]:
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(model_path)

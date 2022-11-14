@@ -14,5 +14,7 @@ if _jnp.array([1.]).dtype != _jnp.float64:
     )
 
 import twinify.dpvi
+import twinify.napsu_mq
+from twinify.dataframe_data import DataDescription
 from twinify.version import VERSION
 __version__ = VERSION

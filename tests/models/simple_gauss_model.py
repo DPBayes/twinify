@@ -15,4 +15,4 @@ def model(z = None, num_obs_total = None) -> None:
     mu = sample('mu', dists.Normal().expand_by((2,)).to_event(1))
     sigma = sample('sigma', dists.InverseGamma(1.).expand_by((2,)).to_event(1))
     with plate('batch', num_obs_total, batch_size):
-        sample('x', dists.Normal(mu, sigma).to_event(1), obs=z)
+        return sample('x', dists.Normal(mu, sigma).to_event(1), obs=z)
