@@ -17,8 +17,8 @@ __all__ = ['load_custom_numpyro_model', 'ModelException', 'NumpyroModelParsingUn
 
 TPreprocessFunction = Callable[[pd.DataFrame], Union[pd.DataFrame, pd.Series]]
 TGuardedPreprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
-TPostprocessFunction = Callable[[np.ndarray, DataDescription], Union[pd.DataFrame, pd.Series]]
-TGuardedPostprocessFunction = Callable[[np.ndarray, DataDescription], pd.DataFrame]
+TPostprocessFunction = Callable[[pd.DataFrame], Union[pd.DataFrame, pd.Series]]
+TGuardedPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
 TModelFunction = twinify.dpvi.ModelFunction
 TGuideFunction = twinify.dpvi.GuideFunction
 TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], DataDescription], Union[TModelFunction, Tuple[TModelFunction, TGuideFunction]]]
@@ -73,7 +73,7 @@ class NumpyroModelParsingUnknownException(NumpyroModelParsingException):
 
 
 def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TGuardedPreprocessFunction:
-    def wrapped_preprocess(train_df):
+    def wrapped_preprocess(train_df: pd.DataFrame) -> pd.DataFrame:
         try:
             train_data = preprocess_fn(train_df)
         except TypeError as e:
@@ -94,25 +94,24 @@ def guard_preprocess(preprocess_fn: TPreprocessFunction) -> TGuardedPreprocessFu
 
     return wrapped_preprocess
 
-
 @guard_preprocess
 def default_preprocess(train_df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     return train_df
 
 def guard_postprocess(postprocess_fn: TPostprocessFunction) -> TGuardedPostprocessFunction:
-    def wrapped_postprocess(posterior_samples: Dict[str, np.ndarray], data_description: DataDescription) -> pd.DataFrame:
+    def wrapped_postprocess(posterior_samples: pd.DataFrame) -> pd.DataFrame:
         try:
-            retval = postprocess_fn(posterior_samples, data_description)
+            retval = postprocess_fn(posterior_samples)
         except TypeError as e:
             if str(e).find('positional argument') != -1:
-                raise ModelException("FAILED DURING POSTPROCESSING DATA", "Custom postprocessing functions must accept a numpy array and a DataDescription as arguments.")
+                raise ModelException("FAILED DURING POSTPROCESSING DATA", "Custom postprocessing functions must accept a pandas.DataFrame as argument.")
             else:
                 raise e
         except Exception as e:
             raise ModelException("FAILED DURING POSTPROCESSING DATA", base_exception=e) from e
 
         if not isinstance(retval, (pd.DataFrame, pd.Series)):
-            raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Custom postprocessing functions must return a single pd.DataFrame (or pd.Series); got {type(retval)}.")
+            raise ModelException("FAILED DURING POSTPROCESSING DATA", f"Custom postprocessing functions must return a single pandas.DataFrame (or Series); got {type(retval)}.")
 
         if isinstance(retval, pd.Series):
             retval = retval.to_frame()

@@ -3,9 +3,11 @@ from typing import List, Tuple, Callable
 import pandas as pd
 import numpyro.infer
 
+import twinify
 import twinify.dpvi
 import twinify.dpvi.modelling.automodel as automodel
-import twinify.cli.model_loading as model_loading
+import twinify.cli.dpvi_numpyro_model_loading as model_loading
+import twinify.cli.preprocessing_model as preprocessing_model
 
 def _load_cli_dpvi_automodel(
         model_path: str,
@@ -13,7 +15,7 @@ def _load_cli_dpvi_automodel(
         clipping_threshold: 1.,
         num_epochs: int,
         subsample_ratio: float
-    ) -> Tuple[twinify.dpvi.DPVIModel, Callable, Callable]:
+    ) -> twinify.dpvi.DPVIModel:
 
     with open(model_path, 'r') as f:
         model_str = "".join(f.readlines())
@@ -30,8 +32,8 @@ def _load_cli_dpvi_automodel(
     def preprocess_fn(df: pd.DataFrame) -> pd.DataFrame:
 
         # pick features from data according to model file
-        feature_names = [feature.name for feature in features]
-        missing_features = set().difference(df.columns)
+        feature_names = {feature.name for feature in features}
+        missing_features = feature_names.difference(df.columns)
         if missing_features:
             raise automodel.ParsingError(
                 "The model specifies features that are not present in the data:\n{}".format(
@@ -55,17 +57,21 @@ def _load_cli_dpvi_automodel(
         subsample_ratio
     )
 
-    return model, preprocess_fn, postprocess_fn
+    model = preprocessing_model.PreprocessingModel(
+        model, preprocess_fn, postprocess_fn
+    )
+
+    return model
 
 
 def load_cli_dpvi(
-        args: argparse.Namespace, unknown_args: List[str], df: pd.DataFrame
-    ) -> Tuple[twinify.dpvi.DPVIModel, Callable, Callable]:
+        args: argparse.Namespace, unknown_args: List[str], data_description: twinify.DataDescription
+    ) -> twinify.dpvi.DPVIModel:
 
     if args.model_path[-3:] == '.py':
         try:
             model_fn, guide_fn, preprocess_fn, postprocess_fn = model_loading.load_custom_numpyro_model(
-                args.model_path, args, unknown_args, df
+                args.model_path, args, unknown_args, data_description
             )
 
             model = twinify.dpvi.DPVIModel(
@@ -75,7 +81,9 @@ def load_cli_dpvi(
                 args.sampling_ratio
             )
 
-            return model, preprocess_fn, postprocess_fn
+            model = preprocessing_model.PreprocessingModel(
+                model, preprocess_fn, postprocess_fn
+            )
 
         except (ModuleNotFoundError, FileNotFoundError) as e:
             raise automodel.ParsingError(

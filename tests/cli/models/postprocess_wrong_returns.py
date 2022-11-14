@@ -5,10 +5,9 @@ import numpyro.distributions as dists
 from numpyro.primitives import sample, plate
 import pandas as pd
 from twinify import DataDescription
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict
 
-def postprocess(samples: np.ndarray, data_description: DataDescription, and_another: Any) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    syn_data = pd.DataFrame(samples, columns=data_description.columns)
+def postprocess(syn_data: np.ndarray) -> Tuple[pd.DataFrame, pd.DataFrame]:
     encoded_syn_data = syn_data.copy()
     encoded_syn_data += 2
     return syn_data, encoded_syn_data

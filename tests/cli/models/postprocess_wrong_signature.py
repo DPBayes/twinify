@@ -4,15 +4,13 @@ import numpy as np
 import numpyro.distributions as dists
 from numpyro.primitives import sample, plate
 import pandas as pd
-from twinify import DataDescription
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Any
 
-def postprocess(samples: np.ndarray, data_description: DataDescription) -> pd.DataFrame:
+def postprocess(samples: np.ndarray, data_description: Any, and_another: Any) -> pd.DataFrame:
     syn_data = pd.DataFrame(samples, columns=data_description.columns)
     encoded_syn_data = syn_data.copy()
-    encoded_syn_data['foo'] += 2
-    assert False
-    return syn_data, encoded_syn_data
+    encoded_syn_data += 2
+    return encoded_syn_data
 
 def model(z = None, num_obs_total = None) -> None:
     batch_size = 1

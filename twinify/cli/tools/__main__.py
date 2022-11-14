@@ -19,19 +19,19 @@ Twinify tools main script.
 """
 
 import argparse
-import twinify.tools.check_model
+import twinify.cli.tools.check_model
 from twinify import __version__
 
 parser = argparse.ArgumentParser(description='Twinify tools: Various twinify utility scripts.')
 parser.add_argument("--version", action='version', version=__version__)
 subparsers = parser.add_subparsers(dest='command')
-twinify.tools.check_model.setup_argument_parser(subparsers.add_parser('check-model', help='Checks whether a given model works with twinify.'))
+twinify.cli.tools.check_model.setup_argument_parser(subparsers.add_parser('check-model', help='Checks whether a given model works with twinify.'))
 
 def main():
     args, unknown_args = parser.parse_known_args()
 
     if args.command =='check-model':
-        return twinify.tools.check_model.main(args, unknown_args)
+        return twinify.cli.tools.check_model.main(args, unknown_args)
     else:
         print('#### UNKNOWN OPERATING MODE ####')
         print(f'## twinify-tools does not know the command {args.command}')

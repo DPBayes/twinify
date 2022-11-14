@@ -3,7 +3,7 @@ import pandas as pd
 import jax
 import numpy as np
 from twinify.dpvi.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
-from twinify.cli.model_loading import guard_postprocess
+from twinify.cli.dpvi_numpyro_model_loading import guard_postprocess
 
 import numpyro.distributions as dists
 from numpyro import sample, plate
@@ -16,7 +16,7 @@ def model():
 def guide():
     sample('mu', dists.Delta(2.))
 
-def postprocess(samples, ori_df):
+def postprocess(samples, data_description):
     syn_data = samples['x']
     syn_df = pd.DataFrame(syn_data)
     return syn_df, syn_df

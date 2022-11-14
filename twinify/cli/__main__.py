@@ -21,23 +21,20 @@ Twinify main script.
 from jax.config import config
 config.update("jax_enable_x64", True)
 
-from numpyro.infer.autoguide import AutoDiagonalNormal
-
-import twinify.dpvi.modelling.automodel as automodel
-from twinify.cli.model_loading import ModelException, load_custom_numpyro_model
-from twinify.dpvi.sampling import reshape_and_postprocess_synthetic_data
+from twinify.cli.model_loading import ModelException
 
 import numpy as np
-
 import pandas as pd
+from typing import Optional
 
 import argparse
 import d3p.random
 
 from twinify.base import InferenceModel, InferenceResult
-from twinify.dpvi import DPVIModel, DPVIResult, InferenceException
+from twinify.dpvi import InferenceException
 from twinify.cli.dpvi_loader import load_cli_dpvi
 from twinify.cli.napsu_loader import load_cli_napsu
+from twinify import DataDescription
 
 from twinify import __version__
 
@@ -67,7 +64,7 @@ vi_parser.set_defaults(load_fn=load_cli_dpvi)
 napsu_parser = subparsers.add_parser("napsumq")
 napsu_parser.set_defaults(load_fn=load_cli_napsu)
 
-def initialize_rngs(seed):
+def initialize_rngs(seed: Optional[int] = None):
     master_rng = d3p.random.PRNGKey(seed)
     print(f"RNG seed: {seed}")
 
@@ -78,8 +75,6 @@ def initialize_rngs(seed):
 
     return inference_rng, sampling_rng
 
-from typing import Tuple, Callable
-
 def main():
     args, unknown_args = parser.parse_known_args()
     print(args)
@@ -88,18 +83,19 @@ def main():
 
     # read data
     try:
-        df = pd.read_csv(args.data_path)
+        train_df = pd.read_csv(args.data_path)
     except Exception as e:
         print("#### UNABLE TO READ DATA FILE ####")
         print(e)
         return 1
-    print("Loaded data set has {} rows (entries) and {} columns (features).".format(*df.shape))
-    num_data = len(df)
+    print("Loaded data set has {} rows (entries) and {} columns (features).".format(*train_df.shape))
+    num_data = len(train_df)
+
+    data_description = DataDescription.from_dataframe(train_df)
 
     try:
-        model, preprocess_fn, postprocess_fn: Tuple[InferenceModel, Callable, Callable] = args.load_fn(args, unknown_args, df)
+        model: InferenceModel = args.load_fn(args, unknown_args, data_description)
 
-        train_df = preprocess_fn(df.copy())
         if args.drop_na:
             train_df = train_df.dropna()
 
@@ -123,7 +119,7 @@ def main():
         inference_rng, sampling_rng = initialize_rngs(args.seed)
 
         try:
-            dpvi_result: DPVIResult = model.fit(
+            dpvi_result: InferenceResult = model.fit(
                 train_df,
                 inference_rng,
                 args.epsilon,
@@ -159,25 +155,19 @@ def main():
         else:
             print("They will be stored in a single large data set.")
 
-        posterior_samples = dpvi_result.generate(
+        syn_data = dpvi_result.generate(
             sampling_rng,
             num_parameter_samples,
             args.num_synthetic_records_per_parameter_sample,
             single_dataframe=not args.separate_output
         )
 
-        # postprocess: so that the synthetic twin looks like the original data
-        #   - extract samples from the posterior_samples dictionary and construct pd.DataFrame
-        #   - if preprocessing involved data mapping, it is mapped back here
-        conditioned_postprocess_fn = lambda posterior_samples: postprocess_fn(posterior_samples, df)
-        for i, (syn_df, encoded_syn_df) in enumerate(reshape_and_postprocess_synthetic_data(
-            posterior_samples, conditioned_postprocess_fn, args.separate_output
-        )):
-            if args.separate_output:
-                filename = f"{args.output_path}.{i}.csv"
-            else:
-                filename = f"{args.output_path}.csv"
-            encoded_syn_df.to_csv(filename, index=False)
+        # store synthetic data
+        if isinstance(syn_data, pd.DataFrame):
+            syn_data.to_csv(args.output_path + ".csv", index=False)
+        else:
+            for i, syn_df in enumerate(syn_data):
+                syn_df.to_csv(f"{args.output_path}.{i}.csv", index=False)
 
         ### illustrate results TODO need to adopt new way of handing train_df
         #if args.visualize != 'none':
