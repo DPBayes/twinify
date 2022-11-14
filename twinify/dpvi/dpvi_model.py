@@ -89,7 +89,10 @@ class DPVIModel(InferenceModel):
     def __init__(
             self,
             model: ModelFunction,
-            guide: Optional[GuideFunction] = None
+            guide: Optional[GuideFunction] = None,
+            clipping_threshold: float = 1.,
+            num_epochs: int = 1000, # TODO: ultimately this should be num_iters for more flexibility, but the whole pipeline is currently geared towards num_epochs
+            subsample_ratio: float = 0.01,
         ) -> None:
         """
         Initialises a probabilistic model for performing differentially-private
@@ -100,6 +103,9 @@ class DPVIModel(InferenceModel):
                 which generates the data.
             guide (GuideFunction): Optional numpyro function that programmatically describes the variational approximation
                 to the true posterior distribution.
+            clipping_threshold (float): The maximum allowed norm of per-example gradients.
+            num_epochs (int): How many passes to make over the data.
+            subsample_ratio (float): How large of a fraction of the data will constitute a single update batch.
         """
         super().__init__()
         self._model = model
@@ -108,6 +114,9 @@ class DPVIModel(InferenceModel):
             guide = self.create_default_guide(model)
 
         self._guide = guide
+        self._clipping_threshold = clipping_threshold
+        self._num_epochs = num_epochs
+        self._subsample_ratio = subsample_ratio
 
     @staticmethod
     def create_default_guide(model: ModelFunction) -> GuideFunction:
@@ -118,24 +127,31 @@ class DPVIModel(InferenceModel):
             rng: d3p.random.PRNGState,
             epsilon: float,
             delta: float,
-            clipping_threshold: float,
-            num_epochs: int, # TODO: ultimately this should be num_iters for more flexibility, but the whole pipeline is currently geared towards num_epochs
-            q: float,
-            silent: bool = False) -> DPVIResult:
+            silent: bool = False,
+            verbose: bool = False) -> DPVIResult:
 
-        # TODO: this currently assumes that data is fully numeric (i.e., categoricals are numbers, not labels)
+        q = self._subsample_ratio
+        num_epochs = self._num_epochs
 
         num_data = data.shape[0]
         batch_size = self.batch_size_for_subsample_ratio(q, num_data)
         num_iter = self.num_iterations_for_epochs(num_epochs, q)
-        dp_scale, _, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
+        dp_scale, act_epsilon, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
+
+        if verbose:
+            scale_per_sample = dp_scale / DPVIModel.batch_size_for_subsample_ratio(args.sampling_ratio, num_data)
+            print(f"Applied noise with std deviation {dp_scale:.2f} (~ {scale_per_sample:.2f} per element in batch)"
+                f" to achieve privacy epsilon of {act_epsilon:.3f} (for delta {delta:.2e}). "
+            )
+            # TODO: warn for high noise? but when is it too high? what is a good heuristic?
+
 
         optimizer = numpyro.optim.Adam(1e-3)
 
         svi = d3p.svi.DPSVI(
             self._model, self._guide,
             optimizer, numpyro.infer.Trace_ELBO(),
-            num_obs_total=num_data, clipping_threshold=clipping_threshold,
+            num_obs_total=num_data, clipping_threshold=self._clipping_threshold,
             dp_scale=dp_scale, rng_suite=d3p.random
         )
 

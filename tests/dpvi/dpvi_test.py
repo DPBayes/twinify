@@ -63,8 +63,8 @@ class DPVITests(unittest.TestCase):
         delta = 1e-6
 
         rng = d3p.random.PRNGKey(96392153)
-        dpvi_model = DPVIModel(model)
-        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_epochs=300, q=0.01, silent=True)
+        dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=300, subsample_ratio=0.01)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, silent=True)
 
         self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
@@ -102,9 +102,9 @@ class DPVITests(unittest.TestCase):
         delta = 1e-6
 
         rng = d3p.random.PRNGKey(96392153)
-        dpvi_model = DPVIModel(model)
+        dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=1, subsample_ratio=0.1)
         with self.assertRaises(InferenceException):
-            dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_epochs=1, q=0.1, silent=True)
+            dpvi_model.fit(xs_df, rng, epsilon, delta, silent=True)
 
     def test_fit_works(self) -> None:
         xs_df = self.xs_df
@@ -112,8 +112,8 @@ class DPVITests(unittest.TestCase):
         delta = 1e-6
 
         rng = d3p.random.PRNGKey(96392153)
-        dpvi_model = DPVIModel(model)
-        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_epochs=1, q=0.1, silent=False)
+        dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=1, subsample_ratio=0.1)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, silent=False)
 
         self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
@@ -133,8 +133,8 @@ class DPVITests(unittest.TestCase):
         delta = 1e-6
 
         rng = d3p.random.PRNGKey(96392153)
-        dpvi_model = DPVIModel(model)
-        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, clipping_threshold=10., num_epochs=1, q=0.1, silent=True)
+        dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=1, subsample_ratio=0.1)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, silent=True)
 
         self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
