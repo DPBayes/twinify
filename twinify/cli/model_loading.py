@@ -6,6 +6,7 @@ import traceback
 import pandas as pd
 import numpy as np
 from typing import Any, Callable, Tuple, Iterable, Dict, Union, Optional, Sequence
+import twinify.dpvi
 from twinify.dpvi.modelling import automodel
 from numpyro.infer.autoguide import AutoDiagonalNormal
 import os
@@ -18,8 +19,8 @@ TWrappedPreprocessFunction = Callable[[pd.DataFrame], Tuple[Iterable[pd.DataFram
 TWrappedPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame, Sequence[str]], Tuple[pd.DataFrame, pd.DataFrame]]
 TPostprocessFunction = Callable[[Dict[str, np.ndarray], pd.DataFrame], Tuple[pd.DataFrame, pd.DataFrame]]
 TOldPostprocessFunction = Callable[[pd.DataFrame], pd.DataFrame]
-TModelFunction = Callable
-TGuideFunction = Callable
+TModelFunction = twinify.dpvi.ModelFunction
+TGuideFunction = twinify.dpvi.GuideFunction
 TModelFactoryFunction = Callable[[argparse.Namespace, Iterable[str], pd.DataFrame], Union[TModelFunction, Tuple[TModelFunction, TGuideFunction]]]
 
 

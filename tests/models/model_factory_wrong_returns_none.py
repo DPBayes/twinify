@@ -3,7 +3,7 @@ import pandas as pd
 import jax.numpy as jnp
 import numpyro.distributions as dists
 from numpyro.primitives import sample, plate
-from twinify.model_loading import TModelFunction
+from twinify.dpvi import ModelFunction
 import argparse
 from typing import Iterable
 

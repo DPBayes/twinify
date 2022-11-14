@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Union, Iterable, BinaryIO, List, Dict
+from typing import Optional, Union, Iterable, BinaryIO, List, Dict, FrozenSet
 import os
 import pandas as pd
 
@@ -40,15 +40,29 @@ class NapsuMQModel(InferenceModel):
     "Noise-Aware Statistical Inference with Differentially Private Synthetic Data", Ossi Räisä, Joonas Jälkö, Samuel Kaski & Antti Honkela
     """
 
-    def __init__(self, column_feature_set, use_laplace_approximation=True) -> None:
+    def __init__(self,
+            column_feature_set: Iterable[FrozenSet[str]], # TODO: what are these actually
+            use_laplace_approximation: bool = True) -> None:
+        """
+        Args:
+            column_feature_set: ???
+            use_laplace_approximation (bool): Use Laplace approximation in the model.
+        """
+
         super().__init__()
         if column_feature_set is None:
-            column_feature_set = []
-        self.column_feature_set = column_feature_set
-        self.use_laplace_approximation = use_laplace_approximation
+            raise ValueError("column_feature_set may not be None")
+        # if column_feature_set is None:
+        #     column_feature_set = []
+        self._column_feature_set = column_feature_set
+        self._use_laplace_approximation = use_laplace_approximation
 
-    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, query_sets: List = None,
-            **kwargs) -> 'NapsuMQResult':
+    @property
+    def uses_laplace_approximation(self) -> bool:
+        return self._use_laplace_approximation
+
+    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
+            query_sets: Optional[Iterable] = None, **kwargs) -> 'NapsuMQResult':
         """Fit differentially private NAPSU-MQ model from data.
 
         Args:
@@ -56,13 +70,12 @@ class NapsuMQModel(InferenceModel):
             rng (d3p.random.PRNGState): d3p PRNG key
             epsilon (float): Epsilon for differential privacy mechanism
             delta (float): Delta for differential privacy mechanism
-            query_sets (List): Marginal queries
 
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
         """
-        column_feature_set = self.column_feature_set
-        use_laplace_approximation = self.use_laplace_approximation
+        column_feature_set = self._column_feature_set
+        use_laplace_approximation = self._use_laplace_approximation
 
         dataframe = DataFrameData(data)
         n, d = dataframe.int_df.shape

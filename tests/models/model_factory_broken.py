@@ -3,11 +3,11 @@ import pandas as pd
 import jax.numpy as jnp
 import numpyro.distributions as dists
 from numpyro.primitives import sample, plate
-from twinify.model_loading import TModelFunction
+from twinify.dpvi import ModelFunction
 import argparse
 from typing import Iterable
 
-def model_factory(twinify_args: argparse.Namespace, unparsed_args: Iterable[str], orig_data: pd.DataFrame) -> TModelFunction:
+def model_factory(twinify_args: argparse.Namespace, unparsed_args: Iterable[str], orig_data: pd.DataFrame) -> ModelFunction:
     model_args_parser = argparse.ArgumentParser()
     model_args_parser.add_argument('--prior_mu', type=float, default=0.)
     args = model_args_parser.parse_args(unparsed_args, twinify_args)

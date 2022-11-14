@@ -32,7 +32,7 @@ from numpyro.handlers import trace, seed
 from numpyro.infer import Predictive
 import d3p.random
 # from twinify.infer import train_model_no_dp
-from twinify.model_loading import ModelException, load_custom_numpyro_model
+from twinify.cli.model_loading import ModelException, load_custom_numpyro_model
 from twinify.dpvi.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
 
 def setup_argument_parser(parser: argparse.ArgumentParser) -> None:

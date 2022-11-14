@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from numpyro.handlers import seed, trace
 import jax
-from twinify.model_loading import load_custom_numpyro_model, ModelException
+from twinify.cli.model_loading import load_custom_numpyro_model, ModelException
 from argparse import Namespace
 
 class NumpyroModelLoadingTests(unittest.TestCase):
