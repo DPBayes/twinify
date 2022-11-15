@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import jax
 import numpy as np
-from twinify.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
+from twinify.dpvi.sampling import sample_synthetic_data, reshape_and_postprocess_synthetic_data
 from twinify.model_loading import guard_postprocess
 
 import numpyro.distributions as dists

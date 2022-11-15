@@ -25,6 +25,7 @@ from binary_logistic_regression_generator import BinaryLogisticRegressionDataGen
 from twinify.napsu_mq.napsu_mq import NapsuMQResult, NapsuMQModel
 from twinify.napsu_mq.markov_network import MarkovNetwork
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
+from twinify.dataframe_data import DataDescription
 
 
 class TestNapsuMQ(unittest.TestCase):
@@ -190,19 +191,20 @@ class TestNapsuMQResult(unittest.TestCase):
     def test_generate_single_df(self) -> None:
 
         domain = {'A': np.arange(4), 'B': np.arange(3)}
-        categories = {'A': ('A', 'B', 'C', 'D'), 'B': ('x', 'y', 'z')}
+        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        data_description = DataDescription(categories)
 
         mn = MarkovNetwork(domain, FullMarginalQuerySet([('A', 'B')], domain))
         posterior_values = np.zeros((1000, 2), dtype=int)
-        result = NapsuMQResult(mn, posterior_values, categories)
+        result = NapsuMQResult(mn, posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100)
 
         self.assertIsInstance(samples, pd.DataFrame)
         self.assertEqual(samples.shape, (100, 2))
         self.assertEqual(tuple(samples.columns), ('A', 'B'))
-        self.assertEqual(tuple(samples['A'].dtype.categories), categories['A'])
-        self.assertEqual(tuple(samples['B'].dtype.categories), categories['B'])
+        self.assertEqual(samples['A'].dtype, categories['A'])
+        self.assertEqual(samples['B'].dtype, categories['B'])
 
     def test_generate_multi_df(self) -> None:
 
@@ -210,7 +212,10 @@ class TestNapsuMQResult(unittest.TestCase):
 
         mn = MarkovNetwork(domain, FullMarginalQuerySet([('A', 'B')], domain))
         posterior_values = np.zeros((1000, 2), dtype=int)
-        result = NapsuMQResult(mn, posterior_values, {'A': ['A', 'B', 'C', 'D', ], 'B': ['x', 'y', 'z']})
+        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        data_description = DataDescription(categories)
+
+        result = NapsuMQResult(mn, posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100, num_data_per_parameter_sample=20, single_dataframe=False)
 
@@ -224,7 +229,10 @@ class TestNapsuMQResult(unittest.TestCase):
 
         mn = MarkovNetwork(domain, FullMarginalQuerySet([('A', 'B')], domain))
         posterior_values = np.zeros((1000, 2), dtype=int)
-        result = NapsuMQResult(mn, posterior_values, {'A': ['A', 'B', 'C', 'D', ], 'B': ['x', 'y', 'z']})
+        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        data_description = DataDescription(categories)
+
+        result = NapsuMQResult(mn, posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100)
 

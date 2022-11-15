@@ -11,8 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Tuple, List, Union, Mapping, Iterable
-from pandas.api.types import is_integer_dtype, is_categorical_dtype
+from typing import Tuple, List, Union, Mapping, Iterable, Any, Dict, TypeVar
+from pandas.api.types import is_integer_dtype, is_categorical_dtype, is_float_dtype, is_string_dtype, is_bool_dtype
 import pandas as pd
 import itertools
 from functools import reduce
@@ -23,6 +23,101 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+Dtype = TypeVar("Dtype")
+class DataDescription:
+
+    def __init__(self, dtypes: Mapping[str, Dtype]) -> None:
+        self._dtypes = dict(dtypes)
+
+    @staticmethod
+    def from_dataframe(df: pd.DataFrame, strings_to_categories: bool = True) -> "DataDescription":
+        dtypes = dict()
+        for col in df.columns:
+            dtype = df[col].dtype
+            if is_string_dtype(dtype):
+                if not strings_to_categories:
+                    raise ValueError(f"Input may not contain columns of dtype string unless strings_to_categories is True. Column: {col}.")
+
+                dtype = pd.CategoricalDtype(df[col].unique())
+            if not (is_categorical_dtype(dtype) or is_integer_dtype(dtype) or is_float_dtype(dtype) or is_bool_dtype(dtype)):
+                raise ValueError(f"Only float, integer or categorical dtypes are currently supported, but column {col} has dtype {dtype}.")
+
+            dtypes[col] = dtype
+
+        return DataDescription(dtypes)
+
+    @property
+    def columns(self) -> Tuple[str]:
+        return tuple(self._dtypes.keys())
+
+    @property
+    def num_columns(self) -> int:
+        return len(self.columns)
+
+    @property
+    def dtypes(self) -> Dict[str, Dtype]:
+        return self._dtypes.copy()
+
+    @property
+    def all_columns_discrete(self) -> bool:
+        return np.all([
+            not is_float_dtype(dtype) for dtype in self._dtypes.values()
+        ])
+
+    @staticmethod
+    def _map_column_to_numeric(x: pd.Series) -> pd.Series:
+        assert (
+            is_categorical_dtype(x.dtype) or
+            is_float_dtype(x.dtype) or
+            is_integer_dtype(x.dtype) or
+            is_bool_dtype(x.dtype)
+        )
+        if is_categorical_dtype(x.dtype):
+            return x.cat.codes
+        return x
+
+    def map_to_numeric(self, categorical_df: pd.DataFrame) -> pd.DataFrame:
+        numeric_df = categorical_df.copy()
+        for col, dtype in self._dtypes.items():
+            if col not in categorical_df.columns:
+                continue
+
+            numeric_df[col] = self._map_column_to_numeric(numeric_df[col].astype(dtype))
+        return numeric_df
+
+    @staticmethod
+    def _are_all_values_integers(x: pd.Series) -> bool:
+        return np.allclose(x - x.astype(int), 0.)
+
+    def map_to_categorical(self, numeric_df_or_array: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
+        if isinstance(numeric_df_or_array, pd.DataFrame):
+            numeric_df = numeric_df_or_array
+        else:
+            shape = np.shape(numeric_df_or_array)
+            if len(shape) != 2 or shape[1] != len(self.columns):
+                raise ValueError(f"Array must be two-dimensional with a second dimension of size {len(self.columns)}, had shape {shape}.")
+            numeric_df = pd.DataFrame(numeric_df_or_array, columns=self.columns)
+
+        categorical_df = pd.DataFrame()
+
+        for col, dtype in self._dtypes.items():
+            if col not in numeric_df.columns:
+                continue
+
+            col_values = numeric_df[col]
+            if is_categorical_dtype(dtype):
+                if not self._are_all_values_integers(col_values):
+                    raise ValueError(f"Cannot map column {col} to categories because the input were no integers.")
+
+                categorical_df[col] = pd.Categorical.from_codes(col_values.astype(int), dtype=dtype)
+            else:
+                categorical_df[col] = col_values.astype(dtype)
+        return categorical_df
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DataDescription) and self._dtypes == other._dtypes
+
+
 class DataFrameData:
     """Converter between categorical and integer formatted dataframes."""
 
@@ -31,33 +126,42 @@ class DataFrameData:
         Args:
             base_df (DataFrame): Base categorical dataframe.
         """
-        self.base_df = base_df
-        self.int_df = self.base_df.copy()
-        for col in base_df.columns:
-            if is_categorical_dtype(self.base_df[col]):
-                self.int_df[col] = self.base_df[col].cat.codes
-            elif is_integer_dtype(self.base_df[col]):
-                self.int_df[col] = self.base_df[col]
-            else:
-                raise ValueError(f"DataFrame contains unsupported column type: {self.base_df[col].dtype}")
+        self._data_description = DataDescription.from_dataframe(base_df)
+        if not self._data_description.all_columns_discrete:
+            raise ValueError("Data has columns which are not discrete, i.e., neither of type bool, integer, or categorical.")
 
-        self.int_array = self.int_df.to_numpy()
+        self.int_df = self._data_description.map_to_numeric(base_df)
 
-        self.n, self.d = base_df.shape
-
-        self.values_by_col = {
-            col: list(range(len(self.base_df[col].cat.categories))) if is_categorical_dtype(self.base_df[col])
-            else sorted(list(self.base_df[col].unique()))
+        self._values_by_col = {
+            col: list(range(len(base_df[col].cat.categories))) if is_categorical_dtype(base_df[col])
+                else sorted(list(base_df[col].unique()))
             for col in self.int_df.columns
+            if (is_categorical_dtype(self.int_df[col]) or is_integer_dtype(self.int_df[col]))
         }
-        self.values_by_int_feature = {i: list(self.values_by_col[col]) for i, col in enumerate(self.int_df.columns)}
+        # self.values_by_int_feature = { #TODO: rename to values_by_feature_idx if used anywhere?
+        #     i: list(self._values_by_col[col])
+        #     for i, col in enumerate(self.int_df.columns)
+        #     if (is_categorical_dtype(self.int_df[col]) or is_integer_dtype(self.int_df[col]))
+        # }
+
+    @property
+    def values_by_col(self) -> Dict[str, List[int]]:
+        return self._values_by_col
+
+    @property
+    def columns(self) -> Iterable[str]:
+        return self.int_df.columns
+
+    @property
+    def data_description(self) -> DataDescription:
+        return self._data_description
 
     def get_x_values(self) -> np.ndarray:
         """Enumerate all possible datapoints for the categories of the dataset.
         Returns:
             np.ndarray: Enumeration of all possible datapoints.
         """
-        x_values = np.zeros((self.get_domain_size(), self.d))
+        x_values = np.zeros((self.get_domain_size(), len(self.columns)))
         for i, val in enumerate(itertools.product(*self.values_by_col.values())):
             x_values[i, :] = np.array(val)
         return x_values
@@ -69,55 +173,6 @@ class DataFrameData:
         """
         return reduce(mul, [len(col_values) for col_values in self.values_by_col.values()])
 
-    @staticmethod
-    def get_category_mapping(categorical_df: pd.DataFrame) -> Mapping[str, Mapping[int, str]]:
-        """Returns mapping for categorical columns as dictionary
-        Args:
-            categorical_df (DataFrame): Categorical dataframe
-        Returns:
-            category_mapping (Mapping): Two-level dictionary for category mapping.
-                First level is mapping from column name to dictionary, second level is mapping from category index value to category name.
-                Example:
-                    {
-                        "animal_column": {
-                            0: "cat"
-                            1: "dog"
-                            2: "sheep"
-                        },
-                        "ml_library_column": {
-                            0: "JAX",
-                            1: "PyTorch"
-                            2: "Tensorflow"
-                        }
-                    }
-        """
-
-        category_mapping = dict()
-
-        for column in categorical_df.columns:
-            if is_categorical_dtype(categorical_df[column]):
-                column_category_mapping: Mapping[int, str] = dict(enumerate(categorical_df[column].cat.categories))
-                category_mapping[column] = column_category_mapping
-
-        return category_mapping
-
-    @staticmethod
-    def apply_category_mapping(int_df: pd.DataFrame, category_mapping: Mapping) -> pd.DataFrame:
-        """
-        Apply categorical mapping to integer dataframe produced by get_categorical_mapping method.
-        If a column name doesn't exist in the category_mapping, the column is ignored.
-        """
-
-        cat_df = int_df.copy()
-
-        for column in int_df:
-            if column in category_mapping:
-                cat_df[column] = pd.Categorical(
-                    int_df[column], np.arange(len(category_mapping[column]))
-                ).rename_categories(category_mapping[column])
-
-        return cat_df
-
     def int_df_to_cat_df(self, int_df: pd.DataFrame) -> pd.DataFrame:
         """Convert integer-valued dataframe to categorical dataframe.
         Args:
@@ -125,14 +180,7 @@ class DataFrameData:
         Returns:
             DataFrame: Categorical valued dataframe.
         """
-        cat_df = int_df.copy()
-        for col in int_df.columns:
-            if is_categorical_dtype(self.base_df[col]):
-                cat_df[col] = self.base_df[col].cat.categories[int_df[col]]
-            else:
-                logger.warning(f"Column {col} is not categorical column")
-
-        return cat_df.astype("category")
+        return self._data_description.map_to_categorical(int_df)
 
     def ndarray_to_cat_df(self, ndarray: np.ndarray) -> pd.DataFrame:
         """Convert integer-valued ndarray to categorical dataframe.
@@ -141,10 +189,9 @@ class DataFrameData:
         Returns:
             DataFrame: The categorical dataframe.
         """
-        int_df = pd.DataFrame(ndarray, columns=self.base_df.columns, dtype=int)
-        return self.int_df_to_cat_df(int_df)
+        return self._data_description.map_to_categorical(ndarray)
 
-    def int_query_to_str_query(self, inds: Iterable, value: Union[Iterable, np.ndarray]) -> Tuple[List, List]:
+    def int_query_to_str_query(self, inds: Iterable[int], value: Iterable[int]) -> Tuple[List[str], List[str]]:
         """Convert marginal query for integer dataframe to query for categorical dataframe.
         Args:
             inds (tuple: Query indices.
@@ -152,12 +199,17 @@ class DataFrameData:
         Returns:
             (List, List): String-valued indices and value.
         """
-        value = tuple(value) if type(value) is np.ndarray else value
-        str_inds = [self.base_df.columns[ind] for ind in inds]
-        str_value = [self.base_df[str_inds[i]].cat.categories[val] for i, val in enumerate(value)]
-        return str_inds, str_value
+        value = tuple(value) if isinstance(value, np.ndarray) else value
+        column_names = [self._data_description.columns[ind] for ind in inds]
+        str_values = [
+            self._data_description.dtypes[column_names[i]].categories[v]
+            if is_categorical_dtype(self._data_description.dtypes[column_names[i]])
+            else v
+            for i, v in enumerate(value)
+        ]
+        return column_names, str_values
 
-    def str_query_to_int_query(self, feature_set: Iterable, value: List) -> Tuple[List, np.ndarray]:
+    def str_query_to_int_query(self, feature_set: Iterable[str], value: List[str]) -> Tuple[List, np.ndarray]:
         """Convert marginal query for categorical dataframe to query for integer dataframe.
         Args:
             feature_set (tuple): Query indices.
@@ -172,7 +224,11 @@ class DataFrameData:
             else:
                 raise ValueError("{} not in {}".format(value, list))
 
-        int_inds = [index(list(self.values_by_col.keys()), feature) for feature in feature_set]
-        int_values = [index(list(self.base_df[feature].cat.categories), value[i]) for i, feature in
-                      enumerate(feature_set)]
+        int_inds = [index(self._data_description.columns, feature) for feature in feature_set]
+        int_values = [
+            pd.Categorical(value[i], dtype=self._data_description.dtypes[feature]).codes
+            if is_categorical_dtype(self._data_description.dtypes[feature])
+            else value[i]
+            for i, feature in enumerate(feature_set)
+        ]
         return int_inds, np.array(int_values)

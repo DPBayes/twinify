@@ -32,7 +32,7 @@ from numpyro.infer import Predictive
 import fourier_accountant
 
 from twinify.infer import train_model, train_model_no_dp, InferenceException
-import twinify.automodel as automodel
+import twinify.dpvi.modelling.automodel as automodel
 
 import numpy as onp
 

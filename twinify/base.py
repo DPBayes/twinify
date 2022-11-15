@@ -1,13 +1,13 @@
 import abc
 import pandas as pd
 from typing import Union, Optional, Iterable, BinaryIO
-from d3p.random import PRNGState
+import d3p.random
 
 class InferenceModel(metaclass=abc.ABCMeta):
     """ A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. """
 
     @abc.abstractmethod
-    def fit(self, data: pd.DataFrame, rng: PRNGState, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
+    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
         """ Compute the parameter posterior (approximation) for a given data set, hyperparameters and privacy bounds.
 
         Args:
@@ -26,10 +26,10 @@ class InferenceResult(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def generate(self,
-            rng: PRNGState,
+            rng: d3p.random.PRNGState,
             num_parameter_samples: int,
             num_data_per_parameter_sample: int = 1,
-            single_dataframe: Optional[bool] = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
+            single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         """ Samples a number of samples from the parameter posterior (approximation) and generates the given number of
         data points per parameter samples.
 
