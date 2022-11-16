@@ -59,7 +59,7 @@ class NAModel(dists.Distribution):
 
     arg_constraints = {'na_prob': dists.constraints.unit_interval}
 
-    def __init__(self, base_dist, na_prob=0.5, validate_args=None) -> None:
+    def __init__(self, base_dist, na_prob=0.5, *, validate_args=None) -> None:
         """
         Initialize a new NAModel instance.
 
@@ -68,8 +68,13 @@ class NAModel(dists.Distribution):
             na_prob (float): Probability that data is missing.
         """
         self._base_dist = base_dist
-        self._na_prob = na_prob
+        self._na_prob = jnp.broadcast_to(na_prob, base_dist.batch_shape)
+        assert self._base_dist.batch_shape == self._na_prob.shape
         super(NAModel, self).__init__(base_dist.batch_shape, base_dist.event_shape, validate_args=validate_args)
+
+    @property
+    def na_prob(self) -> float:
+        return self._na_prob
 
     @property
     def base_distribution(self) -> dists.Distribution:
@@ -126,7 +131,7 @@ class NAModel(dists.Distribution):
 
         nan_rng, values_rng = jax.random.split(key)
         nan_mask = dists.Bernoulli(probs = self._na_prob).sample(
-            nan_rng, sample_shape=(sample_shape + self.batch_shape)
+            nan_rng, sample_shape=(sample_shape)
         )
 
         values = self.base_distribution.sample(values_rng, sample_shape=sample_shape)

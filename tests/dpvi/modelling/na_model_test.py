@@ -73,6 +73,8 @@ class NAModelTest(unittest.TestCase):
 
     def test_sample(self) -> None:
         base_dist = dists.Dirichlet(np.ones((3, 5,)))
+        assert base_dist.batch_shape == (3,)
+        assert base_dist.event_shape == (5,)
         na_rate = 0.2
         na_model = NAModel(base_dist, na_rate)
 
@@ -89,6 +91,28 @@ class NAModelTest(unittest.TestCase):
 
         self.assertTrue(
             np.isclose(na_rate, np.isnan(sample).mean(), atol=1e-1)
+        )
+
+    def test_sample_batch_na_prob(self) -> None:
+        base_dist = dists.Dirichlet(np.ones((3, 5,)))
+        assert base_dist.batch_shape == (3,)
+        assert base_dist.event_shape == (5,)
+        na_rates = np.array([0.2, 0.7, 0.5])
+        na_model = NAModel(base_dist, na_rates)
+
+        key = jax.random.PRNGKey(924)
+        sample_shape = (1000, 2)
+        sample = na_model.sample(key, sample_shape)
+        self.assertEqual((1000, 2, 3, 5), sample.shape)
+
+        _, base_key = jax.random.split(key)
+        base_sample = base_dist.sample(base_key, sample_shape)
+        self.assertTrue(np.all(
+            np.where(np.isnan(sample), True, np.isclose(base_sample, sample))
+        ))
+
+        self.assertTrue(
+            np.allclose(na_rates, np.isnan(sample).mean(0).mean(0).mean(-1), atol=1e-1)
         )
 
     def test_sample_no_sample_shape(self) -> None:
