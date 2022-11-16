@@ -163,6 +163,26 @@ class MixtureModelTest(unittest.TestCase):
                     self.assertTrue(np.allclose(x_first[i, j, k, zs[i, j, k]], sample[i, j, k, :2]))
                     self.assertTrue(np.allclose(x_second[i, j, k, zs[i, j, k]], sample[i, j, k, 2]))
 
+    def test_sample_no_sample_shape(self) -> None:
+        poisson_rate = np.arange(8, dtype=np.float32)
+        base_dists = [dists.Normal(np.zeros((8, 2)), 1.).to_event(1), dists.Poisson(poisson_rate)]
+        pis = np.ones((8,)) / 8
+        mixture_model = MixtureModel(base_dists, pis)
+
+        rng_key = jax.random.PRNGKey(0)
+        sample, aux = mixture_model.sample_with_intermediates(rng_key)
+        zs = aux[0]
+        self.assertEqual((3,), sample.shape)
+        self.assertEqual((), zs.shape)
+
+        vals_rng_key, _ = jax.random.split(rng_key, 2)
+        dbn_keys = jax.random.split(vals_rng_key)
+
+        x_first = base_dists[0].sample(dbn_keys[0])
+        x_second = base_dists[1].sample(dbn_keys[1])
+
+        self.assertTrue(np.allclose(x_first[zs], sample[:2]))
+        self.assertTrue(np.allclose(x_second[zs], sample[2]))
 
     def test_support(self) -> None:
         poisson_rate = np.tile(np.arange(8, dtype=np.float32) + 1, 4).reshape(4, 8)

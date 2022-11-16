@@ -140,6 +140,10 @@ class MixtureModel(dists.Distribution):
     def support(self) -> Constraint:
         return self._constraint
 
+    @property
+    def pis(self) -> jnp.ndarray:
+        return self._pis
+
     def __init__(self, distributions: typing.Iterable[dists.Distribution], pis: np.ndarray, *, validate_args=None):
         """
         Initializes a MixtureModel instance.
@@ -248,8 +252,10 @@ class MixtureModel(dists.Distribution):
             if dbn_event_shape == ():
                 dbn_event_shape = (1,)
 
-            dbn_sample = dbn_sample.reshape(-1, self._mixture_components, *dbn_event_shape)
-            dbn_sample = dbn_sample[np.arange(dbn_sample.shape[0]), zs]
+            flat_batch_size = int(np.prod(batch_shape))
+
+            dbn_sample = dbn_sample.reshape(flat_batch_size, self._mixture_components, *dbn_event_shape)
+            dbn_sample = dbn_sample[np.arange(flat_batch_size), zs]
             dbn_sample = dbn_sample.reshape(*batch_shape, *dbn_event_shape)
             vals.append(dbn_sample)
 
