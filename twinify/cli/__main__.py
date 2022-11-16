@@ -21,11 +21,11 @@ Twinify main script.
 from jax.config import config
 config.update("jax_enable_x64", True)
 
-from twinify.cli.model_loading import ModelException
+from twinify.cli.dpvi_numpyro_model_loading import ModelException
 
 import numpy as np
 import pandas as pd
-from typing import Optional
+from typing import Optional, Tuple
 
 import argparse
 import d3p.random
@@ -38,33 +38,40 @@ from twinify import DataDescription
 
 from twinify import __version__
 
+def add_common_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('data_path', type=str, help='Path to input data.')
+    parser.add_argument('model_path', type=str, help='Path to model file (.txt or .py).')
+    parser.add_argument("output_path", type=str, help="Path prefix to outputs (synthetic data and model).")
+    parser.add_argument("--epsilon", default=1., type=float, help="Target multiplicative privacy parameter epsilon.")
+    parser.add_argument("--delta", default=None, type=float, help="Target additive privacy parameter delta.")
+    parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a random value.")
+    parser.add_argument("--num_synthetic", "--n", default=None, type=int, help="Amount of synthetic data to generate in total. By default as many as input data.")
+    parser.add_argument("--num_synthetic_records_per_parameter_sample", "--m", default=1, type=int, help="Amount of synthetic samples to sample per parameter value drawn from the learned parameter posterior.")
+    parser.add_argument("--drop_na", action='store_true', default=False, help="Remove missing values from data.")
+    parser.add_argument("--separate_output", default=False, action='store_true', help="Store synthetic data in separate files per parameter sample.")
+
 parser = argparse.ArgumentParser(description='Twinify: Program for creating synthetic twins under differential privacy.',\
         fromfile_prefix_chars="%")
-subparsers = parser.add_subparsers(title='inference_method')
-parser.add_argument('data_path', type=str, help='Path to input data.')
-parser.add_argument('model_path', type=str, help='Path to model file (.txt or .py).')
-parser.add_argument("output_path", type=str, help="Path prefix to outputs (synthetic data, model and visuliatzion plots).")
-parser.add_argument("--epsilon", default=1., type=float, help="Target multiplicative privacy parameter epsilon.")
-parser.add_argument("--delta", default=None, type=float, help="Target additive privacy parameter delta.")
-parser.add_argument("--seed", default=None, type=int, help="PRNG seed used in model fitting. If not set, will be securely initialized to a random value.")
-parser.add_argument("--num_synthetic", "--n", default=None, type=int, help="Amount of synthetic data to generate in total. By default as many as input data.")
-parser.add_argument("--num_synthetic_records_per_parameter_sample", "--m", default=1, type=int, help="Amount of synthetic samples to sample per parameter value drawn from the learned parameter posterior.")
-parser.add_argument("--drop_na", default=0, type=int, help="Remove missing values from data (yes=1)")
-parser.add_argument("--separate_output", default=False, action='store_true', help="Store synthetic data in separate files per parameter sample.")
+subparsers = parser.add_subparsers(title='inference_method', dest='method')
 parser.add_argument("--version", action='version', version=__version__)
 
+
+## ARGUMENT PARSING FOR DPVI
 vi_parser = subparsers.add_parser("vi")
+add_common_arguments(vi_parser)
 vi_parser.add_argument("--clipping_threshold", default=1., type=float, help="Clipping threshold for DP-SGD.")
 vi_parser.add_argument("--k", default=50, type=int, help="Mixture components in fit (for automatic modelling only).")
 vi_parser.add_argument("--num_epochs", "-e", default=200, type=int, help="Number of training epochs.")
 vi_parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="Subsampling ratio for DP-SGD.")
-vi_parser.add_argument("--no-privacy", default=False, action='store_true', help="Turn off all privacy features, i.e., run privacy-agnostic variational inference. Intended FOR DEBUGGING ONLY!")
 vi_parser.set_defaults(load_fn=load_cli_dpvi)
 
+## ARGUMENT PARSING FOR NAPSUMQ
 napsu_parser = subparsers.add_parser("napsumq")
+add_common_arguments(napsu_parser)
 napsu_parser.set_defaults(load_fn=load_cli_napsu)
 
-def initialize_rngs(seed: Optional[int] = None):
+
+def initialize_rngs(seed: Optional[int] = None) -> Tuple[d3p.random.PRNGState, d3p.random.PRNGState]:
     master_rng = d3p.random.PRNGKey(seed)
     print(f"RNG seed: {seed}")
 
@@ -77,7 +84,6 @@ def initialize_rngs(seed: Optional[int] = None):
 
 def main():
     args, unknown_args = parser.parse_known_args()
-    print(args)
     if unknown_args:
         print(f"Additional received arguments: {unknown_args}")
 
@@ -96,18 +102,13 @@ def main():
     try:
         model: InferenceModel = args.load_fn(args, unknown_args, data_description)
 
-        if args.drop_na:
-            train_df = train_df.dropna()
-
-        print(f"After preprocessing, the data has {train_df.shape[0]} entries with {train_df.shape[1]} features each.")
-
         # check DP values
         target_delta = args.delta
         if target_delta is None:
             target_delta = 0.1 / num_data
         if target_delta * num_data > 1.:
             print("!!!!! WARNING !!!!! The given value for privacy parameter delta ({:1.3e}) exceeds 1/(number of data) ({:1.3e}),\n" \
-                "which the maximum value that is usually considered safe!".format(
+                "which is the maximum value that is usually considered safe!".format(
                     target_delta, 1. / num_data
                 ))
             x = input("Continue? (type YES ): ")
@@ -151,9 +152,9 @@ def main():
         print(f"Will sample {args.num_synthetic_records_per_parameter_sample} synthetic data records for each of "
               f"{num_parameter_samples} samples from the parameter posterior for a total of {num_synthetic} records.")
         if args.separate_output:
-            print("They will be stored in separate data sets for each parameter posterior sample.")
+            print("They will be stored as separate data sets for each parameter posterior sample.")
         else:
-            print("They will be stored in a single large data set.")
+            print("They will be stored as a single large data set.")
 
         syn_data = dpvi_result.generate(
             sampling_rng,
