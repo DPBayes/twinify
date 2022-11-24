@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, Union, Iterable, BinaryIO, Callable, Mapping, List
+from typing import Union, Iterable, BinaryIO, List, Dict
 import os
 import pandas as pd
 
@@ -19,8 +19,7 @@ import numpy as np
 import arviz as az
 import jax
 import jax.numpy as jnp
-from mbi import Domain, Dataset
-import dill
+import pickle
 
 from twinify.mst import MST_selection
 from twinify.base import InferenceModel, InferenceResult, InvalidFileFormatException
@@ -29,6 +28,8 @@ from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
 from twinify.dataframe_data import DataFrameData, DataDescription
 import twinify.napsu_mq.privacy_accounting as privacy_accounting
 import twinify.napsu_mq.maximum_entropy_inference as mei
+from twinify.napsu_mq.private_pgm.domain import Domain
+from twinify.napsu_mq.private_pgm.dataset import Dataset
 import d3p.random
 
 
@@ -109,7 +110,7 @@ class NapsuMQModel(InferenceModel):
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
             posterior_values = posterior_values.lambdas.values.transpose()
 
-        return NapsuMQResult(mnjax, posterior_values, dataframe.data_description)
+        return NapsuMQResult(dataframe.values_by_col, queries, posterior_values, dataframe.data_description)
 
 
 class NapsuMQResult(InferenceResult):
@@ -118,19 +119,24 @@ class NapsuMQResult(InferenceResult):
     Contains functions to generate differentially private synthetic datasets from the original dataset.
     """
 
-    def __init__(self, markov_network: MarkovNetwork, posterior_values: jnp.ndarray,
+    def __init__(self, dataframe_domain: Dict[str, List[int]], queries: 'FullMarginalQuerySet', posterior_values: jnp.ndarray,
                  data_description: DataDescription) -> None:
         super().__init__()
-        self._markov_network = markov_network
-        self._posterior_values = posterior_values
+        self._dataframe_domain = dataframe_domain
+        self._queries = queries
+        self._posterior_values = np.asarray(posterior_values)
         self._data_description = data_description
 
     @property
-    def markov_network(self) -> MarkovNetwork:
-        return self._markov_network
+    def dataframe_domain(self) -> Dict[str, List[int]]:
+        return self._dataframe_domain
 
     @property
-    def posterior_values(self) -> jnp.ndarray:
+    def queries(self) -> 'FullMarginalQuerySet':
+        return self._queries
+
+    @property
+    def posterior_values(self) -> np.ndarray:
         return self._posterior_values
 
     @property
@@ -139,7 +145,7 @@ class NapsuMQResult(InferenceResult):
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
         assert write_io.writable()
-        result = dill.dumps(self)
+        result = pickle.dumps(self)
         return NapsuMQResultIO.store_to_io(write_io, result)
 
     @classmethod
@@ -153,8 +159,8 @@ class NapsuMQResult(InferenceResult):
             num_data_per_parameter_sample: int = 1,
             single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         jax_rng = d3p.random.convert_to_jax_rng_key(rng)
-        mnjax = self._markov_network
-        posterior_values = self.posterior_values
+        mnjax = MarkovNetwork(self._dataframe_domain, self._queries)
+        posterior_values = jnp.array(self.posterior_values)
         inds = jax.random.choice(key=jax_rng, a=posterior_values.shape[0], shape=[num_parameter_samples])
         posterior_sample = posterior_values[inds, :]
         rng, *data_keys = jax.random.split(jax_rng, num_parameter_samples + 1)
@@ -189,7 +195,7 @@ class NapsuMQResultIO:
             raise InvalidFileFormatException(NapsuMQResult, "Stored data uses an unknown storage format version.")
 
         result_binary = read_io.read()
-        result = dill.loads(result_binary)
+        result = pickle.loads(result_binary)
 
         return result
 

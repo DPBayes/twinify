@@ -22,8 +22,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 Dtype = TypeVar("Dtype")
+
+
 class DataDescription:
 
     def __init__(self, dtypes: Mapping[str, Dtype]) -> None:
@@ -36,11 +37,14 @@ class DataDescription:
             dtype = df[col].dtype
             if is_string_dtype(dtype):
                 if not strings_to_categories:
-                    raise ValueError(f"Input may not contain columns of dtype string unless strings_to_categories is True. Column: {col}.")
+                    raise ValueError(
+                        f"Input may not contain columns of dtype string unless strings_to_categories is True. Column: {col}.")
 
                 dtype = pd.CategoricalDtype(df[col].unique())
-            if not (is_categorical_dtype(dtype) or is_integer_dtype(dtype) or is_float_dtype(dtype) or is_bool_dtype(dtype)):
-                raise ValueError(f"Only float, integer or categorical dtypes are currently supported, but column {col} has dtype {dtype}.")
+            if not (is_categorical_dtype(dtype) or is_integer_dtype(dtype) or is_float_dtype(dtype) or is_bool_dtype(
+                    dtype)):
+                raise ValueError(
+                    f"Only float, integer or categorical dtypes are currently supported, but column {col} has dtype {dtype}.")
 
             dtypes[col] = dtype
 
@@ -67,10 +71,10 @@ class DataDescription:
     @staticmethod
     def _map_column_to_numeric(x: pd.Series) -> pd.Series:
         assert (
-            is_categorical_dtype(x.dtype) or
-            is_float_dtype(x.dtype) or
-            is_integer_dtype(x.dtype) or
-            is_bool_dtype(x.dtype)
+                is_categorical_dtype(x.dtype) or
+                is_float_dtype(x.dtype) or
+                is_integer_dtype(x.dtype) or
+                is_bool_dtype(x.dtype)
         )
         if is_categorical_dtype(x.dtype):
             return x.cat.codes
@@ -95,7 +99,8 @@ class DataDescription:
         else:
             shape = np.shape(numeric_df_or_array)
             if len(shape) != 2 or shape[1] != len(self.columns):
-                raise ValueError(f"Array must be two-dimensional with a second dimension of size {len(self.columns)}, had shape {shape}.")
+                raise ValueError(
+                    f"Array must be two-dimensional with a second dimension of size {len(self.columns)}, had shape {shape}.")
             numeric_df = pd.DataFrame(numeric_df_or_array, columns=self.columns)
 
         categorical_df = pd.DataFrame()
@@ -128,13 +133,14 @@ class DataFrameData:
         """
         self._data_description = DataDescription.from_dataframe(base_df)
         if not self._data_description.all_columns_discrete:
-            raise ValueError("Data has columns which are not discrete, i.e., neither of type bool, integer, or categorical.")
+            raise ValueError(
+                "Data has columns which are not discrete, i.e., neither of type bool, integer, or categorical.")
 
         self.int_df = self._data_description.map_to_numeric(base_df)
 
         self._values_by_col = {
             col: list(range(len(base_df[col].cat.categories))) if is_categorical_dtype(base_df[col])
-                else sorted(list(base_df[col].unique()))
+            else sorted(list(base_df[col].unique()))
             for col in self.int_df.columns
             if (is_categorical_dtype(self.int_df[col]) or is_integer_dtype(self.int_df[col]))
         }

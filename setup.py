@@ -26,9 +26,10 @@ setuptools.setup(
         'tqdm >= 4.62, < 5.0',
         'numpy >= 1.21, < 2.0',
         'graphviz >= 0.20.1, < 1.0.0',
-        'private-pgm @ git+https://github.com/ryan112358/private-pgm.git@557c077708d3559212a8f65dff3eccd3fd244abb',
         'arviz >= 0.12.1, < 1.0.0',
-        'dill >= 0.3.6, < 1.0.0'
+        'dill >= 0.3.6, < 1.0.0',
+        'networkx >= 2.8.8, < 3.0.0',
+        'disjoint-set==0.7.3'
     ],
     extras_require = {
         'examples': [
