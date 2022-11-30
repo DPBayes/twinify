@@ -108,7 +108,15 @@ class NAModel(dists.Distribution):
             nans = jnp.isnan(value)
         nan_log_probs = dists.Bernoulli(probs = self._na_prob).log_prob(nans)
 
-        value_log_probs = self._base_dist.log_prob(value)
+        feasible_vals = self.base_distribution.support.feasible_like(value)
+
+        value_log_probs = self._base_dist.log_prob(
+            jnp.where(
+                jnp.expand_dims(nans, tuple(range(-len(self.event_shape), 0))),
+                feasible_vals,
+                value
+            )
+        )
         return nan_log_probs + jnp.where(nans, 0., value_log_probs)
 
     def sample(self, key :jax.random.KeyArray, sample_shape: typing.Tuple[int] = ()) -> jnp.ndarray:

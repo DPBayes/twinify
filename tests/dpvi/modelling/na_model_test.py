@@ -172,3 +172,24 @@ class NAModelTest(unittest.TestCase):
         log_prob = na_model.log_prob(x)
 
         self.assertTrue(np.allclose(expected_log_prob, log_prob))
+
+    def test_log_prob_grad_inner_no_nans(self) -> None:
+        def f(bernoulli_probs):
+            base_dist = dists.BernoulliProbs(bernoulli_probs)
+            na_rate = .33
+            na_model = NAModel(base_dist, na_rate)
+
+            x = np.array([
+                1,
+                0,
+                np.nan,
+                0,
+                0,
+                np.nan
+            ]).reshape(-1, 1)
+
+            return na_model.log_prob(x)
+
+        _, vjp_f = jax.vjp(f, np.array([.25, .5, .75]))
+        res = vjp_f(np.ones((6, 3)))
+        self.assertTrue(np.all(np.isfinite(res)), "derivative through NAModel.log_prob gives nans")
