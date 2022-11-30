@@ -27,11 +27,13 @@ class PostprocessingResult(InferenceResult):
         return self._base_result
 
     @property
-    def postprocess_fn(self) -> TGuardedPostprocessFunction:
-        return self._postprocess_fn
+    def postprocess_fn(self) -> Optional[TGuardedPostprocessFunction]:
+        return self._postprocessing_fn
 
     def postprocess(self, x: np.ndarray) -> pd.DataFrame:
-        return self.postprocess_fn(x, self._data_description)
+        if self.postprocess_fn is not None:
+            return self.postprocess_fn(x)
+        return x
 
     def generate(self,
             rng: d3p.random.PRNGState,
@@ -44,11 +46,11 @@ class PostprocessingResult(InferenceResult):
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
         base_type = type(self._base_result)
-        pickle.dump(base_type)
+        pickle.dump(base_type, write_io)
 
         self._base_result._store_to_io(write_io)
 
-        pickle.dump(self._data_description)
+        pickle.dump(self._data_description, write_io)
 
 
     @classmethod
