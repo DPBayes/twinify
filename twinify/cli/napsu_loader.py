@@ -30,4 +30,15 @@ def load_cli_napsu(
             )
         )
 
-    return twinify.napsu_mq.NapsuMQModel(column_feature_set)
+    drop_na = args.drop_na
+
+    def preprocess_drop_na_fn(df: pd.DataFrame) -> pd.DataFrame:
+        if drop_na:
+            df = df.dropna()
+
+        return df
+
+    return preprocessing_model.PreprocessingModel(
+        twinify.napsu_mq.NapsuMQModel(column_feature_set),
+        preprocess_drop_na_fn
+    )

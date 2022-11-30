@@ -1,7 +1,7 @@
 import argparse
 from typing import List, Tuple, Callable
 import pandas as pd
-import numpyro.infer
+import numpyro.infer.autoguide
 
 import twinify
 import twinify.dpvi
@@ -14,7 +14,8 @@ def _load_cli_dpvi_automodel(
         mixture_components: int,
         clipping_threshold: 1.,
         num_epochs: int,
-        subsample_ratio: float
+        subsample_ratio: float,
+        drop_na: bool
     ) -> twinify.dpvi.DPVIModel:
 
     with open(model_path, 'r') as f:
@@ -26,14 +27,14 @@ def _load_cli_dpvi_automodel(
     model_fn = automodel.make_model(features, mixture_components)
 
     # build variational guide for optimization
-    guide_fn = numpyro.infer.AutoDiagonalNormal(model_fn)
+    guide_fn = numpyro.infer.autoguide.AutoDiagonalNormal(model_fn)
 
     # postprocessing for automodel
     def preprocess_fn(df: pd.DataFrame) -> pd.DataFrame:
 
         # pick features from data according to model file
-        feature_names = {feature.name for feature in features}
-        missing_features = feature_names.difference(df.columns)
+        feature_names = [feature.name for feature in features]
+        missing_features = set(feature_names).difference(df.columns)
         if missing_features:
             raise automodel.ParsingError(
                 "The model specifies features that are not present in the data:\n{}".format(
@@ -43,12 +44,17 @@ def _load_cli_dpvi_automodel(
 
         df = df.loc[:, feature_names]
 
+        if drop_na:
+            df = df.dropna()
+
         for feature in features:
             df = feature.preprocess_data(df)
 
+        print(f"After preprocessing the data has {df.shape[0]} entries with {df.shape[1]} features each.")
+
         return df
 
-    postprocess_fn = twinify.dpvi.automodel.postprocess_function_factory(features)
+    postprocess_fn = automodel.postprocess_function_factory(features)
 
     model = twinify.dpvi.DPVIModel(
         model_fn, guide_fn,
@@ -81,8 +87,20 @@ def load_cli_dpvi(
                 args.sampling_ratio
             )
 
+            drop_na = args.drop_na
+
+            def preprocess_drop_na_fn(df: pd.DataFrame) -> pd.DataFrame:
+                df = preprocess_fn(df)
+
+                if drop_na:
+                    df = df.dropna()
+
+                print(f"After preprocessing the data has {df.shape[0]} entries with {df.shape[1]} features each.")
+
+                return df
+
             model = preprocessing_model.PreprocessingModel(
-                model, preprocess_fn, postprocess_fn
+                model, preprocess_drop_na_fn, postprocess_fn
             )
 
         except (ModuleNotFoundError, FileNotFoundError) as e:
@@ -97,5 +115,6 @@ def load_cli_dpvi(
             args.k,
             args.clipping_threshold,
             args.num_epochs,
-            args.sampling_ratio
+            args.sampling_ratio,
+            args.drop_na
         )
