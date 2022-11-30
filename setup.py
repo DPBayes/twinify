@@ -34,6 +34,7 @@ setuptools.setup(
         'examples': [
             'xlrd < 2.0',
             'scikit-learn',
+            'openpyxl'
         ],
         'dev': [
             'pytest'

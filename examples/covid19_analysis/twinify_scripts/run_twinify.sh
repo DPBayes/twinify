@@ -5,6 +5,6 @@ ARGS=$@
 OUT_FILE_NAME=`echo $ARGS | sed -r 's/--seed=([0-9]+) --epsilon=(.+)/seed\1_eps\2/'`
 
 mkdir -p ../results/full_model
-COMMAND="python ../../../twinify/__main__.py ../covid19_data.csv ../models/model.txt ../results/full_model/syn_data_$OUT_FILE_NAME %../models/run_params.txt $ARGS"
+COMMAND="twinify vi ../covid19_data.csv ../models/model.txt ../results/full_model/syn_data_$OUT_FILE_NAME --num_epochs=200 --num_synthetic=20000 --sampling_ratio=0.01 --k=50 --clipping_threshold=1.0 $ARGS"
 echo $COMMAND
 $COMMAND

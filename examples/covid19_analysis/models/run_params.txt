@@ -1,7 +1,0 @@
---num_epochs=200
---drop_na=0
---num_synthetic=20000
---sampling_ratio=0.01
---k=50
---clipping_threshold=1.0
---visualize=store

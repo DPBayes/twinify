@@ -1,0 +1,7 @@
+SARS-Cov-2 exam result: Bernoulli
+Rhinovirus/Enterovirus: Bernoulli
+Leukocytes: Normal
+Inf A H1N1 2009: Bernoulli
+Eosinophils: Normal
+Parainfluenza 2: Categorical
+Strepto A: Categorical

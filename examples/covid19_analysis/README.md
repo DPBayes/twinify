@@ -15,6 +15,10 @@ bash run_example.sh
 
 in your terminal. Be aware that this may take a long time.
 
+### Note
+Unfortunately, due to how twinify evolved since this example was originally set up, it is currently not possible
+to run the components that infer the non-private baseline for this example.
+
 ## Contents (Files and Folders)
 
 - `data_preprocessing`

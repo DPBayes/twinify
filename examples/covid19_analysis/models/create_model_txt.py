@@ -1,3 +1,12 @@
+""" Parses the list of feature names and builds an automodel txt file for twinify.
+
+For this we use a simple heuristic to determine the feature distributions based on the data:
+    - Bernoulli distribution if the type of the feature is integer or object and there are 2 possible values
+    - Categorical distribution if the type of the feature is object
+    - Poisson distribution if the type of the feature is integer
+    - Normal distribution for all other cases.
+ """
+
 import numpy as np
 import pandas as pd
 
