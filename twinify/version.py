@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-MAJOR_VERSION = 1
+MAJOR_VERSION = 2
 MINOR_VERSION = 0
 PATCH_VERSION = 0
 EXT_VERSION = ""
