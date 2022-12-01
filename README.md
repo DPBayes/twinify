@@ -24,7 +24,7 @@ twinify can be used as a software library from your own application or as a stan
 ### Choosing the Method
 The first thing you need to do is decide whether you want to use the NAPSU-MQ approach or learn a probabilistic model using DPVI.
 NAPSU-MQ
-- **NAPSU-MQ** learns a maximum entropy distribution that best reproduces a set of user chosen set of marginal queries on the data. NAPSU-MQ produces a model that encapsulates the additional uncertainty introduced by differential privacy. However, currently it is only suitable for fully categorical data. May exhibit long runtimes for data sets with many feature dimensions.
+- **NAPSU-MQ** learns a maximum entropy distribution that best reproduces a user-chosen set of marginal queries on the data. NAPSU-MQ produces a model that encapsulates the additional uncertainty introduced by differential privacy. However, currently it is only suitable for fully categorical data. May exhibit long runtimes for data sets with many feature dimensions.
 - **DPVI** is capable of learning any probabilistic model you specify, for categorical, continuous or mixed data. However, the result is only an approximation to the true posterior and it is unable to explicitly capture additional uncertainty due to differential privacy.
 
 If you have fully categorical data, you will likely obtain better results with **NAPSU-MQ**. However, if your data has a large number of feature dimensions, you may find that you can get acceptable results in shorter time using **DPVI**.
