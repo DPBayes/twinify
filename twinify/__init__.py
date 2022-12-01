@@ -33,3 +33,4 @@ import twinify.napsu_mq
 from twinify.dataframe_data import DataDescription
 from twinify.version import VERSION
 __version__ = VERSION
+from twinify.base import InferenceModel, InferenceResult
