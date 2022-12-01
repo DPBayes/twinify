@@ -80,8 +80,8 @@ class TestNapsuMQ(unittest.TestCase):
         ]
 
         rng = d3p.random.PRNGKey(69700241)
-        inference_rng, sampling_rng = d3p.random.split(rng, use_laplace_approximation=False)
-        model = NapsuMQModel(column_feature_set=column_feature_set)
+        inference_rng, sampling_rng = d3p.random.split(rng)
+        model = NapsuMQModel(column_feature_set=column_feature_set, use_laplace_approximation=False)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         napsu_result_file = NamedTemporaryFile("wb")
