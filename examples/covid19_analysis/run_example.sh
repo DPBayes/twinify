@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: CC-BY-NC-4.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
+
 set -e # stop on errors
 
 # download data and extracting relevant features

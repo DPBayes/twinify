@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
+
 import numpy as np
 import pandas as pd
 import jax.numpy as jnp

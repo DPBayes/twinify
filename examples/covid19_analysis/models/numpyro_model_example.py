@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: CC-BY-NC-4.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
+
 import jax.numpy as np
 import numpyro.distributions as dist
 from numpyro.primitives import sample, plate

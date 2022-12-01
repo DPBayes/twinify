@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: CC-BY-NC-4.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
+
 """ Parses the list of feature names and builds an automodel txt file for twinify.
 
 For this we use a simple heuristic to determine the feature distributions based on the data:

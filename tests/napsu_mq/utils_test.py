@@ -1,4 +1,5 @@
-# Copyright 2022 twinify Developers and their Assignees
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

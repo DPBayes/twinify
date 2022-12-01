@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: CC-BY-NC-4.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
+
 ## batch script running twinify to replicate covid19 example data given seed and epsilon
 
 ARGS=$@

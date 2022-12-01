@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: CC-BY-NC-4.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
+
 ## slurm batch script running covid19 example with multiple seeds and values for epsilon
 #SBATCH --time 4:00:00
 #SBATCH --mem=2G

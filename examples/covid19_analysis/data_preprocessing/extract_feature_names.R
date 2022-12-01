@@ -1,8 +1,10 @@
-# This script was initially used to parse the feature list of the data set. It is included
-# for completeness but not required to run the example.
-
+# SPDX-License-Identifier: CC-BY-NC-4.0
+# SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees
 # Derived from code of Souza et al.
 # https://github.com/souzatharsis/covid-19-ML-Lab-Test/blob/master/src/COVID-19%20Machine%20Learning-Based%20Rapid%20Diagnosis%20From%20Common%20Laboratory%20Tests.ipynb
+
+# This script was initially used to parse the feature list of the data set. It is included
+# for completeness but not required to run the example.
 
 # load aux functions
 source("../00-Funcs.R")
