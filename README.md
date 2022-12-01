@@ -150,7 +150,9 @@ samples `num_data_per_parameter_sample` data points for each parameter sample fr
 
 Note that `DPVIResult.load` requires the same NumPyro model as used for inference to be provided during model loading.
 
-TODO: reference the example notebooks
+#### Examples
+You can check out a short example of how to use twinify as a library implementing the NAPSU-MQ approach through `twinify.napsu_mq.NapsuMQModel` and
+`twinify.napsu_mq.NapsuMQResult` in the jupyter notebook in `examples/NapsuMQ example.ipynb`.
 
 ## Installing Twinify
 
