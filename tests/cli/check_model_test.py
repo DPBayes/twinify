@@ -109,7 +109,6 @@ class CheckModelTests(unittest.TestCase):
         self.verify_output(output, "okay")
         self.assertEqual(retcode, 0)
 
-
     def test_model_factory_broken(self):
         retcode, output = self.run_check_model('model_factory_broken.py')
         self.verify_output(output, "FACTORY", "AttributeError", "unspecified_arg")
