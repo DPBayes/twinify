@@ -41,7 +41,7 @@ class DPVIResult(InferenceResult):
         self._final_elbo = final_elbo
         self._data_description = data_description
 
-    __twinify_model_output_site = '_twinify_output'
+    _twinify_model_output_site = '_twinify_output'
 
     @staticmethod
     def _mark_model_outputs(model: ModelFunction) -> ModelFunction:
@@ -52,7 +52,7 @@ class DPVIResult(InferenceResult):
             samples = model(*args, **kwargs)
             if len(jnp.shape(samples)) != 2:
                 raise SamplingException("A numpyro model for twinify must return the sampled data as a single two-dimensional array.")
-            numpyro.deterministic(DPVIResult.__twinify_model_output_site, samples)
+            numpyro.deterministic(DPVIResult._twinify_model_output_site, samples)
             return samples
         return _model_wrapper
 
@@ -71,7 +71,7 @@ class DPVIResult(InferenceResult):
             num_data_per_parameter_sample
         )
 
-        samples = samples[self.__twinify_model_output_site]
+        samples = samples[self._twinify_model_output_site]
 
         assert samples.shape[:2] == (num_parameter_samples, num_data_per_parameter_sample)
 

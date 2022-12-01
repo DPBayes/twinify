@@ -134,13 +134,14 @@ class DPVIModel(InferenceModel):
         num_epochs = self._num_epochs
 
         num_data = data.shape[0]
-        batch_size = self.batch_size_for_subsample_ratio(q, num_data)
+        batch_size = np.maximum(self.batch_size_for_subsample_ratio(q, num_data), 1)
+        q = np.maximum(self.subsample_ratio_for_batch_size(batch_size, num_data), q)
         num_iter = self.num_iterations_for_epochs(num_epochs, q)
         dp_scale, act_epsilon, _ = d3p.dputil.approximate_sigma(epsilon, delta, q, num_iter, maxeval=20)
 
         if verbose:
-            scale_per_sample = dp_scale / DPVIModel.batch_size_for_subsample_ratio(args.sampling_ratio, num_data)
-            print(f"Applied noise with std deviation {dp_scale:.2f} (~ {scale_per_sample:.2f} per element in batch)"
+            scale_per_sample = dp_scale / batch_size
+            print(f"Applying noise with std deviation {dp_scale:.2f} (~ {scale_per_sample:.2f} per element in batch)"
                 f" to achieve privacy epsilon of {act_epsilon:.3f} (for delta {delta:.2e}). "
             )
             # TODO: warn for high noise? but when is it too high? what is a good heuristic?

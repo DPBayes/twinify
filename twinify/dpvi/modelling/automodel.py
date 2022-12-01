@@ -229,6 +229,7 @@ class ModelFeature:
         if np.any(column.isna()):
             self._missing_values = True
 
+        # TODO: with the introduction of DataDescription, this is probably somewhat redundant now - need to test
         # if the distribution is a categorical, we need to determine the number
         # of categories
         if self.distribution.is_categorical:
@@ -266,6 +267,9 @@ class ModelFeature:
 
     def instantiate(self, **params):
         return self.distribution(**params)
+
+    def __repr__(self) -> str:
+        return f"ModelFeature({self.name}, {self.distribution}, {self.shape})"
 
 ################################# model parsing ################################
 
@@ -329,7 +333,7 @@ def parse_model(model_str: str) -> List[ModelFeature]:
 
 def extract_features_from_mixture_model(mixture: MixtureModel, feature_names: List[str]) -> List[ModelFeature]:
     features = [ModelFeature.from_distribution_instance(name, dist)
-                for name, dist in zip(feature_names, mixture.dists)]
+                for name, dist in zip(feature_names, mixture.distributions)]
     return features
 
 
@@ -402,7 +406,6 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
         assert N <= num_obs_total
 
         mixture_dists = []
-        dtypes = []
         for feature in features:
             prior_values = {}
             feature_prior_dists = create_feature_prior_dists(feature, k)
@@ -412,10 +415,9 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
                     feature_prior_dist
                 )
 
-            dtypes.append(feature.distribution.support_dtype)
             feature_dist = feature.instantiate(**prior_values)
-            feature_dist = TypedDistribution(feature_dist, dtypes[-1])
-            if feature._missing_values:
+            feature_dist = TypedDistribution(feature_dist, feature.distribution.support_dtype)
+            if feature.has_missing_values:
                 feature_na_prob = sample(
                     "{}_na_prob".format(feature.name),
                     dists.Beta(2.*jnp.ones(k), 2.*jnp.ones(k))
@@ -433,13 +435,9 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
 
 ####################### postprocessing ###########################
 def postprocess_function_factory(features):
-    def postprocess_fn(
-            posterior_samples: Dict[str, np.array], ori_df: pd.DataFrame, feature_names: Sequence[int]
-        ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        syn_data = posterior_samples['x']
-        syn_df = pd.DataFrame(syn_data, columns = feature_names)
+    def postprocess_fn(syn_df: pd.DataFrame) -> pd.DataFrame:
         encoded_syn_df = syn_df.copy()
         for feature in features:
             encoded_syn_df = feature.postprocess_data(encoded_syn_df)
-        return syn_df, encoded_syn_df
+        return encoded_syn_df
     return postprocess_fn

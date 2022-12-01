@@ -34,6 +34,7 @@ setuptools.setup(
         'examples': [
             'xlrd < 2.0',
             'scikit-learn',
+            'openpyxl'
         ],
         'dev': [
             'pytest'
@@ -44,8 +45,8 @@ setuptools.setup(
     },
     entry_points = {
         'console_scripts': [
-            'twinify=twinify.__main__:main',
-            'twinify-tools=twinify.tools.__main__:main'
+            'twinify=twinify.cli.__main__:main',
+            'twinify-tools=twinify.cli.tools.__main__:main'
         ],
     },
     classifiers=[

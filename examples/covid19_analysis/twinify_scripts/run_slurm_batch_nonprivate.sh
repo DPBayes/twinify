@@ -7,10 +7,12 @@
 #SBATCH --output=../results/full_model_nonprivate/slurm-%A_%a.out
 #SBATCH --array=1-10
 
-module load anaconda3/latest
-source activate ~/.conda/envs/twinify
+echo "The non-private components of the example currently do not work. Sorry."
 
-n=$SLURM_ARRAY_TASK_ID
-ARGS=`sed "${n}q;d" seeds_and_eps.txt`
+# module load anaconda3/latest
+# source activate ~/.conda/envs/twinify
 
-srun ./run_twinify_nonprivate.sh $ARGS
+# n=$SLURM_ARRAY_TASK_ID
+# ARGS=`sed "${n}q;d" seeds_and_eps.txt`
+
+# srun ./run_twinify_nonprivate.sh $ARGS

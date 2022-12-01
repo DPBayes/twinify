@@ -1,3 +1,14 @@
+
+print("""
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    NOTE: This script was originally used in the example to compare the output of twinify to the data generated
+       from an identical model learned without privacy constraints as a baseline.
+       Unfortunately, due to how twinify evolved since then, this script is currently no longer works.
+       We will consider upgrading it at some point, but it does not have a priority at this point.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+""")
+exit(0)
+
 #!/usr/bin/env python
 
 # Copyright 2020 twinify Developers and their Assignees
@@ -61,7 +72,6 @@ parser.add_argument("--num_epochs", "-e", default=200, type=int, help="Number of
 parser.add_argument("--sampling_ratio", "-q", default=0.01, type=float, help="Subsampling ratio for DP-SGD.")
 parser.add_argument("--num_synthetic", default=None, type=int, help="Amount of synthetic data to generate. By default as many as input data.")
 parser.add_argument("--drop_na", default=0, type=int, help="Remove missing values from data (yes=1)")
-parser.add_argument("--visualize", default="both", choices=["none", "store", "popup", "both"], help="Options for visualizing the sampled synthetic data. none: no visualization, store: plots are saved to the filesystem, popup: plots are displayed in popup windows, both: plots are saved to the filesystem and displayed")
 
 def initialize_rngs(seed):
     if seed is None:
@@ -241,25 +251,6 @@ def main():
 
     encoded_syn_df.to_csv("{}.csv".format(args.output_path), index=False)
     pickle.dump(posterior_params, open("{}.p".format(args.output_path), "wb"))
-
-    ## illustrate results
-    if args.visualize != 'none':
-        show_popups = args.visualize in ('popup', 'both')
-        save_plots = args.visualize in ('store', 'both')
-        # Missing value rate
-        if not args.drop_na:
-            missing_value_fig = plot_missing_values(syn_df, train_df, show=show_popups)
-            if save_plots:
-                missing_value_fig.savefig(args.output_path + "_missing_value_plots.svg")
-        # Marginal violins
-        margin_fig = plot_margins(syn_df, train_df, show=show_popups)
-        # Covariance matrices
-        cov_fig = plot_covariance_heatmap(syn_df, train_df, show=show_popups)
-        if save_plots:
-            margin_fig.savefig(args.output_path + "_marginal_plots.svg")
-            cov_fig.savefig(args.output_path + "_correlation_plots.svg")
-        if show_popups:
-            plt.show()
 
 if __name__ == "__main__":
     main()
