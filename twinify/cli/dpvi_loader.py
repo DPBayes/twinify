@@ -103,9 +103,11 @@ def load_cli_dpvi(
                 model, preprocess_drop_na_fn, postprocess_fn
             )
 
+            return model
+
         except (ModuleNotFoundError, FileNotFoundError) as e:
             raise automodel.ParsingError(
-                "Unable to read the model file.:\n" + e.msg
+                "UNABLE TO READ THE MODEL FILE.:\n" + e.msg
             )
 
     else:

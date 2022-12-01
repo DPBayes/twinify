@@ -13,7 +13,7 @@ def model_factory(twinify_args: argparse.Namespace, unparsed_args: Iterable[str]
     model_args_parser.add_argument('--prior_mu', type=float, default=0.)
     args = model_args_parser.parse_args(unparsed_args, twinify_args)
 
-    d = data_description.num_features
+    d = data_description.num_columns
     print(f"Model using prior mu = {args.unspecified_arg}")
 
     def model(z = None, num_obs_total = None) -> None:

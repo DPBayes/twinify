@@ -22,6 +22,7 @@ import jax
 import typing
 
 import numpyro.distributions as dists
+from numpyro.distributions.transforms import biject_to
 
 
 class _NAConstraint(dists.constraints.Constraint):
@@ -48,6 +49,9 @@ class _NAConstraint(dists.constraints.Constraint):
 
 
 na_constraint = _NAConstraint
+@biject_to.register(na_constraint)
+def _transform_to_na(constraint):
+    return biject_to(constraint.base_constraint)
 
 
 class NAModel(dists.Distribution):

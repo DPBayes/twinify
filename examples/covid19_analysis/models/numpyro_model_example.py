@@ -58,9 +58,9 @@ def model(x=None, num_obs_total=None):
     rhino_test_na_dist = NAModel(rhino_test_dist, rhino_test_na_prob)
 
     with plate("batch", num_obs_total, N):
-        x_leuko = slice_feature(x, 0)
-        x_rhino = slice_feature(x, 1)
+        x_leuko = slice_feature(x, 0, 1)
+        x_rhino = slice_feature(x, 1, 2)
 
         y_leuko = sample('Leukocytes', leuko_na_dist, obs=x_leuko)
         y_rhino = sample('Rhinovirus/Enterovirus', rhino_test_na_dist, obs=x_rhino)
-    return np.hstack(y_leuko, y_rhino)
+    return np.hstack((y_leuko.reshape(-1, 1), y_rhino.reshape(-1, 1)))

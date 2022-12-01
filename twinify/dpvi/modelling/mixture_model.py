@@ -25,6 +25,7 @@ import numpyro.distributions as dists
 
 from jax.scipy.special import logsumexp
 from numpyro.distributions.constraints import Constraint
+from numpyro.distributions.transforms import biject_to
 import typing
 
 
@@ -112,7 +113,7 @@ class _CombinedConstraint(Constraint):
 
 
 combined_constraint = _CombinedConstraint
-
+# TODO: need to implement a transform for this
 
 class MixtureModel(dists.Distribution):
     """ A general purpose mixture model.
