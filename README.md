@@ -1,9 +1,7 @@
 # Twinify
-Twinify is a software package for **privacy-preserving generation of a synthetic twin** to a given sensitive **data set**.
+Twinify is a software package for **privacy-preserving generation of a synthetic twin** to a given sensitive tabular **data set**.
 
-Twinify relies on [NumPyro](https://github.com/pyro-ppl/numpyro), a versatile probabilistic programming framework similar to [Pyro](http://pyro.ai/), for modelling and inference purposes. NumPyro uses fast CPU and GPU kernels for execution, which are provided by the [JAX](https://github.com/google/jax/) framework. Differentially private training routines for NumPyro are introduced by the [d3p](https://github.com/DPBayes/dppp) package.
-
-Twinify implements the differentially private data sharing process introduced by [Jälkö et al.](https://arxiv.org/pdf/1912.04439.pdf) and offers automatic modelling for easy building of models fitting the data. If you are already experienced with NumPyro you can also implement your own model directly.
+On a high level, twinify follows the differentially private data sharing process introduced by [Jälkö et al.](https://arxiv.org/pdf/1912.04439.pdf). Depending on the nature of your data, twinify implements either the NAPSU-MQ approach described by [Räisä et al.](https://arxiv.org/abs/2205.14485) or finds an approximate parameter posterior for any probabilistic model you formulated using differentially private variational inference (DPVI). For the latter, twinify also offers automatic modelling for easy building of models fitting the data. If you have existing experience with NumPyro you can also implement your own model directly.
 
 <img alt="A comic-style illustration of a group of individual people all of different height being turned into by a group of uniformly looking people of different height, wearing masks to stay anonymous" width="768px" src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/Illustration.jpg" />
 
@@ -17,87 +15,161 @@ As an example, consider a population of individuals with varying height shown in
 
 <img alt="A three panel illustration of how a model distribution is fit to existing data and new data sampled from it." src="https://raw.githubusercontent.com/DPBayes/twinify/master/figures/ProbabilisticModellingStrip.jpg" width="768px" />
 
+As the learning of the model is performed under differential privacy, the sampled data preserves the anonymity of individuals while maintaining the statistical properties of the original population. This is shown in the second panel in the illustration above.
 
-As the learning of the model is done under differential privacy, the sampled data preserves the anonymity of individuals while maintaining the statistical properties of the original population. This is shown in the second panel in the illustration above.
+## Using Twinify
+
+twinify can be used as a software library from your own application or as a stand-alone command line tool operating on data sets provided as a [CSV file](https://en.wikipedia.org/wiki/Comma-separated_values). Either way, the high-level steps are the same and we outline them in the following for the command line tool. You can find a brief overview of twinify's API for library use further below.
+
+### Choosing the Method
+The first thing you need to do is decide wether you want to use the NAPSU-MQ approach or learn a probabilistic model using DPVI.
+NAPSU-MQ
+- **NAPSU-MQ** learns a maximum entropy distribution that best reproduces a set of marginal queries on the data that you can specify. NAPSU-MQ produces a model that encapsulates the additional uncertainty introduced by differential privacy. However, currently it is only suitable for fully categorical data. May exhibit long runtimes for data sets with many feature dimensions.
+- **DPVI** is capable of learning any probabilistic model you specify, for categorical, continuous or mixed data. However, the result is only an approximation to the true posterior and it is unable to explicitly capture additional uncertainty due to differential privacy.
+
+If you have fully categorical data, you will likely obtain better results with **NAPSU-MQ**. However, if your data has a large number of feature dimensions, you may find that you can get acceptable results in shorter time using **DPVI**.
+
+If your data contains non-categorical features, **DPVI** is your only choice. **DPVI** might also be an interesting option if you have strong data-independent prior knowledge that you want to incorporate into your model.
+
+### Defining the Model
+The main thing you need to do next for either method is to define the probabilistic model to be learned. The following describes the modelling approaches for the different methods, assuming an input csv file with two features that are titled `Age` and `Height (cm)` and `Eye color`.
+
+#### NAPSU-MQ: Defining Marginal Queries
+For NAPSU-MQ this means that you must specify the the marginal queries to preserve. You can in principle select any number of queries with any subset of features, however, the larger the number of queries the longer the fitting of the model will take.
+
+To specify marginal queries, you have to create a text file in which you list one query per line and all features covered by the query by their column name in the data csv file, separated by commas.
+
+We assume here that the feature Age and Height are discretized and require NAPSU-MQ to fit all feature marginals as well as the two-way marginal over the combined features Age and Height, resulting in the following model/query file:
+
+```
+Age
+Height (cm)
+Age, Height (cm)
+Eye color
+```
+
+#### DPVI: Automatic Modelling
+Twinifys automatic modelling feature for DPVI builds a mixture model for user specified *feature distributions*. Technically speaking, the feature distribution specifies the distribution of the feature conditioned on the latent mixture component assignment. Under this conditioning, feature distributions are assumed to be independent.
+
+To specify the feature distributions, you have to create a text file in which you only need to specify a single distribution for each of your features. For the assumed example the model file might look like:
+
+```
+Age        : Poisson
+# you can also have comments in here
+Height (cm): Normal
+Eye color  : Categorical
+```
+
+A example of such text file for a larger data set is available in `examples/covid19_analysis/models/full_model.txt`. In automatic modelling twinify chooses a suitable non-/weakly informative prior for the parameters of the feature distribution. It also automates the encoding of string valued features into a suitable domain according to the chosen feature distribution.
+
+#### DPVI: Building Models in NumPyro
+If you are familiar with the NumPyro probabilistic programming framework and want a more flexible way of specifying models, you can provide a Python file containing NumPyro code to Twinify. All you need to do is define a `model` function that specifies the NumPyro model for a single data instance `x`. You also have to define functions for pre- and postprocessing of data (if required). You can find details on the exact requirements for NumPyro models in the FAQ below and an example in `examples/covid19_analysis/models/numpyro_model_example.py`.
+
+### How to Run Twinify
+Once you have have set the probabilistic model, you can run Twinify by calling from your command line
+
+```
+twinify [napsu|vi] input_data_path model_path output_path_prefix
+```
+
+where the model is specified as
+
+- NAPSU-MQ: text file containing marginal queries
+- DPVI: either the text file for automatic modelling or as a python module that contains the NumPyro model.
+
+Twinify will output the generated synthetic data as `output_path_prefix.csv` and a file with learned model parameters as `output_path_prefix.p`.
+
+There are a number of (optional) command line arguments that further influence twinify's behaviour:
+
+- `--epsilon` - Privacy parameter ε (positive real number): Use this argument to specify the ε privacy level. Smaller is better (but may negatively impact utility). In general values less than 1 are considered strong privacy and values less than 2 still reasonable.
+- `--delta` - Privacy parameter δ (positive real number): Use this argument to override the default choice for δ (should rarely be required). Smaller is better. Values larger than 1/N, where N is the size of your data set, are typically considered unsafe.
+- `--num_synthetic` - Number of synthetic samples (integer): Use this to set how many samples you want from the generative model. This has no effect on the privacy guarantees for the synthetic data.
+
+- `--seed` - Stochasticity seed (integer): Use this argument to seed the initial random state to fix internal stochasticity of Twinify *if you need reproducibility*. **Twinify will use a strong source of randomness by default** if this argument is not given.
+- `--drop_na` - Preprocessing behavior: Use this flag to remove any data instances with at least one missing value.
+
+Command line arguments specific to DPVI (ignored by NAPSU-MQ):
+
+- `--k` - Number of mixture components (integer): Use this argument to set the number of mixture components when automatic modelling is used. A reasonable choice would be of same magnitude as the number of features.
+- `--sampling_ratio`, `-q` - Subsampling ratio (real number): Use this argument to set the relative size of subsets (batches) of data the iteratively private learning is uses. This has privacy implications and is further discussed in FAQ.
+- `--num_epochs`,`-e`, - Number of learning epochs (integer): Use this argument to set the number of passes through the data (*epochs*) the private learning performs. This has privacy implications and is further discussed in FAQ.
+- `--clipping_threshold` - Privacy parameter (positive real number): Use this argument to adapt the clipping of gradients, an internal parameter for the private learning that limits how much each sample can effect the learning. It is only advised for experienced users to change this parameter.
+
+As an example, say we have data in `my_data.csv` and a model description for DPVI with automatic modelling in `my_model.txt`. We want 1000 samples of generated data to be stored in `my_twin.csv` and fix Twinify's internal randomness with a seed for reproducibility. This is how we run twinify:
+
+```
+twinify vi my_data.csv my_model.txt my_twin --seed=123 --num_synthetic=1000
+```
+
+In the case that we wrote a model with NumPyro instead of relying on twinify's automatic modelling, our call would like like
+
+```
+twinify vi my_data.csv my_numpyro_model.py my_twin --seed=123 --num_synthetic=1000
+```
+
+Assuming that the data is entirely categorical and that we have set up a list of marginal queries in `my_queries.txt`, we can run twinify using NAPSU-MQ with the following command:
+
+```
+twinify napsu my_data.csv my_queries.txt my_twin --seed=123 --num_synthetic=1000
+```
+
+### Library API Overview
+
+Using twinify as a library, you retain full control over data loading, pre- and postprocessing, in contrast to the command line tool.
+The main actors in the twinify APIs are `twinify.InferenceModel` and `twinify.InferenceResult`.
+
+#### `InferenceModel`
+`InferenceModel` fully encapsulates a model and algorithm to fit it to the data. It defines a single function
+
+```
+fit(data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, **kwargs) -> InferenceResult
+```
+which takes an input data set given as a [pandas](https://pandas.pydata.org/) DataFrame as well as privacy parameters and a randomness state. It returns
+a representation of the model fitted to the data in the form of a `InferenceResult` object.
+
+Currently twinify provides `twinify.dpvi.DPVIModel` and `twinify.napsu_mq.NapsuMQModel` as concrete implementations, with the following initializers:
+- `DPVIModel(model: NumPyroModelFunction, guide: Optional[NumPyroGuideFunction] = None, clipping_threshold: float = 1., num_epochs: int = 1000, subsample_ratio: float = 0.01)`
+- `NapsuMQModel(column_feature_set: Iterable[FrozenSet[str]], use_laplace_approximation: bool = True)`
+
+#### `InferenceResult`
+`InferenceResult` represents a learned model from which synthetic data can be generated. To that end it defines the method
+
+```
+generate(rng: d3p.random.PRNGState, num_parameter_samples: int, num_data_per_parameter_sample: int = 1, single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]
+```
+
+This method first draws `num_parameter_samples` parameter samples from the parameter posterior represented by the `InferenceResult` object and then
+samples `num_data_per_parameter_sample` data points for each parameter sample from the model, and returns them as either one large combined DataFrame or an iterable over one DataFrame per parameter sample.
+
+`InferenceResult` classes also allows saving and loading of learned models via the `save` and static `load` methods respectively.
+
+Note that `DPVIResult.load` requires the same NumPyro model as used for inference to be provided during model loading.
+
+TODO: reference the example notebooks
 
 ## Installing Twinify
 
-Twinify will appear on the Python Package Index soon. Until then, install directly from github via `pip`. For the latest release bundle use
+A stable version of twinify can be installed from the Python Package Index via pip using the following command:
 ```
-pip install git+https://github.com/DPBayes/twinify.git@stable
+pip install twinify
 ```
 
-or installed from the cloned repository for the current development version (this might contain breaking changes, however):
-
+Alternatively, you can install twinify from the cloned repository to get the current development version (this might contain breaking changes, however):
 ```
 git clone https://github.com/DPBayes/twinify
 cd twinify
 pip install .
 ```
 
-## Using Twinify
-You can use Twinify for arbitrary tabular data sets. The main thing you need to do is to set up the probabilistic model for which we fit the data. Twinify supports automatic model building for users with less experience in programming and probabilistic modelling but you can also implement a full-fledged model using NumPyro.
-
-### Automatic Modelling
-Twinifys automatic modelling feature builds a mixture model for user specified feature distributions. You can set up a text file, in which you only need to specify a single distribution for each of your features. A feature is identified by the full column name in the data set csv-file. For a data set containing features `Age` and `Height (cm)` the model file might look like
-
-```
-Age        : Poisson
-# you can also have comments in here
-Height (cm): Normal
-```
-
-A example of such text file for a larger data set is available in `examples/covid19_analysis/models/full_model.txt`. Automatic modelling also automates the encoding of string valued features into suitable domain.
-
-### Building Models in NumPyro
-If you are familiar with NumPyro and want a more flexible way of specifying models, you can provide a Python file containing NumPyro code to Twinify. All you need to do is define a `model` function that specifies the NumPyro model for a single data instance `x`. You also have to define functions for pre- and postprocessing of data (if required). You can find details on the exact requirements for NumPyro models in the FAQ and an example in `examples/covid19_analysis/models/numpyro_model_example.py`.
-
-### How to Run Twinify
-Once you have have set the probabilistic model, you can run Twinify by calling from your command line
-
-```
-twinify input_data_path model_path output_path_prefix
-```
-
-where the model can be specified either as the text file for automatic modelling or as a python module that contains the NumPyro model.
-
-Twinify will output the generated synthetic data as `output_path_prefix.csv`, a file with learned model parameters as `output_path_prefix.p`
-and, optionally, plots visualizing summary characteristics of the generated data as `output_path_prefix_missing_value_plots.svg`, `output_path_prefix_marginal_plots.svg` and `output_path_prefix_correlation_plots.svg`.
-
-There is a number of optional command line arguments that further influence Twinify's behaviour:
-
-- `--epsilon` - Privacy parameter ε (positive real number): Use this argument to specify the ε privacy level. Smaller is better (but may negatively impact utility). In general values less than 1 are considered strong privacy and values less than 2 still reasonable.
-- `--delta` - Privacy parameter δ (positive real number): Use this argument to override the default choice for δ (should rarely be required). Smaller is better. Values larger than 1/N, where N is the size of your data set, are typically considered unsafe.
-- `--num_synthetic` - Number of synthetic samples (integer): Use this to set how many samples you want from the generative model. This has no effect on the privacy guarantees for the synthetic data.
-- `--k` - Number of mixture components (integer): Use this argument to set the number of mixture components when automatic modelling is used. A reasonable choice would be of same magnitude as the number of features.
-- `--sampling_ratio`, `-q` - Subsampling ratio (real number): Use this argument to set the relative size of subsets (batches) of data the iteratively private learning is uses. This has privacy implications and is further discussed in FAQ.
-- `--num_epochs`,`-e`, - Number of learning epochs (integer): Use this argument to set the number of passes through the data (*epochs*) the private learning performs. This has privacy implications and is further discussed in FAQ.
-- `--clipping_threshold` - Privacy parameter (positive real number): Use this argument to adapt the clipping of gradients, an internal parameter for the private learning that limits how much each sample can effect the learning. It is only advised for experienced users to change this parameter.
-- `--seed` - Stochasticity seed (integer): Use this argument to seed the initial random state to fix internal stochasticity of Twinify if you need reproducibility. If not given, Twinify will use a strong source of randomness.
-- `--drop_na` - Preprocessing behavior (0 or 1): Use this argument to remove (1) or keep (0) data instances with missing values.
-- `--visualize` - Visualization behavior ("none", "store", "popup" or "both"): Use this argument to control whether Twinify provides a visualization of summary characteristics of the generated data. Options are:
-    - `none`: Disable visualization.
-    - `store`: Store the plots as files.
-    - `popup`: Show the plots in popup windows after sampling.
-    - `both`: Store the plots as files and show popup windows.
-
-As an example, say we have data in `my_data.csv` and a model description for automatic modelling in `my_model.txt`. We want 1000 samples of generated data to be stored in `my_twin.csv` and fix Twinify's internal randomness with a seed for reproducibility. We also want to store the plots of summary characteristic visualizations but not display them at runtime. This is how we run Twinify:
-
-```
-twinify my_data.csv my_model.txt my_twin --seed=123 --num_synthetic=1000 --visualize=store
-```
-
-In the case that we wrote a model with NumPyro instead of relying on Twinify's automatic modelling, our call would like like
-
-```
-twinify my_data.csv my_numpyro_model.py my_twin --seed=123 --num_synthetic=1000 --visualize=store
-```
-
 ## Technical detail FAQ:
+
+### Can you tell me some details about the technical implementation?
+
+Twinify relies on [NumPyro](https://github.com/pyro-ppl/numpyro), a versatile probabilistic programming framework similar to [Pyro](http://pyro.ai/), for modelling and inference purposes. NumPyro uses fast CPU and GPU kernels for execution, which are provided by the [JAX](https://github.com/google/jax/) framework. Differentially private training routines for NumPyro are introduced by the [d3p](https://github.com/DPBayes/dppp) package.
 
 ### I'm unhappy with the quality of the generated data, what hyperparameters can I tweak?
 
-First off, we need to warn you about **tweaking the hyperparameters** based on quality of the synthetic data: If you do that your choice will end up tailored to your specific data set which **can leak private information in subtle ways, degrading the privacy guarantees given by Twinify**. Unfortunately, there's is no simple way to work around that other than finding good parameters on a similar public data set before working on your sensitive data.
+First off, we need to warn you about **tweaking the hyperparameters** based on quality of the synthetic data: If you do that your choice will end up tailored to your specific data set which **can leak private information in subtle ways, degrading the privacy guarantees given by twinify**. Unfortunately, there's is no simple way to work around that other than finding good parameters on a similar public data set before working on your sensitive data.
 
 If it is possible, you can usually improve quality of the synthetic data by relaxing your privacy constraints (i.e., choosing a larger ε for the same δ).
 
@@ -142,12 +214,13 @@ where ![](https://render.githubusercontent.com/render/math?math=%5Cphi_d%28%5Cma
 ### What constraints does Twinify set on NumPyro models?
 There are only a few constraints Twinify imposes. These are listed below.
 
-You *must* define a function `model(x, num_obs_total)` containing the NumPyro model with the following constraints:
+You *must* define a function `model(x = None, num_obs_total = None)` containing the NumPyro model with the following constraints:
 
 - `model` handles a single data instance at once and gets all data features in a single vector, i.e., `x` has shape `(num_features,)`.
 - Feature values in `x` are ordered as they appear in the data set.
-- `num_obs_total` is the number of total observations (i.e., the size of your data set), that you can use to scale the likelihood accordingly
-- `model` needs contain a sample site called `x` that samples a full data instance, similar to argument `x`. You can use `twinify.interface.sample_combined` as a quick way to combine samples of features you modelled by separate distributions.
+- `num_obs_total` is the number of total observations (i.e., the size of your data set) that you can use to scale the likelihood accordingly.
+- During data generation, `x` and `num_obs_total` will both be `None`.
+- `model` must return a sample for `x` with features following the same order as in the input.
 
 You *may* specify a SVI `guide` function with the same arguments as `models`. If you do not, Twinify uses NumPyro's automatic guides.
 
@@ -189,10 +262,22 @@ When using Twinify, please cite
 @article{jalko19,
     title={Privacy-preserving data sharing via probabilistic modelling},
     author={Joonas Jälkö and Eemil Lagerspetz and Jari Haukka and Sasu Tarkoma and Samuel Kaski and Antti Honkela},
-    year={2019},
-    eprint={1912.04439},
-    archivePrefix={arXiv},
-    note = {\url{https://arxiv.org/pdf/1912.04439.pdf}},
-    primaryClass={stat.ML}
+    year={2021},
+    journal={Patterns},
+    volume={2},
+    number={7},
+    publisher={Elsevier}
+}
+```
+
+For the NAPSU-MQ method, cite
+
+```
+@article{raisa22,
+    title={Noise-Aware Statistical Inference with Differentially Private Synthetic Data},
+    author={Ossi Räisä and Joonas Jälkö and Samuel Kaski and Antti Honkela},
+    year={2022},
+    publisher = {arXiv},
+    url = {https://arxiv.org/abs/2205.14485}
 }
 ```

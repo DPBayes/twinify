@@ -16,3 +16,4 @@ if _jnp.array([1.]).dtype != _jnp.float64:
 import twinify.dpvi
 from twinify.version import VERSION
 __version__ = VERSION
+from twinify.base import InferenceModel, InferenceResult
