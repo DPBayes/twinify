@@ -32,7 +32,7 @@ If you have fully categorical data, you will likely obtain better results with *
 If your data contains non-categorical features, **DPVI** is your only choice. **DPVI** might also be an interesting option if you have strong data-independent prior knowledge that you want to incorporate into your model.
 
 ### Defining the Model
-The main thing you need to do next for either method is to define the probabilistic model to be learned. The following describes the modelling approaches for the different methods, assuming an input csv file with two features that are titled `Age` and `Height (cm)` and `Eye color`.
+The main thing you need to do next for either method is to define the probabilistic model to be learned. The following describes the modelling approaches for the different methods, assuming an input csv file with three features that are titled `Age` and `Height (cm)` and `Eye color`.
 
 #### NAPSU-MQ: Defining Marginal Queries
 For NAPSU-MQ this means that you must specify the the marginal queries to preserve. You can in principle select any number of queries with any subset of features, however, the larger the number of queries the longer the fitting of the model will take.
@@ -82,7 +82,7 @@ Twinify will output the generated synthetic data as `output_path_prefix.csv` and
 There are a number of (optional) command line arguments that further influence twinify's behaviour:
 
 - `--epsilon` - Privacy parameter ε (positive real number): Use this argument to specify the ε privacy level. Smaller is better (but may negatively impact utility). In general values less than 1 are considered strong privacy and values less than 2 still reasonable.
-- `--delta` - Privacy parameter δ (positive real number): Use this argument to override the default choice for δ (should rarely be required). Smaller is better. Values larger than 1/N, where N is the size of your data set, are typically considered unsafe.
+- `--delta` - Privacy parameter δ (positive real number between 0 and 1): Use this argument to override the default choice for δ (should rarely be required). Smaller is better. Recommended to be less than 1/N, where N is the size of your data set. Values larger are typically considered unsafe.
 - `--num_synthetic` - Number of synthetic samples (integer): Use this to set how many samples you want from the generative model. This has no effect on the privacy guarantees for the synthetic data.
 
 - `--seed` - Stochasticity seed (integer): Use this argument to seed the initial random state to fix internal stochasticity of Twinify *if you need reproducibility*. **Twinify will use a strong source of randomness by default** if this argument is not given.
@@ -91,7 +91,7 @@ There are a number of (optional) command line arguments that further influence t
 Command line arguments specific to DPVI (ignored by NAPSU-MQ):
 
 - `--k` - Number of mixture components (integer): Use this argument to set the number of mixture components when automatic modelling is used. A reasonable choice would be of same magnitude as the number of features.
-- `--sampling_ratio`, `-q` - Subsampling ratio (real number): Use this argument to set the relative size of subsets (batches) of data the iteratively private learning is uses. This has privacy implications and is further discussed in FAQ.
+- `--sampling_ratio`, `-q` - Subsampling ratio (real number between 0 and 1): Use this argument to set the relative size of subsets (batches) of data the iteratively private learning is uses. This has privacy implications and is further discussed in FAQ.
 - `--num_epochs`,`-e`, - Number of learning epochs (integer): Use this argument to set the number of passes through the data (*epochs*) the private learning performs. This has privacy implications and is further discussed in FAQ.
 - `--clipping_threshold` - Privacy parameter (positive real number): Use this argument to adapt the clipping of gradients, an internal parameter for the private learning that limits how much each sample can effect the learning. It is only advised for experienced users to change this parameter.
 
@@ -135,7 +135,12 @@ Currently twinify provides `twinify.dpvi.DPVIModel` and `twinify.napsu_mq.NapsuM
 `InferenceResult` represents a learned model from which synthetic data can be generated. To that end it defines the method
 
 ```
-generate(rng: d3p.random.PRNGState, num_parameter_samples: int, num_data_per_parameter_sample: int = 1, single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]
+generate(
+        rng: d3p.random.PRNGState,
+        num_parameter_samples: int,
+        num_data_per_parameter_sample: int = 1,
+        single_dataframe: bool = True
+    ) -> Union[Iterable[pd.DataFrame], pd.DataFrame]
 ```
 
 This method first draws `num_parameter_samples` parameter samples from the parameter posterior represented by the `InferenceResult` object and then
