@@ -17,7 +17,7 @@ import pandas as pd
 import jax
 import jax.numpy as jnp
 from numpyro.infer import Predictive
-from typing import Dict, Iterable, Callable, Tuple
+from typing import Dict
 
 from twinify.dpvi import ModelFunction, GuideFunction
 
@@ -73,67 +73,3 @@ def sample_synthetic_data(
     ppd_samples = jax.vmap(sample_from_ppd)(per_parameter_rngs)
 
     return {site: np.asarray(value) for site, value in ppd_samples.items()}
-
-PreparedPostprocessFunction = Callable[[Dict[str, jnp.ndarray]], pd.DataFrame]
-
-def reshape_and_postprocess_synthetic_data(
-        posterior_samples: Dict[str, jnp.ndarray],
-        prepared_postprocess_fn: PreparedPostprocessFunction,
-        separate_output: bool
-    ) -> Iterable[Tuple[pd.DataFrame, pd.DataFrame]]:
-    """ Given a dictionary of posterior predictive samples as output by sample_synthetic_data,
-    organises it into separate-per-parameter-sample or a single large data set(s) and
-    performs post-processing.
-
-    If the `separate_output` argument is `True`, the result will be a list of
-    pandas data frames, each of which holding records sampled from a single sample
-    from the parameter posterior. If `separate_output` is `False`, the result
-    will only contain a single data frame, containing all samples.
-
-    Postprocessing is performed to transform the data used internally by numpyro so
-    that the synthetic twin looks like the original data, using either a user-provided
-    `postprocess` function or one set-up automatically in the case of automodelling.
-
-    Args:
-        posterior_samples: A dictionary of synthetic data samples as output by`sample_synthetic_data`.
-            Must contain a single jnp.array for each sample site in the model, each of which
-            must have shape (num_parameter_samples, num_synthetic_records_per_parameter_sample, *sample_site_shape).
-        prepared_postprocess_fn: A function for postprocessing raw samples, accepting as input
-            a dictionary containing a jnp.array for each sample site in the model, each of which
-            has shape (num_data, *sample_site_shape).
-        separate_output: If `True`, this function will generate `num_parameter_samples`
-            pandas data frames, each of which holding records sampled from a single sample
-            from the parameter posterior. If `False`, the result
-            will be a sequence contain a single data frame, containing all samples.
-    Returns:
-        Yields `num_parameter_samples` tuples if `separate_output` is `True`,
-        or a single tuple if `separate_output` is `False`.
-        Each such tuple consists of a two pandas DataFrames, the first containing the
-        raw numeric synthetic data as sampled from the model, the second containing the
-        postprocessed and encoded synthetic data that looks like the original input data.
-    """
-
-    def _squash_sample_dims(v: jnp.array) -> jnp.array:
-        old_shape = jnp.shape(v)
-        assert len(old_shape) >= 2
-        new_shape = (old_shape[0] * old_shape[1], *old_shape[2:])
-        reshaped_v = jnp.reshape(v, new_shape)
-        return reshaped_v
-
-    num_parameter_samples = list(posterior_samples.values())[0].shape[0]
-
-    posterior_samples_array = []
-    if separate_output:
-        for i in range(num_parameter_samples):
-            site_dict = {
-                k: v[i] for k, v in posterior_samples.items()
-            }
-            posterior_samples_array.append(site_dict)
-    else:
-        posterior_samples_array = [{
-            k: _squash_sample_dims(v) for k, v in posterior_samples.items()
-        }]
-
-    for posterior_samples in posterior_samples_array:
-        syn_df, encoded_syn_df = prepared_postprocess_fn(posterior_samples)
-        yield (syn_df, encoded_syn_df)

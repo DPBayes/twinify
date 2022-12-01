@@ -1,3 +1,7 @@
+# This script is used to split the original data into a train and test set.
+# It is kept in R to keep it as close to the original preprocessing code used in the
+# analysis by Souza et al. as possible.
+
 # Derived from code of Souza et al.
 # https://github.com/souzatharsis/covid-19-ML-Lab-Test/blob/master/src/COVID-19%20Machine%20Learning-Based%20Rapid%20Diagnosis%20From%20Common%20Laboratory%20Tests.ipynb
 

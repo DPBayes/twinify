@@ -40,11 +40,12 @@ class DataDescription:
                     raise ValueError(
                         f"Input may not contain columns of dtype string unless strings_to_categories is True. Column: {col}.")
 
-                dtype = pd.CategoricalDtype(df[col].unique())
-            if not (is_categorical_dtype(dtype) or is_integer_dtype(dtype) or is_float_dtype(dtype) or is_bool_dtype(
-                    dtype)):
-                raise ValueError(
-                    f"Only float, integer or categorical dtypes are currently supported, but column {col} has dtype {dtype}.")
+                try:
+                    dtype = pd.CategoricalDtype(df[col].dropna().unique())
+                except ValueError as e:
+                    raise Exception(f"Cannot interpet type of column {col}", e)
+            if not (is_categorical_dtype(dtype) or is_integer_dtype(dtype) or is_float_dtype(dtype) or is_bool_dtype(dtype)):
+                raise ValueError(f"Only float, integer or categorical dtypes are currently supported, but column {col} has dtype {dtype}.")
 
             dtypes[col] = dtype
 

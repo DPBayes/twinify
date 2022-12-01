@@ -22,6 +22,7 @@ import jax
 import typing
 
 import numpyro.distributions as dists
+from numpyro.distributions.transforms import biject_to
 
 
 class _NAConstraint(dists.constraints.Constraint):
@@ -48,6 +49,9 @@ class _NAConstraint(dists.constraints.Constraint):
 
 
 na_constraint = _NAConstraint
+@biject_to.register(na_constraint)
+def _transform_to_na(constraint):
+    return biject_to(constraint.base_constraint)
 
 
 class NAModel(dists.Distribution):
@@ -59,7 +63,7 @@ class NAModel(dists.Distribution):
 
     arg_constraints = {'na_prob': dists.constraints.unit_interval}
 
-    def __init__(self, base_dist, na_prob=0.5, validate_args=None) -> None:
+    def __init__(self, base_dist, na_prob=0.5, *, validate_args=None) -> None:
         """
         Initialize a new NAModel instance.
 
@@ -68,8 +72,13 @@ class NAModel(dists.Distribution):
             na_prob (float): Probability that data is missing.
         """
         self._base_dist = base_dist
-        self._na_prob = na_prob
+        self._na_prob = jnp.broadcast_to(na_prob, base_dist.batch_shape)
+        assert self._base_dist.batch_shape == self._na_prob.shape
         super(NAModel, self).__init__(base_dist.batch_shape, base_dist.event_shape, validate_args=validate_args)
+
+    @property
+    def na_prob(self) -> float:
+        return self._na_prob
 
     @property
     def base_distribution(self) -> dists.Distribution:
@@ -103,7 +112,15 @@ class NAModel(dists.Distribution):
             nans = jnp.isnan(value)
         nan_log_probs = dists.Bernoulli(probs = self._na_prob).log_prob(nans)
 
-        value_log_probs = self._base_dist.log_prob(value)
+        feasible_vals = self.base_distribution.support.feasible_like(value)
+
+        value_log_probs = self._base_dist.log_prob(
+            jnp.where(
+                jnp.expand_dims(nans, tuple(range(-len(self.event_shape), 0))),
+                feasible_vals,
+                value
+            )
+        )
         return nan_log_probs + jnp.where(nans, 0., value_log_probs)
 
     def sample(self, key :jax.random.KeyArray, sample_shape: typing.Tuple[int] = ()) -> jnp.ndarray:
@@ -126,7 +143,7 @@ class NAModel(dists.Distribution):
 
         nan_rng, values_rng = jax.random.split(key)
         nan_mask = dists.Bernoulli(probs = self._na_prob).sample(
-            nan_rng, sample_shape=(sample_shape + self.batch_shape)
+            nan_rng, sample_shape=(sample_shape)
         )
 
         values = self.base_distribution.sample(values_rng, sample_shape=sample_shape)

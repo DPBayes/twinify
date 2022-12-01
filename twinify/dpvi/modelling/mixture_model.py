@@ -21,10 +21,11 @@ import jax.numpy as jnp
 import jax
 
 import numpyro
-import numpyro.distributions as dist
+import numpyro.distributions as dists
 
 from jax.scipy.special import logsumexp
 from numpyro.distributions.constraints import Constraint
+from numpyro.distributions.transforms import biject_to
 import typing
 
 
@@ -35,53 +36,116 @@ class _CombinedConstraint(Constraint):
     independent entries are valid.
     """
 
-    def __init__(self, base_constraints: typing.List[Constraint]) -> None:
-        assert np.all([
-            isinstance(base_constraint, Constraint) or base_constraint is None
-            for base_constraint in base_constraints
-        ])
+    def __init__(self,
+            base_constraints: typing.Iterable[Constraint],
+            sizes: typing.Optional[typing.Iterable[int]] = None) -> None:
 
-        self.base_constraints = base_constraints
+        self._base_constraints = list()
+
+        event_dims = 1
+        for i, base_constraint in enumerate(base_constraints):
+            if not isinstance(base_constraint, Constraint):
+                raise ValueError(f"Element {i} in constraint list is not of type Constraint.")
+
+            if base_constraint.event_dim > 1:
+                raise ValueError(
+                    f"Currently only support base constraints with event_dim <= 1 but element {i}"
+                    f"in constraint list has event_dim = {base_constraint.event_dim}"
+                )
+
+            self._base_constraints.append(base_constraint)
+
+        self._event_dims = event_dims
+        if sizes is not None:
+            sizes = np.array(sizes)
+            if len(sizes) != len(self._base_constraints):
+                raise ValueError(
+                    f"Number of sizes {len(sizes)} has to equal number of base constraints {(len(self._base_constraints))}."
+                )
+
+            self._dim_offsets = tuple(np.cumsum(np.hstack((0, sizes))))
+        else:
+            self._dim_offsets = tuple(range(len(self._base_constraints) + 1))
+
+        assert len(self._dim_offsets) == len(self._base_constraints) + 1
+
         super().__init__()
 
     def __call__(self, value: jnp.ndarray) -> jnp.ndarray:
-        if jnp.shape(value)[-1] != len(self.base_constraints):
-            raise ValueError(f"Size of last dimension of value ({jnp.shape(value)[-1]})"\
-                f"does match the number of constraints ({len(self.base_constraints)})!")
+        if jnp.shape(value)[-1] != self.size:
+            raise ValueError(f"Last dimension of value ({jnp.shape(value)[-1]})"\
+                f"does match the constraint size ({self.size})!")
 
-        results = [None] * len(self.base_constraints)
-        for i, constraint in enumerate(self.base_constraints):
-            results[i] = constraint(value[..., i])
-        results = jnp.all(jnp.stack(results, axis=-1), axis=-1)
-        return results
+        base_results = [
+            jnp.all(constraint(value[..., start:end]))
+            for constraint, start, end in zip(self._base_constraints, self._dim_offsets[:-1], self._dim_offsets[1:])
+        ]
+        return jnp.all(jnp.stack(base_results, -1))
 
     def feasible_like(self, prototype: jnp.ndarray) -> jnp.ndarray:
-        if jnp.shape(prototype)[-1] != len(self.base_constraints):
-            raise ValueError(f"Size of last dimension of prototype ({jnp.shape(prototype)[-1]})"\
-                f"does match the number of constraints ({len(self.base_constraints)})!")
+        if jnp.shape(prototype)[-1] != self.size:
+            raise ValueError(f"Last dimension of value ({jnp.shape(prototype)[-1]})"\
+                f"does match the constraint size ({self.size})!")
 
-        results = [None] * len(self.base_constraints)
-        for i, constraint in enumerate(self.base_constraints):
-            results[i] = constraint.feasible_like(prototype[..., i])
+        base_results = [
+            constraint.feasible_like(prototype[..., start:end]).reshape(jnp.shape(prototype)[:-1] + (end - start,))
+            for constraint, start, end in zip(self._base_constraints, self._dim_offsets[:-1], self._dim_offsets[1:])
+        ]
 
-        results = jnp.stack(results, axis=-1)
+        results = jnp.concatenate(base_results, axis=-1)
         return results
 
+    @property
+    def is_discrete(self) -> bool:
+        return np.all(tuple(constraint.is_discrete for constraint in self._base_constraints))
+
+    @property
+    def event_dim(self) -> int:
+        return self._event_dims
+
+    @property
+    def size(self) -> int:
+        return self._dim_offsets[-1]
+
+    @property
+    def offsets(self) -> typing.Iterable[int]:
+        return self._dim_offsets[:-1]
+
+
 combined_constraint = _CombinedConstraint
+# TODO: need to implement a transform for this
 
+class MixtureModel(dists.Distribution):
+    """ A general purpose mixture model.
 
-class MixtureModel(dist.Distribution):
-    """ A general purpose mixture model """
+    Described a number of distributions that independently model feature dimensions
+    of the data.
+    The MixtureModel then is a mixture of components which all follow the
+    structure described by the joint feature distributions.
+
+    Feature distributions therefore must have a leading batch dimension that corresponds
+    to the number of mixture components.
+
+    Note this class behaves quite differently from `numpyro.distributions.Mixture`,
+    where each distribution describes all features for a single mixture component.
+     """
 
     arg_constraints = {
-        '_pis' : dist.constraints.simplex
+        'pis' : dists.constraints.simplex
     }
+
+    has_enumerate_support = False
+    reparametrized_params = ["pis"]
 
     @property
     def support(self) -> Constraint:
         return self._constraint
 
-    def __init__(self, dists, pis=1.0, validate_args=None):
+    @property
+    def pis(self) -> jnp.ndarray:
+        return self._pis
+
+    def __init__(self, distributions: typing.Iterable[dists.Distribution], pis: np.ndarray, *, validate_args=None):
         """
         Initializes a MixtureModel instance.
 
@@ -90,36 +154,47 @@ class MixtureModel(dist.Distribution):
         to `log_prob`.
 
         Args:
-            dists (list of numpyro.distributions.Distribution): The list of feature distributions.
+            distributions (list of numpyro.distributions.Distribution): The list of feature distributions.
             pis (array_like): The mixture weights.
         """
-        self.dists = dists
-        event_shape = None
+        self.distributions = list(distributions)
         batch_shape = None
-        for dist in dists:
-            if not isinstance(dist, numpyro.distributions.Distribution):
+        constraints = []
+        sizes = []
+
+        self._pis = pis
+        self._mixture_components = len(pis)
+
+        for dist in distributions:
+            if not isinstance(dist, dists.Distribution):
                 raise ValueError("MixtureModel got an argument that is not a distribution.")
-            if event_shape is None:
-                event_shape = dist.event_shape
-            else:
-                if event_shape != dist.event_shape:
-                    raise ValueError(f"Feature distribution event shape deviates from mixture event shape {event_shape}; got {dist.event_shape} from {dist}.")
+            if len(dist.event_shape) > 1:
+                raise ValueError(f"Feature distribution event shape cannot have more than one dimensions, was {dist.event_shape}.")
+
             if batch_shape is None:
                 batch_shape = dist.batch_shape
+                if len(batch_shape) == 0 or batch_shape[-1] != self._mixture_components:
+                    raise ValueError(
+                        f"Last batch dimension must equal the number of mixture components ({self._mixture_components})"
+                        f" for all distributions; got {dist.batch_shape} from {dist}.")
             else:
                 if batch_shape != dist.batch_shape:
                     raise ValueError(f"Feature distribution batch shape deviates from mixture batch shape {batch_shape}; got {dist.batch_shape} from {dist}.")
-        self._mixture_components = batch_shape[-1]
-        batch_shape = batch_shape[:-1] if len(batch_shape) > 0 else 1
-        event_shape = (len(dists),) + event_shape
+
+            sizes.append(dist.event_shape[-1] if len(dist.event_shape) > 0 else 1)
+            constraints.append(dist.support)
+
+        assert len(batch_shape) > 0
+        batch_shape = batch_shape[:-1]
+        self._offsets = np.cumsum(np.hstack((0., sizes)), dtype=np.int32)
+        event_shape = (self._offsets[-1],)
+
         if len(pis) != self._mixture_components:
             raise ValueError(f"Mixture model has {self._mixture_components} components but only got {len(pis)} mixture weights.")
-        self._pis = pis
 
-        constraints = [dist.support for dist in self.dists]
-        self._constraint = combined_constraint(constraints)
+        self._constraint = combined_constraint(constraints, sizes)
 
-        super(MixtureModel, self).__init__(batch_shape, event_shape, validate_args)
+        super(MixtureModel, self).__init__(batch_shape, event_shape, validate_args=validate_args)
 
     @property
     def mixture_components(self):
@@ -139,10 +214,13 @@ class MixtureModel(dist.Distribution):
         Returns:
             array_like of shape `values.shape[:-1]`
         """
-        log_phis = jnp.array([
-                dbn.log_prob(value[..., feat_idx, jnp.newaxis])
-                for feat_idx, dbn in enumerate(self.dists)
-            ]).sum(axis=0)
+        log_phis = [
+            dbn.log_prob(value[..., np.newaxis, start:stop])
+            if len(dbn.event_shape) > 0
+            else dbn.log_prob(value[..., np.newaxis, start])
+            for dbn, start, stop in zip(self.distributions, self._offsets[:-1], self._offsets[1:])
+        ]
+        log_phis = jnp.array(log_phis).sum(0)
         log_pis = jnp.log(self._pis)
 
         temp = log_pis + log_phis
@@ -157,29 +235,29 @@ class MixtureModel(dist.Distribution):
             key (jax.random.PRNGKey): RNG key.
             sample_shape (tuple): How many samples to draw and how to arrange them
         Returns:
-            array_like of shape `(*sample_shape, len(dists))`
+            array_like of shape `sample_shape + self.batch_shape + self.event_shape`
         """
         return self.sample_with_intermediates(key, sample_shape)[0]
 
     def sample_with_intermediates(self, key, sample_shape=()):
-        num_samples = int(np.prod(sample_shape))
+        batch_shape = sample_shape + self.batch_shape
 
-        keys = jax.random.split(key, num_samples)
+        vals_rng_key, pis_rng_key = jax.random.split(key, 2)
+        zs = dists.Categorical(self._pis).sample(pis_rng_key, sample_shape=batch_shape).flatten()
 
-        @jax.vmap
-        def sample_single(single_key):
-            vals_rng_key, pis_rng_key = jax.random.split(single_key, 2)
-            z = dist.Categorical(self._pis).sample(pis_rng_key)
-            rng_keys = jax.random.split(vals_rng_key, len(self.dists))
-            vals = [dbn.sample(rng_keys[feat_idx])[z] \
-                    for feat_idx, dbn in enumerate(self.dists)]
-            return jnp.stack(vals).T, z
+        component_keys = jax.random.split(vals_rng_key, len(self.distributions))
+        vals = []
+        for dbn, dbn_key in zip(self.distributions, component_keys):
+            dbn_sample = dbn.sample(dbn_key, sample_shape=sample_shape)
+            dbn_event_shape = dbn.event_shape
+            if dbn_event_shape == ():
+                dbn_event_shape = (1,)
 
-        vals, zs = sample_single(keys)
-        if len(sample_shape) == 0:
-            vals = vals.squeeze(0)
+            flat_batch_size = int(np.prod(batch_shape))
 
-        zs = jnp.reshape(zs, sample_shape)
-        final_vals_shape = sample_shape + jnp.shape(jnp.atleast_2d(vals))[1:]
-        vals = jnp.reshape(vals, final_vals_shape)
-        return vals, [zs]
+            dbn_sample = dbn_sample.reshape(flat_batch_size, self._mixture_components, *dbn_event_shape)
+            dbn_sample = dbn_sample[np.arange(flat_batch_size), zs]
+            dbn_sample = dbn_sample.reshape(*batch_shape, *dbn_event_shape)
+            vals.append(dbn_sample)
+
+        return jnp.concatenate(vals, axis=-1), [zs.reshape(batch_shape)]
