@@ -22,7 +22,7 @@ setuptools.setup(
     python_requires='>=3.7',
     install_requires=[
         'pandas >= 1.3.4, < 2.0',
-        'd3p @ git+https://github.com/DPBayes/d3p.git@master#egg=d3p',
+        'd3p >= 0.2.0, < 1.0',
         'tqdm >= 4.62, < 5.0',
         'numpy >= 1.21, < 2.0',
         'graphviz >= 0.20.1, < 1.0.0',
@@ -39,7 +39,6 @@ setuptools.setup(
             'pytest'
         ],
         'compatible-dependencies': "d3p[compatible-dependencies]",
-        'tpu': "d3p[tpu]",
         'cpu': "d3p[cpu]",
         'cuda': "d3p[cuda]",
     },
@@ -53,7 +52,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Science/Research"
      ],
 )

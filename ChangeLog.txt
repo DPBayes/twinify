@@ -1,21 +1,20 @@
-- 1.0.0-dev:
+- 1.0.0:
+    - introducing new API centered around twinify.InferenceModel, twinify.InferenceResult
+    - added NAPSU-MQ noise aware data generation approach
     - made interfaces for custom NumPyro models more expressive:
-        - model function may take more than one data argument and produce
-            arbitary sample sites.
-        - preprocess function may return more than one data frame or series
-            which are passed into model (see above).
-        - postprocess function now gets a dictionary of sample sites produced by
-            model and the original data frame (see above).
+        - model functions can now sample any way they want, simply need to return
+            generated data as a single concatenated array
+        - preprocess functions must return a single DataFrame containing the
+            preprocessed data.
+        - postprocess functions now get a single DataFrame of samples with
+            correct column names. Must return a single DataFrame containing
+            the postprocessed data.
         - instead of a model function, custom models may define a model_factory
             function that is provided arguments from the command line and returns
             a model function.
-        - twinify remains backward-compatible to old models.
     - added twinify-tools command as entry point for various utilites.
     - added check-model subcommand for twinify-tools to check whether a given
         NumPyro model works with twinify.
-    - twinify main script now stores all arguments received for a run alongside
-        the learned model parameters.
-    - twinify is now compatible with Python 3.9 but no longer with Python 3.6.
     - twinify now uses cryptographic randomness for DP perturbations.
 
 - 0.1.2: Fix: jaxlib version now constrained for working installation (no
