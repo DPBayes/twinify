@@ -22,24 +22,24 @@ As the learning of the model is performed under differential privacy, the sample
 twinify can be used as a software library from your own application or as a stand-alone command line tool operating on data sets provided as a [CSV file](https://en.wikipedia.org/wiki/Comma-separated_values). Either way, the high-level steps are the same and we outline them in the following for the command line tool. You can find a brief overview of twinify's API for library use further below.
 
 ### Choosing the Method
-The first thing you need to do is decide wether you want to use the NAPSU-MQ approach or learn a probabilistic model using DPVI.
+The first thing you need to do is decide whether you want to use the NAPSU-MQ approach or learn a probabilistic model using DPVI.
 NAPSU-MQ
-- **NAPSU-MQ** learns a maximum entropy distribution that best reproduces a set of marginal queries on the data that you can specify. NAPSU-MQ produces a model that encapsulates the additional uncertainty introduced by differential privacy. However, currently it is only suitable for fully categorical data. May exhibit long runtimes for data sets with many feature dimensions.
+- **NAPSU-MQ** learns a maximum entropy distribution that best reproduces a set of user chosen set of marginal queries on the data. NAPSU-MQ produces a model that encapsulates the additional uncertainty introduced by differential privacy. However, currently it is only suitable for fully categorical data. May exhibit long runtimes for data sets with many feature dimensions.
 - **DPVI** is capable of learning any probabilistic model you specify, for categorical, continuous or mixed data. However, the result is only an approximation to the true posterior and it is unable to explicitly capture additional uncertainty due to differential privacy.
 
 If you have fully categorical data, you will likely obtain better results with **NAPSU-MQ**. However, if your data has a large number of feature dimensions, you may find that you can get acceptable results in shorter time using **DPVI**.
 
-If your data contains non-categorical features, **DPVI** is your only choice. **DPVI** might also be an interesting option if you have strong data-independent prior knowledge that you want to incorporate into your model.
+If your data contains non-categorical features, **DPVI** is your only choice without resorting to discretization. **DPVI** might also be an interesting option if you have strong data-independent prior knowledge that you want to incorporate into your model.
 
 ### Defining the Model
 The main thing you need to do next for either method is to define the probabilistic model to be learned. The following describes the modelling approaches for the different methods, assuming an input csv file with three features that are titled `Age` and `Height (cm)` and `Eye color`.
 
 #### NAPSU-MQ: Defining Marginal Queries
-For NAPSU-MQ this means that you must specify the the marginal queries to preserve. You can in principle select any number of queries with any subset of features, however, the larger the number of queries the longer the fitting of the model will take.
+For NAPSU-MQ this means that you must specify the the marginal queries to preserve. You can in principle select any number of queries with any subset of features, however, the larger the number of queries, the longer the fitting of the model will take.
 
-To specify marginal queries, you have to create a text file in which you list one query per line and all features covered by the query by their column name in the data csv file, separated by commas.
+To specify marginal queries, you have to create a text file in which you list one query per line and all features covered by the query using the corresonding column name in the data csv file, separated by commas.
 
-We assume here that the feature Age and Height are discretized and require NAPSU-MQ to fit all feature marginals as well as the two-way marginal over the combined features Age and Height, resulting in the following model/query file:
+We assume here that the features Age and Height are discretized and require NAPSU-MQ to fit all feature marginals as well as the two-way marginal over the combined features Age and Height, resulting in the following model/query file:
 
 ```
 Age
@@ -143,10 +143,10 @@ generate(
     ) -> Union[Iterable[pd.DataFrame], pd.DataFrame]
 ```
 
-This method first draws `num_parameter_samples` parameter samples from the parameter posterior represented by the `InferenceResult` object and then
+This method first draws `num_parameter_samples` parameter samples from the model posterior represented by the `InferenceResult` object and then
 samples `num_data_per_parameter_sample` data points for each parameter sample from the model, and returns them as either one large combined DataFrame or an iterable over one DataFrame per parameter sample.
 
-`InferenceResult` classes also allows saving and loading of learned models via the `save` and static `load` methods respectively.
+`InferenceResult` classes also allow saving and loading of learned models via the `save` and static `load` methods respectively.
 
 Note that `DPVIResult.load` requires the same NumPyro model as used for inference to be provided during model loading.
 
