@@ -1,11 +1,13 @@
 # Originally from https://github.com/ryan112358/private-pgm/blob/master/mechanisms/mst.py
 # Modified by Authors under the Apache 2.0 license
 # Modifications contain adding typing hints and changing privacy accounting method
-from typing import Iterable, List, Tuple, Any, Callable, Mapping
+from typing import Iterable, List, Tuple, Callable, Mapping
 
 import numpy as np
 import scipy.sparse
-from mbi import FactoredInference, Dataset, Domain
+from twinify.napsu_mq.private_pgm.inference import FactoredInference
+from twinify.napsu_mq.private_pgm.dataset import Dataset
+from twinify.napsu_mq.private_pgm.domain import Domain
 from scipy import sparse
 from disjoint_set import DisjointSet
 import networkx as nx

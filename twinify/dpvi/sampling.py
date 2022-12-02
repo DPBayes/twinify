@@ -19,11 +19,11 @@ import jax.numpy as jnp
 from numpyro.infer import Predictive
 from typing import Dict, Iterable, Callable, Tuple
 
-from twinify.model_loading import TModelFunction, TGuideFunction
+from twinify.dpvi import ModelFunction, GuideFunction
 
 def sample_synthetic_data(
-        model: TModelFunction,
-        guide: TGuideFunction,
+        model: ModelFunction,
+        guide: GuideFunction,
         posterior_params: Dict[str, jnp.ndarray],
         sampling_rng: jnp.ndarray,
         num_parameter_samples: int,
@@ -39,7 +39,7 @@ def sample_synthetic_data(
             For each of these a synthetic dataset will be sampled.
         num_record_samples_per_parameter_sample: The number of synthetic data points sampled for each parameter set sample.
     Returns:
-        A dictionary of jnp.arrays of synthetic data samples for each sample site in the model.
+        A dictionary of np.arrays of synthetic data samples for each sample site in the model.
         Each of these has shape (num_parameter_samples, num_synthetic_records_per_parameter_sample, *sample_site_shape)
     """
 

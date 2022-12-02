@@ -106,6 +106,17 @@ class Distribution:
         return zero_params
 
     @staticmethod
+    def get_support_constraint(dist: Union[Type[dists.Distribution], dists.Distribution]) -> str:
+        support_constraint = type(dists.constraints.real)
+        if dist.support is not None:
+            if not isinstance(dist.support, dists.constraints.Constraint):
+                raise ValueError("Support of distribution of type {} cannot \
+                    be derived from non-instantiated class".format(dist))
+            support_constraint = type(dist.support)
+        return support_constraint
+
+
+    @staticmethod
     def get_support_dtype(dist: Union[Type[dists.Distribution], dists.Distribution]) -> str:
         """ Determines the type of a distribution's support
 
@@ -114,12 +125,7 @@ class Distribution:
         Returns:
             (str) dtype of the given distribution's support
         """
-        support_constraint = type(dists.constraints.real)
-        if dist.support is not None:
-            if not isinstance(dist.support, dists.constraints.Constraint):
-                raise ValueError("Support of distribution of type {} cannot \
-                    be derived from non-instantiated class".format(dist))
-            support_constraint = type(dist.support)
+        support_constraint = Distribution.get_support_constraint(dist)
 
         try:
             return canonicalize_dtype(constraint_dtype_lookup[support_constraint])
@@ -147,7 +153,7 @@ class Distribution:
 
     @property
     def is_discrete(self) -> bool:
-        return self.numpyro_class.is_discrete
+        return self.get_support_constraint(self.numpyro_class).is_discrete
 
 
 class ModelFeature:
@@ -420,7 +426,6 @@ def make_model(features: List[ModelFeature], k: int) -> Callable[..., None]:
 
         pis = sample('pis', dists.Dirichlet(jnp.ones(k)))
         with plate('batch', num_obs_total, N):
-        # with minibatch(N, num_obs_total=num_obs_total):
             mixture_model_dist = MixtureModel(mixture_dists, pis)
             x = sample('x', mixture_model_dist, obs=x)
             return x

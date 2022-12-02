@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, Union, Iterable, BinaryIO, Callable, Mapping, List
+from typing import Union, Iterable, BinaryIO, List, Dict
 import os
 import pandas as pd
 
@@ -19,16 +19,17 @@ import numpy as np
 import arviz as az
 import jax
 import jax.numpy as jnp
-from mbi import Domain, Dataset
-import dill
+import pickle
 
 from twinify.mst import MST_selection
 from twinify.base import InferenceModel, InferenceResult, InvalidFileFormatException
 from twinify.napsu_mq.markov_network import MarkovNetwork
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
-from twinify.dataframe_data import DataFrameData
+from twinify.dataframe_data import DataFrameData, DataDescription
 import twinify.napsu_mq.privacy_accounting as privacy_accounting
 import twinify.napsu_mq.maximum_entropy_inference as mei
+from twinify.napsu_mq.private_pgm.domain import Domain
+from twinify.napsu_mq.private_pgm.dataset import Dataset
 import d3p.random
 
 
@@ -64,11 +65,10 @@ class NapsuMQModel(InferenceModel):
         use_laplace_approximation = self.use_laplace_approximation
 
         dataframe = DataFrameData(data)
-        category_mapping = DataFrameData.get_category_mapping(data)
-        n, d = dataframe.int_array.shape
+        n, d = dataframe.int_df.shape
 
         if query_sets is None:
-            domain_key_list = list(dataframe.values_by_col.keys())
+            domain_key_list = list(dataframe.columns)
             domain_value_count_list = [len(dataframe.values_by_col[key]) for key in domain_key_list]
             domain = Domain(domain_key_list, domain_value_count_list)
             query_sets = MST_selection(Dataset(dataframe.int_df, domain), epsilon, delta,
@@ -77,7 +77,7 @@ class NapsuMQModel(InferenceModel):
         queries = FullMarginalQuerySet(query_sets, dataframe.values_by_col)
         queries = queries.get_canonical_queries()
         mnjax = MarkovNetwork(dataframe.values_by_col, queries)
-        suff_stat = np.sum(queries.flatten()(dataframe.int_array), axis=0)
+        suff_stat = np.sum(queries.flatten()(dataframe.int_df.to_numpy()), axis=0)
 
         # determine Gaussian mech DP noise level for given privacy level
         sensitivity = np.sqrt(2 * len(query_sets))
@@ -110,7 +110,7 @@ class NapsuMQModel(InferenceModel):
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
             posterior_values = posterior_values.lambdas.values.transpose()
 
-        return NapsuMQResult(mnjax, posterior_values, category_mapping)
+        return NapsuMQResult(dataframe.values_by_col, queries, posterior_values, dataframe.data_description)
 
 
 class NapsuMQResult(InferenceResult):
@@ -119,52 +119,48 @@ class NapsuMQResult(InferenceResult):
     Contains functions to generate differentially private synthetic datasets from the original dataset.
     """
 
-    def __init__(self, markov_network: MarkovNetwork, posterior_values: jnp.ndarray,
-                 category_mapping: Mapping) -> None:
+    def __init__(self, dataframe_domain: Dict[str, List[int]], queries: 'FullMarginalQuerySet', posterior_values: jnp.ndarray,
+                 data_description: DataDescription) -> None:
         super().__init__()
-        self._markov_network = markov_network
-        self._posterior_values = posterior_values
-        self._category_mapping = category_mapping
+        self._dataframe_domain = dataframe_domain
+        self._queries = queries
+        self._posterior_values = np.asarray(posterior_values)
+        self._data_description = data_description
 
     @property
-    def markov_network(self) -> MarkovNetwork:
-        return self._markov_network
+    def dataframe_domain(self) -> Dict[str, List[int]]:
+        return self._dataframe_domain
 
     @property
-    def posterior_values(self) -> jnp.ndarray:
+    def queries(self) -> 'FullMarginalQuerySet':
+        return self._queries
+
+    @property
+    def posterior_values(self) -> np.ndarray:
         return self._posterior_values
 
     @property
-    def category_mapping(self) -> Mapping:
-        return self._category_mapping
+    def data_description(self) -> DataDescription:
+        return self._data_description
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
         assert write_io.writable()
-        result = dill.dumps(self)
+        result = pickle.dumps(self)
         return NapsuMQResultIO.store_to_io(write_io, result)
 
     @classmethod
     def _load_from_io(cls, read_io: BinaryIO, **kwargs) -> 'NapsuMQResult':
         return NapsuMQResultIO.load_from_io(read_io)
 
-    def generate_extended(self, rng: d3p.random.PRNGState, num_data_per_parameter_sample: int,
-                          num_parameter_samples: int,
-                          single_dataframe: Optional[bool] = False) -> Union[List[pd.DataFrame], pd.DataFrame]:
-        """Generate new synthetic datasets from NAPSU-MQ model
-
-        Args:
-            rng (d3p.random.PRNGState): d3p PRNG key
-            num_data_per_parameter_sample: Number of synthetic datapoints for each dataset
-            num_parameter_samples: Number of datasets
-            single_dataframe: Return generated data in single dataframe vs list of dataframes
-
-        Returns:
-            List[pd.Dataframe] or pd.Dataframe: Synthetic dataset/datasets
-        """
-
+    def generate(
+            self,
+            rng: d3p.random.PRNGState,
+            num_parameter_samples: int,
+            num_data_per_parameter_sample: int = 1,
+            single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         jax_rng = d3p.random.convert_to_jax_rng_key(rng)
-        mnjax = self._markov_network
-        posterior_values = self.posterior_values
+        mnjax = MarkovNetwork(self._dataframe_domain, self._queries)
+        posterior_values = jnp.array(self.posterior_values)
         inds = jax.random.choice(key=jax_rng, a=posterior_values.shape[0], shape=[num_parameter_samples])
         posterior_sample = posterior_values[inds, :]
         rng, *data_keys = jax.random.split(jax_rng, num_parameter_samples + 1)
@@ -172,8 +168,7 @@ class NapsuMQResult(InferenceResult):
                         syn_data_key, posterior_value
                         in list(zip(data_keys, posterior_sample))]
 
-        dataframes = [DataFrameData.apply_category_mapping(syn_data, self._category_mapping) for syn_data
-                      in syn_datasets]
+        dataframes = [self.data_description.map_to_categorical(syn_data) for syn_data in syn_datasets]
 
         if single_dataframe is True:
             combined_dataframe = pd.concat(dataframes, ignore_index=True)
@@ -200,7 +195,7 @@ class NapsuMQResultIO:
             raise InvalidFileFormatException(NapsuMQResult, "Stored data uses an unknown storage format version.")
 
         result_binary = read_io.read()
-        result = dill.loads(result_binary)
+        result = pickle.loads(result_binary)
 
         return result
 
@@ -225,4 +220,3 @@ class NapsuMQResultIO:
         write_io.write(NapsuMQResultIO.IDENTIFIER)
         write_io.write(NapsuMQResultIO.CURRENT_IO_VERSION_BYTES)
         write_io.write(result)
-        write_io.close()

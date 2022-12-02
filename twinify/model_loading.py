@@ -6,7 +6,7 @@ import traceback
 import pandas as pd
 import numpy as np
 from typing import Any, Callable, Tuple, Iterable, Dict, Union, Optional, Sequence
-from twinify import automodel
+from twinify.dpvi.modelling import automodel
 from numpyro.infer.autoguide import AutoDiagonalNormal
 import os
 import argparse

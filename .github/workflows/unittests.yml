@@ -2,7 +2,7 @@ name: Unittests
 
 on:
   push:
-    branches: [ master, stable ]
+    branches: [ master, stable, twinifyv2 ]
   pull_request:
     branches: [ master, stable, twinifyv2 ]
 
@@ -27,6 +27,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install .[compatible-dependencies]
+        pip freeze
     - name: Test with pytest
       run: |
         pytest --cov=twinify --cov-report term-missing tests/
+        pytest tests -m "slow"
