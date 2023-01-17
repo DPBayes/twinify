@@ -52,7 +52,11 @@ setuptools.setup(
             'openpyxl'
         ],
         'dev': [
-            'pytest'
+            'pytest',
+            'sphinx >= 4.5.0 < 5.0.0',
+            'myst_nb >= 0.17.0 < 1.0.0',
+            'sphinx-book-theme >= 0.3.0 < 1.0.0',
+            'sphinxcontrib-napoleon >= 0.7 < 1.0',
         ],
         'compatible-dependencies': "d3p[compatible-dependencies]",
         'cpu': "d3p[cpu]",
