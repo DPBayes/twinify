@@ -19,6 +19,7 @@ Documentation
    api
    faq
    about_us
+   acknowledgements
 
 
 References

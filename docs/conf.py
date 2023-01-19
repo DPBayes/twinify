@@ -23,7 +23,7 @@ year = datetime.now().year
 # -- Project information -----------------------------------------------------
 
 project = 'twinify'
-copyright = f'{year}, twinify Developers'
+copyright = f'{year}, twinify Developers and their assignees'
 author = 'twinify Developers'
 
 # The short X.Y version
