@@ -24,8 +24,8 @@ jobs:
       - name: Checkout gh-pages
         uses: actions/checkout@v3
         with:
-          path: gh-pages
-          ref: gh-pages
+          path: documentation
+          ref: documentation
 
       - name: Set up Python
         uses: actions/setup-python@v4

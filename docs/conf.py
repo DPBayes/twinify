@@ -16,6 +16,7 @@
 import os
 import sys
 from datetime import datetime
+from twinify.version import VERSION
 sys.path.insert(0, os.path.abspath('..'))
 
 year = datetime.now().year
@@ -26,10 +27,10 @@ project = 'twinify'
 copyright = f'{year}, twinify Developers and their assignees'
 author = 'twinify Developers'
 
-# The short X.Y version
-version = ''
+# The short X.Y version, take first two elements of version number and concatenate with dot.
+version = ".".join(VERSION.split(".")[0:2])
 # The full version, including alpha/beta/rc tags
-release = '2.0.0'
+release = VERSION
 
 
 # -- General configuration ---------------------------------------------------
