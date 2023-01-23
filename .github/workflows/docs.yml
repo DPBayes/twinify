@@ -43,7 +43,7 @@ jobs:
           make github
       - name: Commit changes to docs
         run: |
-          cd ./documentation
+          cd ./gh-pages
           cp -R ../master/docs/* ./
           git config --local user.email ""
           git config --local user.name "github-actions"
