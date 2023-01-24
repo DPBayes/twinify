@@ -3,7 +3,7 @@ name: docs_pages_workflow
 
 on:
   push:
-    branches: [ documentation ]
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
@@ -46,6 +46,7 @@ jobs:
           cd ./gh-pages
           cp -R ../master/docs/_build/html/* ./
           cp ../master/docs/_build/html/.nojekyll ./.nojekyll
+          cp ../master/docs/_build/html/.buildinfo ./.buildinfo
           git config --local user.email ""
           git config --local user.name "github-actions"
           git add -A
