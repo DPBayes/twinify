@@ -1,0 +1,565 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>twinify.base &#8212; Twinify</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../../index.html">
+      
+        <!-- `logo` is deprecated in Sphinx 4.0, so remove this when we stop supporting 3 -->
+        
+      
+      
+      <img src="../../_static/PeopleAfter.jpg" class="logo" alt="logo">
+      
+      
+      <h1 class="site-logo" id="site-title">Twinify</h1>
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../installation.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../quickstart.html">
+   Getting started
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../cli_doc.html">
+   Command line interface
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../api_usage.html">
+   API Overview
+  </a>
+ </li>
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../../examples.html">
+   Examples
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../_examples/NapsuMQ%20example.html">
+     Twinify example: NapsuMQ usage
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../../api.html">
+   Public API: Twinify package
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+  <label for="toctree-checkbox-2">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../api/base.html">
+     twinify.base package
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../api/dpvi.html">
+     twinify.dpvi package
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../api/napsu_mq.html">
+     twinify.napsu_mq package
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../faq.html">
+   FAQ
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../about_us.html">
+   About us
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../acknowledgements.html">
+   Acknowledgements
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+            <div class="navbar_extra_footer">
+            Theme by the <a href="https://ebp.jupyterbook.org">Executable Book Project</a>
+            </div>
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+<div class="menu-dropdown menu-dropdown-repository-buttons">
+  <button class="headerbtn menu-dropdown__trigger"
+      aria-label="Source repositories">
+      <i class="fab fa-github"></i>
+  </button>
+  <div class="menu-dropdown__content">
+    <ul>
+      <li>
+        <a href="https://github.com/DPBayes/twinify"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="left"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="headerbtn__text-container">repository</span>
+</a>
+
+      </li>
+      
+      <li>
+        <a href="https://github.com/DPBayes/twinify/issues/new?title=Issue%20on%20page%20%2F_modules/twinify/base.html&body=Your%20issue%20content%20here."
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="left"
+title="Open an issue"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="headerbtn__text-container">open issue</span>
+</a>
+
+      </li>
+      
+    </ul>
+  </div>
+</div>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1></h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <h1>Source code for twinify.base</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1"># SPDX-FileCopyrightText: © 2022- twinify Developers and their Assignees</span>
+
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">BinaryIO</span>
+<span class="kn">import</span> <span class="nn">d3p.random</span>
+
+<div class="viewcode-block" id="InferenceModel"><a class="viewcode-back" href="../../api/base.html#twinify.base.InferenceModel">[docs]</a><span class="k">class</span> <span class="nc">InferenceModel</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="InferenceModel.fit"><a class="viewcode-back" href="../../api/base.html#twinify.base.InferenceModel.fit">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">rng</span><span class="p">:</span> <span class="n">d3p</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGState</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">delta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;InferenceResult&#39;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Compute the parameter posterior (approximation) for a given data set, hyperparameters and privacy bounds.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data: A `pandas.DataFrame` containing (sensitive) data.</span>
+<span class="sd">            rng: A seeded state for the d3p.random secure random number generator.</span>
+<span class="sd">            epsilon: Privacy bound ε.</span>
+<span class="sd">            delta: Privacy bound δ.</span>
+<span class="sd">            kwargs: Optional (model specific) hyperparameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="InferenceResult"><a class="viewcode-back" href="../../api/base.html#twinify.base.InferenceResult">[docs]</a><span class="k">class</span> <span class="nc">InferenceResult</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; A posterior parameter (approximation) resulting from privacy-preserving inference on a data set</span>
+<span class="sd">    for a particular `InferenceModel`. &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="InferenceResult.generate"><a class="viewcode-back" href="../../api/base.html#twinify.base.InferenceResult.generate">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">rng</span><span class="p">:</span> <span class="n">d3p</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGState</span><span class="p">,</span>
+            <span class="n">num_parameter_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="n">num_data_per_parameter_sample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">single_dataframe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Samples a number of samples from the parameter posterior (approximation) and generates the given number of</span>
+<span class="sd">        data points per parameter samples.</span>
+
+<span class="sd">        By default returns a single data frame samples from the posterior predictive distribution, i.e.,</span>
+<span class="sd">        for each data records first a parameter value is drawn from the parameter posterior distribution, then</span>
+<span class="sd">        the data record is sampled from the model conditioned on that parameter value. `num_parameter_samples`</span>
+<span class="sd">        in this case determines the number of data records included in the returned data frame.</span>
+
+<span class="sd">        This behavior can be customized to sample more than one data record per parameter sample by setting argument</span>
+<span class="sd">        `num_data_per_parameter_sample` to a value larger than 1, in which case the total number of records</span>
+<span class="sd">        returned is `num_parameter_samples * num_data_per_parameter_sample`.</span>
+
+<span class="sd">        Setting `single_dataframe = False` causes the method to return an iterable collection of data frames,</span>
+<span class="sd">        each of which contains all data records sampled for a single parameter samples, i.e., in this case</span>
+<span class="sd">        this method returns `num_parameter_samples` data frames each of containing `num_data_per_parameter_sample`</span>
+<span class="sd">        records.</span>
+
+<span class="sd">        Each of the data frames &quot;looks&quot; like the original data this `InferenceResult` was obtained from,</span>
+<span class="sd">        i.e., it has identical column names and categorical labels (if any).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - rng: A seeded state for the d3p.random secure random number generator.</span>
+<span class="sd">            - num_parameter_samples: How often to sample from the parameter posterior approximation.</span>
+<span class="sd">            - num_data_per_parameter_sample: How many data points to generate for each parameter sample.</span>
+<span class="sd">            - single_dataframe: Whether to combine data samples into a single data frame or return separate data frames.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not implement generate_extended yet.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="InferenceResult.load"><a class="viewcode-back" href="../../api/base.html#twinify.base.InferenceResult.load">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file_path_or_io</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BinaryIO</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;InferenceResult&#39;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Loads an inference result from a file.</span>
+
+<span class="sd">        The file can be specified either as a path or an opened file, i.e., both of the following</span>
+<span class="sd">        are possible:</span>
+<span class="sd">        ```InferenceResult.load(&#39;my_inference_result.out&#39;)```</span>
+<span class="sd">        or</span>
+<span class="sd">        ```</span>
+<span class="sd">        with open(&#39;my_inference_result.out&#39;, &#39;rb&#39;) as f:</span>
+<span class="sd">            InferenceResult.load(f)</span>
+<span class="sd">        ```.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the</span>
+<span class="sd">                file from which to load.</span>
+<span class="sd">            - kwargs: Optional (model specific) arguments for loading.</span>
+
+<span class="sd">        If a `BinaryIO` instance is passed, the cursor position is advanced to after the data representing the</span>
+<span class="sd">        inference result.</span>
+
+<span class="sd">        Exceptions:</span>
+<span class="sd">            raises an `InvalidFileFormatException` if the data in the file is not a valid representation of the</span>
+<span class="sd">            inference result type represented by this class.</span>
+
+<span class="sd">        Note for subclass implementation:</span>
+<span class="sd">            Subclasses need only implement an override for `_load_from_io`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load_from_io</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">file_path_or_io</span><span class="o">.</span><span class="n">readable</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;file_path_or_io is not a readable BinaryIO instance.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load_from_io</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_load_from_io</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">read_io</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;InferenceResult&#39;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Internal implementation for `load` using a `BinaryIO` instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - read_io: A readable `BinaryIO` instance for reading binary data representing the inference result.</span>
+<span class="sd">            - kwargs: Optional (model specific) arguments for loading.</span>
+
+<span class="sd">        Note for subclass implementation:</span>
+<span class="sd">            This method MUST raise an `InvalidFileFormatException` if the data stored in the file does not represent</span>
+<span class="sd">            an inference result type implemented by this class (i.e., if the data cannot be loaded as an instance of</span>
+<span class="sd">            this class).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not implement load_from_io yet.&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="InferenceResult.is_file_stored_result"><a class="viewcode-back" href="../../api/base.html#twinify.base.InferenceResult.is_file_stored_result">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_file_stored_result</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file_path_or_io</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BinaryIO</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Checks whether a file stores data representing the specific inference result type represented by this class.</span>
+
+<span class="sd">        The file can be specified either as a path or an opened file, i.e., both of the following</span>
+<span class="sd">        are possible:</span>
+<span class="sd">        ```InferenceResult.is_file_stored_result(&#39;my_inference_result.out&#39;)```</span>
+<span class="sd">        or</span>
+<span class="sd">        ```</span>
+<span class="sd">        with open(&#39;my_inference_result.out&#39;, &#39;wb&#39;) as f:</span>
+<span class="sd">            InferenceResult.is_file_stored_result(f)</span>
+<span class="sd">        ```.</span>
+
+<span class="sd">        If a `BinaryIO` instance is passed, the cursor position will remain the same after this method returns.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the</span>
+<span class="sd">                file to check.</span>
+<span class="sd">            - kwargs: Optional (model specific) arguments.</span>
+
+<span class="sd">        Note for subclass implementation:</span>
+<span class="sd">            Subclasses need only implement an override for `_is_file_stored_result_from_io`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_is_file_stored_result_from_io</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">file_path_or_io</span><span class="o">.</span><span class="n">readable</span><span class="p">()</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">file_path_or_io</span><span class="o">.</span><span class="n">seekable</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;file_path_or_io is not a readable and seekable BinaryIO instance.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_is_file_stored_result_from_io</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_is_file_stored_result_from_io</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">read_io</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Internal implementation for `is_file_stored_result` using a `BinaryIO` instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - read_io: A readable and seekable `BinaryIO` instance for reading binary data representing the</span>
+<span class="sd">                inference result.</span>
+<span class="sd">            - kwargs: Optional (model specific) arguments.</span>
+
+<span class="sd">        Note for subclass implementation:</span>
+<span class="sd">            Default implementation tries to read the file and returns False if `_load_from_io` raises an</span>
+<span class="sd">            `InvalidFileFormatException`. Subclasses should implement a more direct way of determining the type of</span>
+<span class="sd">            inference result stored in the file (e.g. a type identifier in the beginning of the data). Implementation</span>
+<span class="sd">            should additionally ensure that the implementation does not advance the cursor position of `read_io`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_load_from_io</span><span class="p">(</span><span class="n">read_io</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">except</span> <span class="n">InvalidFileFormatException</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="InferenceResult.store"><a class="viewcode-back" href="../../api/base.html#twinify.base.InferenceResult.store">[docs]</a>    <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path_or_io</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BinaryIO</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Writes the inference result to a file.</span>
+
+<span class="sd">        The file can be specified either as a path or an opened file, i.e., both of the following</span>
+<span class="sd">        are possible:</span>
+<span class="sd">        ```inference_result.store(&#39;my_inference_result.out&#39;)```</span>
+<span class="sd">        or</span>
+<span class="sd">        ```</span>
+<span class="sd">        with open(&#39;my_inference_result.out&#39;, &#39;wb&#39;) as f:</span>
+<span class="sd">            inference_result.store(f)</span>
+<span class="sd">        ```.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - file_path_or_io: The file path (as a string) or a `BinaryIO` instance representing the</span>
+<span class="sd">                file to write data into.</span>
+
+<span class="sd">        If a `BinaryIO` instance is passed, the cursor position is advanced to after the data representing the</span>
+<span class="sd">        inference result.</span>
+
+<span class="sd">        Note for subclass implementation:</span>
+<span class="sd">            Subclasses only need to implement an override for `_store_to_io`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_store_to_io</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">file_path_or_io</span><span class="o">.</span><span class="n">writable</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;file_path_or_io is not a writable BinaryIO instance.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_store_to_io</span><span class="p">(</span><span class="n">file_path_or_io</span><span class="p">)</span></div>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_store_to_io</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">write_io</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Internal implementation for `store` using a `BinaryIO` instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - write_io: A writeable `BinaryIO` instance for writing binary data representing the inference result.</span>
+
+<span class="sd">        Note for subclass implementation:</span>
+<span class="sd">            The data written to the file should</span>
+<span class="sd">            1) not rely overly much on pickling</span>
+<span class="sd">            2) allow to identify the type of inference result written to the file</span>
+<span class="sd">                (to identify the class with which to load it; see also `_is_file_stored_result_from_io`)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not implement store_to_io yet.&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">InvalidFileFormatException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Details:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">msg</span> <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The given file cannot be interpreted as </span><span class="si">{</span><span class="bp">cls</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By twinify Developers<br/>
+  
+      &copy; Copyright 2023, twinify Developers and their assignees.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>
