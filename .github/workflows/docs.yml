@@ -45,7 +45,7 @@ jobs:
         run: |
           cd ./gh-pages
           cp -R ../master/docs/_build/html/* ./
-          cp -R ../master/docs/_build/html/.nojekyll ./.nojekyll
+          cp ../master/docs/_build/html/.nojekyll ./.nojekyll
           git config --local user.email ""
           git config --local user.name "github-actions"
           git add -A
