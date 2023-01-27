@@ -51,6 +51,8 @@ setuptools.setup(
             'scikit-learn',
             'openpyxl',
             'statsmodels',
+            'seaborn >= 0.12.0, < 1.0',
+            'matplotlib >= 3.7, < 4'
         ],
         'dev': [
             'pytest',
