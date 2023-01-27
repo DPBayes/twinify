@@ -21,3 +21,4 @@ htmlcov/
 venv
 venv*
 docs/_build/
+twinify_result
