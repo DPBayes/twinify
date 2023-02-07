@@ -31,9 +31,9 @@ from twinify.base import InferenceModel
 from tqdm import tqdm
 
 from twinify.dpvi import PrivacyLevel, ModelFunction, GuideFunction
+from twinify.dpvi.loadable_auto_guide import LoadableAutoGuide
 from twinify.dpvi.dpvi_result import DPVIResult
 from twinify.dataframe_data import DataDescription
-
 
 class InferenceException(Exception):
 
@@ -112,7 +112,7 @@ class DPVIModel(InferenceModel):
         self._model = model
 
         if guide is None:
-            guide = self.create_default_guide(model)
+            guide = LoadableAutoGuide.wrap_for_inference(self.create_default_guide(model))
 
         self._guide = guide
         self._clipping_threshold = clipping_threshold

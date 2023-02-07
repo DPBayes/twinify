@@ -29,6 +29,7 @@ import numpyro
 import d3p.random
 from twinify.base import InferenceResult, InvalidFileFormatException
 from twinify.dpvi import ModelFunction, GuideFunction, PrivacyLevel
+from twinify.dpvi.loadable_auto_guide import LoadableAutoGuide
 import twinify.serialization
 from twinify.dpvi.sampling import sample_synthetic_data
 from twinify.dataframe_data import DataDescription
@@ -112,11 +113,15 @@ class DPVIResult(InferenceResult):
             **kwargs
         ) -> 'InferenceResult':
 
+
+        parameters, privacy_parameters, final_elbo, data_description, observation_sites =\
+            DPVIResultIO.load_params_from_io(read_io)
+
         if guide is None:
             from twinify.dpvi.dpvi_model import DPVIModel
-            guide = DPVIModel.create_default_guide(model)
-
-        parameters, privacy_parameters, final_elbo, data_description = DPVIResultIO.load_params_from_io(read_io)
+            guide = LoadableAutoGuide.wrap_for_sampling_and_initialize(
+                DPVIModel.create_default_guide(model), observation_sites
+            )(model)
 
         return DPVIResult(model, guide, parameters, privacy_parameters, final_elbo, data_description)
 
@@ -125,8 +130,12 @@ class DPVIResult(InferenceResult):
         return DPVIResultIO.is_file_stored_result_from_io(read_io, reset_cursor=True)
 
     def _store_to_io(self, write_io: BinaryIO) -> None:
+        observation_sites = None
+        if isinstance(self._guide, LoadableAutoGuide):
+            observation_sites = self._guide.observation_sites
+
         return DPVIResultIO.store_params_to_io(
-            write_io, self._params, self._privacy_level, self._final_elbo, self._data_description
+            write_io, self._params, self._privacy_level, self._final_elbo, self._data_description, observation_sites
         )
 
     @property
@@ -181,6 +190,7 @@ class DPVIResultIO:
             stored_data['privacy_level'],
             stored_data['final_elbo'],
             stored_data['data_description'],
+            stored_data['observation_sites']
         )
 
     @staticmethod
@@ -203,7 +213,8 @@ class DPVIResultIO:
             params: Dict[str, ArrayLike],
             privacy_level: PrivacyLevel,
             final_elbo: float,
-            data_description: DataDescription
+            data_description: DataDescription,
+            observation_sites: Optional[Iterable[str]]
         ) -> None:
 
         assert write_io.writable()
@@ -213,6 +224,7 @@ class DPVIResultIO:
             'privacy_level': privacy_level,
             'final_elbo': final_elbo,
             'data_description': data_description,
+            'observation_sites': observation_sites,
         }
 
         write_io.write(DPVIResultIO.IDENTIFIER)
