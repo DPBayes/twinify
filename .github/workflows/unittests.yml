@@ -20,6 +20,7 @@ on:
     branches: [ master, stable, twinifyv2 ]
   pull_request:
     branches: [ master, stable, twinifyv2 ]
+  workflow_call:
 
 jobs:
   unittests:
