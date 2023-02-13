@@ -14,7 +14,7 @@ Also, differentially private learning is known to work better with more data. In
 
 
 ### My data has lots of missing values, what do I need to do?
-Real data is often incomplete and missing values might occur for a multitude of reasons, for example due to scarcity in measuring resources. twinify supports modelling features with missing values using a simple mechanism:
+Real data is often incomplete and missing values might occur for a multitude of reasons, for example due to scarcity in measuring resources. When using DPVI, twinify supports modelling features with missing values using a simple mechanism:
 It assumes that values can be missing at random (independently from whether other feature values are missing as well) with a certain probability that is inferred from the data. During data generation, twinify first evaluates whether there should be a value, and, if so, samples one from the feature distribution specified in the model you provided.
 
 Using automatic modelling, twinify detects and handles features with missing values automatically and you don't need to do anything. You can disable that behavior by setting the `--drop_na=1` command line argument to remove all data instances with missing values.
@@ -26,6 +26,8 @@ In mathematical terms, the likelihood of data in the `NAModel` is
 ![NAModelLikelihood](https://render.githubusercontent.com/render/math?math=p%28x%20%5Cmid%20q_%7BNA%7D%2C%20%5Ctheta_x%29%20%3D%20%5Cdelta_%7BNA%7D%28x%29%20q_%7BNA%7D%20%2B%20%5Cphi%28x%20%5Cmid%20%5Ctheta%29%281-q_%7BNA%7D%29%5Cmathbb%7B1%7D%28x%5Cneq%20NA%29)
 
 where ![](https://render.githubusercontent.com/render/math?math=%5Cphi%28x%20%5Cmid%20%5Ctheta_x%29) is the likelihood of existing data x (according to the assigned feature distribution) and ![](https://render.githubusercontent.com/render/math?math=q_%7BNA%7D) denotes the probability that x is missing. Similar to other model parameters, twinify assigns a prior to and learns a posterior for ![](https://render.githubusercontent.com/render/math?math=q_%7BNA%7D).
+
+With NAPSU-MQ there is no way to model missing values.
 
 ### What distributions are supported in the automatic modelling?
 Currently supported feature distributions are shown in the table below with the corresponding prior choices twinify uses for the parameters of these distributions.
@@ -49,7 +51,7 @@ In mathematical terms, the likelihood of the data given the model parameters for
 where ![](https://render.githubusercontent.com/render/math?math=%5Cphi_d%28%5Cmathbf%7BX%7D_%7B%3A%2Cd%7D%20%7C%5Cboldsymbol%7B%5Ctheta%7D_%7Bd%2Ck%7D%29) is the density function of the user-defined feature distribution and ![](https://render.githubusercontent.com/render/math?math=%5Cmathbf%7BX%7D_%7B%3A%2Cd%7D) is the d-th feature column of the data set. To complete the probabilistic model twinify assigns non-informative prior distributions to the model parameters ![](https://render.githubusercontent.com/render/math?math=%5Cboldsymbol%5Ctheta_%7Bd%2Ck%7D) as well as the weights ![](https://render.githubusercontent.com/render/math?math=%5Cpi_k) for each of the K mixture components.
 
 ### What constraints does twinify set on NumPyro models?
-There are only a few constraints twinify imposes. These are listed below.
+There are only a few constraints twinify imposes with NumPyro models when using DPVI. These are listed below.
 
 You *must* define a function `model(x = None, num_obs_total = None)` containing the NumPyro model with the following constraints:
 

@@ -457,13 +457,14 @@ title="Print to PDF"
 </section>
 <section id="my-data-has-lots-of-missing-values-what-do-i-need-to-do">
 <h2>My data has lots of missing values, what do I need to do?<a class="headerlink" href="#my-data-has-lots-of-missing-values-what-do-i-need-to-do" title="Permalink to this headline">#</a></h2>
-<p>Real data is often incomplete and missing values might occur for a multitude of reasons, for example due to scarcity in measuring resources. twinify supports modelling features with missing values using a simple mechanism:
+<p>Real data is often incomplete and missing values might occur for a multitude of reasons, for example due to scarcity in measuring resources. When using DPVI, twinify supports modelling features with missing values using a simple mechanism:
 It assumes that values can be missing at random (independently from whether other feature values are missing as well) with a certain probability that is inferred from the data. During data generation, twinify first evaluates whether there should be a value, and, if so, samples one from the feature distribution specified in the model you provided.</p>
 <p>Using automatic modelling, twinify detects and handles features with missing values automatically and you don’t need to do anything. You can disable that behavior by setting the <code class="docutils literal notranslate"><span class="pre">--drop_na=1</span></code> command line argument to remove all data instances with missing values.</p>
 <p>When writing your own NumPyro models, you can use the <code class="docutils literal notranslate"><span class="pre">twinify.na_model.NAModel</span></code> class to wrap around the feature distribution for achieving the same effect.</p>
 <p>In mathematical terms, the likelihood of data in the <code class="docutils literal notranslate"><span class="pre">NAModel</span></code> is</p>
 <p><img alt="NAModelLikelihood" src="https://render.githubusercontent.com/render/math?math=p%28x%20%5Cmid%20q_%7BNA%7D%2C%20%5Ctheta_x%29%20%3D%20%5Cdelta_%7BNA%7D%28x%29%20q_%7BNA%7D%20%2B%20%5Cphi%28x%20%5Cmid%20%5Ctheta%29%281-q_%7BNA%7D%29%5Cmathbb%7B1%7D%28x%5Cneq%20NA%29" /></p>
 <p>where <img alt="" src="https://render.githubusercontent.com/render/math?math=%5Cphi%28x%20%5Cmid%20%5Ctheta_x%29" /> is the likelihood of existing data x (according to the assigned feature distribution) and <img alt="" src="https://render.githubusercontent.com/render/math?math=q_%7BNA%7D" /> denotes the probability that x is missing. Similar to other model parameters, twinify assigns a prior to and learns a posterior for <img alt="" src="https://render.githubusercontent.com/render/math?math=q_%7BNA%7D" />.</p>
+<p>With NAPSU-MQ there is no way to model missing values.</p>
 </section>
 <section id="what-distributions-are-supported-in-the-automatic-modelling">
 <h2>What distributions are supported in the automatic modelling?<a class="headerlink" href="#what-distributions-are-supported-in-the-automatic-modelling" title="Permalink to this headline">#</a></h2>
@@ -510,7 +511,7 @@ It assumes that values can be missing at random (independently from whether othe
 </section>
 <section id="what-constraints-does-twinify-set-on-numpyro-models">
 <h2>What constraints does twinify set on NumPyro models?<a class="headerlink" href="#what-constraints-does-twinify-set-on-numpyro-models" title="Permalink to this headline">#</a></h2>
-<p>There are only a few constraints twinify imposes. These are listed below.</p>
+<p>There are only a few constraints twinify imposes with NumPyro models when using DPVI. These are listed below.</p>
 <p>You <em>must</em> define a function <code class="docutils literal notranslate"><span class="pre">model(x</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">num_obs_total</span> <span class="pre">=</span> <span class="pre">None)</span></code> containing the NumPyro model with the following constraints:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">model</span></code> handles a single data instance at once and gets all data features in a single vector, i.e., <code class="docutils literal notranslate"><span class="pre">x</span></code> has shape <code class="docutils literal notranslate"><span class="pre">(num_features,)</span></code>.</p></li>
