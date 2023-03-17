@@ -120,7 +120,7 @@ class DPVIResult(InferenceResult):
         if guide is None:
             from twinify.dpvi.dpvi_model import DPVIModel
             guide = LoadableAutoGuide.wrap_for_sampling_and_initialize(
-                DPVIModel.create_default_guide(model), observation_sites
+                DPVIModel.DefaultAutoGuideType, observation_sites
             )(model)
 
         return DPVIResult(model, guide, parameters, privacy_parameters, final_elbo, data_description)

@@ -308,10 +308,10 @@ class DPVIResultTests(unittest.TestCase):
                 (result_samples.values == loaded_result_samples.values).all().all()
             )
 
-    def test_store_and_load_without_guide(self) -> None:
+    def test_store_and_load_with_loadable_autoguide(self) -> None:
         """ Test to reproduce #48. """
         from twinify.dpvi.loadable_auto_guide import LoadableAutoGuide
-        guide = LoadableAutoGuide(model, ["first", "another"], AutoDiagonalNormal)
+        guide = LoadableAutoGuide(model, ["ys", "xs", "cats"], AutoDiagonalNormal)
 
         result = DPVIResult(
             self.model, guide, self.params, self.privacy_params, self.final_elbo, self.data_description

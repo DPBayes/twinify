@@ -22,6 +22,16 @@ from twinify.dpvi import ModelFunction
 
 __all__ = ['LoadableAutoGuide']
 
+class ModelGuideMismatchException(Exception):
+
+    def __init__(self, model_sites: Iterable[str], expected_sites: Iterable[str]):
+        super().__init__(
+            "The sample sites obtained from the model did not contain the expected observation sites,"
+            " indicating that model and guide do not match!\n"
+            f"Expected: {list(expected_sites)}\n"
+            f"Model sites: {list(model_sites)}"
+        )
+
 class LoadableAutoGuide(AutoGuide):
     """
     Wraps any given AutoGuide class and allows it to be used in sampling without
@@ -65,14 +75,14 @@ class LoadableAutoGuide(AutoGuide):
             raise ValueError("LoadableAutoGuide cannot wrap itself.")
 
         self._model = model
-        self._base_guide_factory = lambda model: base_guide_class(model, *base_guide_args, **base_guide_kwargs) # TODO: there is a bug that occurs in AutoDiagonalGuide.initialize_model due to a None rng_key that seems to originate from here when used in wrap_for_sampling_and_initalize; investigate and fix
+        self._base_guide_factory = lambda model: base_guide_class(model, *base_guide_args, **base_guide_kwargs)
         self._obs = frozenset(observation_sites) if observation_sites is not None else None
         self._guide = None
 
     @staticmethod
-    def wrap_for_inference(base_guide_class: Type[AutoGuide]) -> Callable[[Any], "LoadableAutoGuide"]:
+    def wrap_for_inference(base_guide_class: Type[AutoGuide]) -> Callable[[ModelFunction, Any], "LoadableAutoGuide"]:
         """
-        Returns a callable accepting a model and model arguments and returns a LoadableAutoGuide
+        Returns a callable accepting a model and arguments for the base guide class and returns a LoadableAutoGuide
         instance for `base_guide_class` (an AutoGuide subtype) set up for inference (but not yet initialized).
 
         Args:
@@ -82,13 +92,16 @@ class LoadableAutoGuide(AutoGuide):
             Callable[[ModelFunction, Any...], LoadableAutoGuide]
         """
         def wrapped_for_inference(model: ModelFunction, *args, **kwargs):
+            __doc__ = base_guide_class.__doc__
             return LoadableAutoGuide(model, None, base_guide_class, *args, **kwargs)
+        
+        wrapped_for_inference.__doc__ = base_guide_class.__doc__
         return wrapped_for_inference
 
     @staticmethod
-    def wrap_for_sampling(base_guide_class: Type[AutoGuide], observation_sites: Iterable[str]) -> Callable[[Any], "LoadableAutoGuide"]:
+    def wrap_for_sampling(base_guide_class: Type[AutoGuide], observation_sites: Iterable[str]) -> Callable[[ModelFunction, Any], "LoadableAutoGuide"]:
         """
-        Returns a callable accepting a model and model arguments and returns a LoadableAutoGuide
+        Returns a callable accepting a model and arguments for the base guide class and returns a LoadableAutoGuide
         instance for `base_guide_class` (an AutoGuide subtype) set up for sampling (but not yet initialized).
 
         Args:
@@ -101,13 +114,15 @@ class LoadableAutoGuide(AutoGuide):
         """
         def wrapped_for_sampling(model: Callable, *args, **kwargs):
             return LoadableAutoGuide(model, observation_sites, base_guide_class, *args, **kwargs)
+        
+        wrapped_for_sampling.__doc__ = base_guide_class.__doc__
         return wrapped_for_sampling
 
     @staticmethod
     def wrap_for_sampling_and_initialize(
             base_guide_class: Type[AutoGuide],
             observation_sites: Iterable[str],
-            *model_args: Any, **model_kwargs) -> Callable[[Any], "LoadableAutoGuide"]:
+            *model_args: Any, **model_kwargs) -> Callable[[ModelFunction, Any], "LoadableAutoGuide"]:
         """
         Returns a callable accepting a model and base guide arguments and returns a LoadableAutoGuide
         instance for `base_guide_class` (an AutoGuide subtype) ready for use for sampling without running inference.
@@ -125,15 +140,17 @@ class LoadableAutoGuide(AutoGuide):
         Returns:
             Callable[[ModelFunction, Any...], LoadableAutoGuide]
         """
-        def wrapped_for_sampling_with_init(model: Callable, *base_guide_args, **base_guide_kwargs):
+        def wrapped_for_sampling_with_init(model: ModelFunction, *base_guide_args, **base_guide_kwargs):
             guide = LoadableAutoGuide(
                 model, observation_sites, base_guide_class, *base_guide_args, **base_guide_kwargs
             )
             guide.initialize(*model_args, **model_kwargs)
             return guide
+        
+        wrapped_for_sampling_with_init.__doc__ = base_guide_class.__doc__
         return wrapped_for_sampling_with_init
 
-    def initialize(self, *args: Any, **kwargs: Any) -> Any:
+    def initialize(self, *args: Any, **kwargs: Any) -> None:
         """
         Traces through the model function provided to this LoadableAutoGuide instance during construction
         and prepares this instance for usage.
@@ -159,6 +176,10 @@ class LoadableAutoGuide(AutoGuide):
                 with trace() as tr:
                     seed(self._model, jax.random.PRNGKey(0))(*args, **kwargs)
                     fake_obs = {site: val['value'] for site, val in tr.items() if site in self._obs}
+
+                    if len(fake_obs) < len(self._obs):
+                        model_sites = [site for site, val in tr.items() if val["type"] == "sample"]
+                        raise ModelGuideMismatchException(model_sites, self._obs)
 
                 # feed model conditioned on fake observations to guide
                 guide = self._base_guide_factory(condition(self._model, fake_obs))
