@@ -9,3 +9,4 @@ Examples
    :titlesonly:
 
    _examples/NapsuMQ example
+   _examples/DPVI example

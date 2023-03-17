@@ -50,7 +50,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.viewcode',
     'myst_nb',
-    'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
