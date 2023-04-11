@@ -329,6 +329,7 @@ title="Open an issue"
 <span class="kn">import</span> <span class="nn">d3p.random</span>
 <span class="kn">from</span> <span class="nn">twinify.base</span> <span class="kn">import</span> <span class="n">InferenceResult</span><span class="p">,</span> <span class="n">InvalidFileFormatException</span>
 <span class="kn">from</span> <span class="nn">twinify.dpvi</span> <span class="kn">import</span> <span class="n">ModelFunction</span><span class="p">,</span> <span class="n">GuideFunction</span><span class="p">,</span> <span class="n">PrivacyLevel</span>
+<span class="kn">from</span> <span class="nn">twinify.dpvi.loadable_auto_guide</span> <span class="kn">import</span> <span class="n">LoadableAutoGuide</span>
 <span class="kn">import</span> <span class="nn">twinify.serialization</span>
 <span class="kn">from</span> <span class="nn">twinify.dpvi.sampling</span> <span class="kn">import</span> <span class="n">sample_synthetic_data</span>
 <span class="kn">from</span> <span class="nn">twinify.dataframe_data</span> <span class="kn">import</span> <span class="n">DataDescription</span>
@@ -412,11 +413,15 @@ title="Open an issue"
             <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;InferenceResult&#39;</span><span class="p">:</span>
 
+
+        <span class="n">parameters</span><span class="p">,</span> <span class="n">privacy_parameters</span><span class="p">,</span> <span class="n">final_elbo</span><span class="p">,</span> <span class="n">data_description</span><span class="p">,</span> <span class="n">observation_sites</span> <span class="o">=</span>\
+            <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">load_params_from_io</span><span class="p">(</span><span class="n">read_io</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">guide</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="kn">from</span> <span class="nn">twinify.dpvi.dpvi_model</span> <span class="kn">import</span> <span class="n">DPVIModel</span>
-            <span class="n">guide</span> <span class="o">=</span> <span class="n">DPVIModel</span><span class="o">.</span><span class="n">create_default_guide</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-
-        <span class="n">parameters</span><span class="p">,</span> <span class="n">privacy_parameters</span><span class="p">,</span> <span class="n">final_elbo</span><span class="p">,</span> <span class="n">data_description</span> <span class="o">=</span> <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">load_params_from_io</span><span class="p">(</span><span class="n">read_io</span><span class="p">)</span>
+            <span class="n">guide</span> <span class="o">=</span> <span class="n">LoadableAutoGuide</span><span class="o">.</span><span class="n">wrap_for_sampling_and_initialize</span><span class="p">(</span>
+                <span class="n">DPVIModel</span><span class="o">.</span><span class="n">DefaultAutoGuideType</span><span class="p">,</span> <span class="n">observation_sites</span>
+            <span class="p">)(</span><span class="n">model</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">DPVIResult</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">guide</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">privacy_parameters</span><span class="p">,</span> <span class="n">final_elbo</span><span class="p">,</span> <span class="n">data_description</span><span class="p">)</span>
 
@@ -425,8 +430,12 @@ title="Open an issue"
         <span class="k">return</span> <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">is_file_stored_result_from_io</span><span class="p">(</span><span class="n">read_io</span><span class="p">,</span> <span class="n">reset_cursor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_store_to_io</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">write_io</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">observation_sites</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_guide</span><span class="p">,</span> <span class="n">LoadableAutoGuide</span><span class="p">):</span>
+            <span class="n">observation_sites</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_guide</span><span class="o">.</span><span class="n">observation_sites</span>
+
         <span class="k">return</span> <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">store_params_to_io</span><span class="p">(</span>
-            <span class="n">write_io</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_final_elbo</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_description</span>
+            <span class="n">write_io</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_final_elbo</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_description</span><span class="p">,</span> <span class="n">observation_sites</span>
         <span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -481,6 +490,7 @@ title="Open an issue"
             <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;privacy_level&#39;</span><span class="p">],</span>
             <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;final_elbo&#39;</span><span class="p">],</span>
             <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;data_description&#39;</span><span class="p">],</span>
+            <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;observation_sites&#39;</span><span class="p">]</span>
         <span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
@@ -503,7 +513,8 @@ title="Open an issue"
             <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">],</span>
             <span class="n">privacy_level</span><span class="p">:</span> <span class="n">PrivacyLevel</span><span class="p">,</span>
             <span class="n">final_elbo</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-            <span class="n">data_description</span><span class="p">:</span> <span class="n">DataDescription</span>
+            <span class="n">data_description</span><span class="p">:</span> <span class="n">DataDescription</span><span class="p">,</span>
+            <span class="n">observation_sites</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 
         <span class="k">assert</span> <span class="n">write_io</span><span class="o">.</span><span class="n">writable</span><span class="p">()</span>
@@ -513,6 +524,7 @@ title="Open an issue"
             <span class="s1">&#39;privacy_level&#39;</span><span class="p">:</span> <span class="n">privacy_level</span><span class="p">,</span>
             <span class="s1">&#39;final_elbo&#39;</span><span class="p">:</span> <span class="n">final_elbo</span><span class="p">,</span>
             <span class="s1">&#39;data_description&#39;</span><span class="p">:</span> <span class="n">data_description</span><span class="p">,</span>
+            <span class="s1">&#39;observation_sites&#39;</span><span class="p">:</span> <span class="n">observation_sites</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="n">write_io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">IDENTIFIER</span><span class="p">)</span>

@@ -315,7 +315,8 @@ title="Open an issue"
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">jax</span>
@@ -331,9 +332,9 @@ title="Open an issue"
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">twinify.dpvi</span> <span class="kn">import</span> <span class="n">PrivacyLevel</span><span class="p">,</span> <span class="n">ModelFunction</span><span class="p">,</span> <span class="n">GuideFunction</span>
+<span class="kn">from</span> <span class="nn">twinify.dpvi.loadable_auto_guide</span> <span class="kn">import</span> <span class="n">LoadableAutoGuide</span>
 <span class="kn">from</span> <span class="nn">twinify.dpvi.dpvi_result</span> <span class="kn">import</span> <span class="n">DPVIResult</span>
 <span class="kn">from</span> <span class="nn">twinify.dataframe_data</span> <span class="kn">import</span> <span class="n">DataDescription</span>
-
 
 <span class="k">class</span> <span class="nc">InferenceException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
 
@@ -387,6 +388,12 @@ title="Open an issue"
 
 <div class="viewcode-block" id="DPVIModel"><a class="viewcode-back" href="../../../api/dpvi.html#twinify.dpvi.dpvi_model.DPVIModel">[docs]</a><span class="k">class</span> <span class="nc">DPVIModel</span><span class="p">(</span><span class="n">InferenceModel</span><span class="p">):</span>
 
+    <span class="n">DefaultAutoGuideType</span> <span class="o">=</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">infer</span><span class="o">.</span><span class="n">autoguide</span><span class="o">.</span><span class="n">AutoDiagonalNormal</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">create_default_guide</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">ModelFunction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuideFunction</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DPVIModel</span><span class="o">.</span><span class="n">DefaultAutoGuideType</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">model</span><span class="p">:</span> <span class="n">ModelFunction</span><span class="p">,</span>
@@ -412,16 +419,18 @@ title="Open an issue"
         <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
 
         <span class="k">if</span> <span class="n">guide</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">guide</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_default_guide</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+            <span class="n">guide</span> <span class="o">=</span> <span class="n">LoadableAutoGuide</span><span class="o">.</span><span class="n">wrap_for_inference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DefaultAutoGuideType</span><span class="p">)(</span><span class="n">model</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">guide</span><span class="p">,</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">infer</span><span class="o">.</span><span class="n">autoguide</span><span class="o">.</span><span class="n">AutoGuide</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;It seems that you are using an AutoGuide instance, which may result in problems after loading a stored inference model.&quot;</span>
+                    <span class="s2">&quot;Consider wrapping it with twinify.dpvi.LoadableAutoGuide.&quot;</span>
+                <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_guide</span> <span class="o">=</span> <span class="n">guide</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_clipping_threshold</span> <span class="o">=</span> <span class="n">clipping_threshold</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_num_epochs</span> <span class="o">=</span> <span class="n">num_epochs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_subsample_ratio</span> <span class="o">=</span> <span class="n">subsample_ratio</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">create_default_guide</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">ModelFunction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuideFunction</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">infer</span><span class="o">.</span><span class="n">autoguide</span><span class="o">.</span><span class="n">AutoDiagonalNormal</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
 
 <div class="viewcode-block" id="DPVIModel.fit"><a class="viewcode-back" href="../../../api/dpvi.html#twinify.dpvi.dpvi_model.DPVIModel.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
             <span class="n">data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
