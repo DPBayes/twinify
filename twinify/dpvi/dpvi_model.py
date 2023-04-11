@@ -15,7 +15,8 @@
 
 import pandas as pd
 
-from typing import Optional, Any, Tuple
+from typing import Optional
+import warnings
 
 import numpy as np
 import jax
@@ -31,9 +32,9 @@ from twinify.base import InferenceModel
 from tqdm import tqdm
 
 from twinify.dpvi import PrivacyLevel, ModelFunction, GuideFunction
+from twinify.dpvi.loadable_auto_guide import LoadableAutoGuide
 from twinify.dpvi.dpvi_result import DPVIResult
 from twinify.dataframe_data import DataDescription
-
 
 class InferenceException(Exception):
 
@@ -87,6 +88,12 @@ class SilenceableProgressBar:
 
 class DPVIModel(InferenceModel):
 
+    DefaultAutoGuideType = numpyro.infer.autoguide.AutoDiagonalNormal
+
+    @staticmethod
+    def create_default_guide(model: ModelFunction) -> GuideFunction:
+        return DPVIModel.DefaultAutoGuideType(model)
+
     def __init__(
             self,
             model: ModelFunction,
@@ -112,16 +119,18 @@ class DPVIModel(InferenceModel):
         self._model = model
 
         if guide is None:
-            guide = self.create_default_guide(model)
+            guide = LoadableAutoGuide.wrap_for_inference(self.DefaultAutoGuideType)(model)
+        else:
+            if isinstance(guide, numpyro.infer.autoguide.AutoGuide):
+                warnings.warn(
+                    "It seems that you are using an AutoGuide instance, which may result in problems after loading a stored inference model."
+                    "Consider wrapping it with twinify.dpvi.LoadableAutoGuide."
+                )
 
         self._guide = guide
         self._clipping_threshold = clipping_threshold
         self._num_epochs = num_epochs
         self._subsample_ratio = subsample_ratio
-
-    @staticmethod
-    def create_default_guide(model: ModelFunction) -> GuideFunction:
-        return numpyro.infer.autoguide.AutoDiagonalNormal(model)
 
     def fit(self,
             data: pd.DataFrame,

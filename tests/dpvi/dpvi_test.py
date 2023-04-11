@@ -20,6 +20,7 @@ import jax.numpy as jnp
 import numpy as np
 from numpyro.primitives import sample, plate, param
 from numpyro import distributions as dists
+from numpyro.infer.autoguide import AutoDiagonalNormal
 import pandas as pd
 import tempfile
 import pytest
@@ -306,6 +307,37 @@ class DPVIResultTests(unittest.TestCase):
             self.assertTrue(
                 (result_samples.values == loaded_result_samples.values).all().all()
             )
+
+    def test_store_and_load_with_loadable_autoguide(self) -> None:
+        """ Test to reproduce #48. """
+        from twinify.dpvi.loadable_auto_guide import LoadableAutoGuide
+        guide = LoadableAutoGuide(model, ["ys", "xs", "cats"], AutoDiagonalNormal)
+
+        result = DPVIResult(
+            self.model, guide, self.params, self.privacy_params, self.final_elbo, self.data_description
+        )
+
+        with tempfile.TemporaryFile("w+b") as f:
+            result.store(f)
+
+            f.seek(0)
+            loaded_result = DPVIResult.load(f, model=self.model)
+
+            self.assertTrue(
+                jax.tree_util.tree_all(
+                    jax.tree_util.tree_map(jnp.allclose, self.params, loaded_result.parameters)
+                )
+            )
+            self.assertEqual(self.privacy_params, loaded_result.privacy_level)
+            self.assertEqual(self.final_elbo, loaded_result.final_elbo)
+            self.assertEqual(self.data_description, loaded_result.data_description)
+
+            result_samples = result.generate(d3p.random.PRNGKey(567), 10, 1)
+            loaded_result_samples = loaded_result.generate(d3p.random.PRNGKey(567), 10, 1)
+            self.assertTrue(
+                (result_samples.values == loaded_result_samples.values).all().all()
+            )
+
 
 
 if __name__ == '__main__':
