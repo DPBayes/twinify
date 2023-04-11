@@ -34,9 +34,9 @@ def load_cli_napsu(
         args: argparse.Namespace, unknown_args: Iterable[str], data_description: twinify.DataDescription
     ) -> twinify.dpvi.DPVIModel:
 
-    column_feature_set = _parse_model_file(args.model_path)
+    required_marginals = _parse_model_file(args.model_path)
 
-    feature_names = reduce(set.union, column_feature_set, set())
+    feature_names = reduce(set.union, required_marginals, set())
     missing_features = feature_names.difference(data_description.columns)
     if missing_features:
         raise ParsingError(
@@ -54,6 +54,6 @@ def load_cli_napsu(
         return df
 
     return preprocessing_model.PreprocessingModel(
-        twinify.napsu_mq.NapsuMQModel(column_feature_set),
+        twinify.napsu_mq.NapsuMQModel(required_marginals),
         preprocess_drop_na_fn
     )

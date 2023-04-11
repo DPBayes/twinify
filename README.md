@@ -129,7 +129,7 @@ a representation of the model fitted to the data in the form of a `InferenceResu
 
 Currently twinify provides `twinify.dpvi.DPVIModel` and `twinify.napsu_mq.NapsuMQModel` as concrete implementations, with the following initializers:
 - `DPVIModel(model: NumPyroModelFunction, guide: Optional[NumPyroGuideFunction] = None, clipping_threshold: float = 1., num_epochs: int = 1000, subsample_ratio: float = 0.01)`
-- `NapsuMQModel(column_feature_set: Iterable[FrozenSet[str]], use_laplace_approximation: bool = True)`
+- `NapsuMQModel(required_marginals: Iterable[FrozenSet[str]] = tuple(), use_laplace_approximation: bool = True)`
 
 #### `InferenceResult`
 `InferenceResult` represents a learned model from which synthetic data can be generated. To that end it defines the method
