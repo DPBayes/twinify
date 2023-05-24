@@ -334,7 +334,6 @@ title="Open an issue"
 <span class="kn">from</span> <span class="nn">twinify.napsu_mq.private_pgm.dataset</span> <span class="kn">import</span> <span class="n">Dataset</span>
 <span class="kn">import</span> <span class="nn">d3p.random</span>
 
-
 <div class="viewcode-block" id="NapsuMQModel"><a class="viewcode-back" href="../../../api/napsu_mq.html#twinify.napsu_mq.napsu_mq.NapsuMQModel">[docs]</a><span class="k">class</span> <span class="nc">NapsuMQModel</span><span class="p">(</span><span class="n">InferenceModel</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Implementation for NAPSU-MQ algorithm, differentially private synthetic data generation method for discrete sensitive data.</span>
 
@@ -343,20 +342,18 @@ title="Open an issue"
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-            <span class="n">column_feature_set</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">FrozenSet</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="c1"># TODO: what are these actually</span>
+            <span class="n">required_marginals</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">FrozenSet</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(),</span>
             <span class="n">use_laplace_approximation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">            column_feature_set: ???</span>
+<span class="sd">            required_marginals (iterable of sets of str): Sets of columns for each of which a combined marginal query must be included in the model.</span>
 <span class="sd">            use_laplace_approximation (bool): Use Laplace approximation in the model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">column_feature_set</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;column_feature_set may not be None&quot;</span><span class="p">)</span>
-        <span class="c1"># if column_feature_set is None:</span>
-        <span class="c1">#     column_feature_set = []</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_column_feature_set</span> <span class="o">=</span> <span class="n">column_feature_set</span>
+        <span class="k">if</span> <span class="n">required_marginals</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;required_marginals may not be None&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_required_marginals</span> <span class="o">=</span> <span class="n">required_marginals</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_use_laplace_approximation</span> <span class="o">=</span> <span class="n">use_laplace_approximation</span>
 
     <span class="nd">@property</span>
@@ -376,7 +373,7 @@ title="Open an issue"
 <span class="sd">        Returns:</span>
 <span class="sd">            NapsuMQResult: Class containing learned probabilistic model with posterior values</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">column_feature_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_column_feature_set</span>
+        <span class="n">required_marginals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_marginals</span>
         <span class="n">use_laplace_approximation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_laplace_approximation</span>
 
         <span class="n">dataframe</span> <span class="o">=</span> <span class="n">DataFrameData</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
@@ -387,7 +384,7 @@ title="Open an issue"
             <span class="n">domain_value_count_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">values_by_col</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">domain_key_list</span><span class="p">]</span>
             <span class="n">domain</span> <span class="o">=</span> <span class="n">Domain</span><span class="p">(</span><span class="n">domain_key_list</span><span class="p">,</span> <span class="n">domain_value_count_list</span><span class="p">)</span>
             <span class="n">query_sets</span> <span class="o">=</span> <span class="n">MST_selection</span><span class="p">(</span><span class="n">Dataset</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">int_df</span><span class="p">,</span> <span class="n">domain</span><span class="p">),</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span>
-                                       <span class="n">cliques_to_include</span><span class="o">=</span><span class="n">column_feature_set</span><span class="p">)</span>
+                                       <span class="n">cliques_to_include</span><span class="o">=</span><span class="n">required_marginals</span><span class="p">)</span>
 
         <span class="n">queries</span> <span class="o">=</span> <span class="n">FullMarginalQuerySet</span><span class="p">(</span><span class="n">query_sets</span><span class="p">,</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">values_by_col</span><span class="p">)</span>
         <span class="n">queries</span> <span class="o">=</span> <span class="n">queries</span><span class="o">.</span><span class="n">get_canonical_queries</span><span class="p">()</span>
