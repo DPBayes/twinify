@@ -34,7 +34,6 @@ from twinify.napsu_mq.private_pgm.domain import Domain
 from twinify.napsu_mq.private_pgm.dataset import Dataset
 import d3p.random
 
-
 class NapsuMQModel(InferenceModel):
     """Implementation for NAPSU-MQ algorithm, differentially private synthetic data generation method for discrete sensitive data.
 
@@ -43,20 +42,18 @@ class NapsuMQModel(InferenceModel):
     """
 
     def __init__(self,
-            column_feature_set: Iterable[FrozenSet[str]], # TODO: what are these actually
+            required_marginals: Iterable[FrozenSet[str]] = tuple(),
             use_laplace_approximation: bool = True) -> None:
         """
         Args:
-            column_feature_set: ???
+            required_marginals (iterable of sets of str): Sets of columns for each of which a combined marginal query must be included in the model.
             use_laplace_approximation (bool): Use Laplace approximation in the model.
         """
 
         super().__init__()
-        if column_feature_set is None:
-            raise ValueError("column_feature_set may not be None")
-        # if column_feature_set is None:
-        #     column_feature_set = []
-        self._column_feature_set = column_feature_set
+        if required_marginals is None:
+            raise ValueError("required_marginals may not be None")
+        self._required_marginals = required_marginals
         self._use_laplace_approximation = use_laplace_approximation
 
     @property
@@ -76,7 +73,7 @@ class NapsuMQModel(InferenceModel):
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
         """
-        column_feature_set = self._column_feature_set
+        required_marginals = self._required_marginals
         use_laplace_approximation = self._use_laplace_approximation
 
         dataframe = DataFrameData(data)
@@ -87,7 +84,7 @@ class NapsuMQModel(InferenceModel):
             domain_value_count_list = [len(dataframe.values_by_col[key]) for key in domain_key_list]
             domain = Domain(domain_key_list, domain_value_count_list)
             query_sets = MST_selection(Dataset(dataframe.int_df, domain), epsilon, delta,
-                                       cliques_to_include=column_feature_set)
+                                       cliques_to_include=required_marginals)
 
         queries = FullMarginalQuerySet(query_sets, dataframe.values_by_col)
         queries = queries.get_canonical_queries()

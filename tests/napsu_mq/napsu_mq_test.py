@@ -47,14 +47,14 @@ class TestNapsuMQ(unittest.TestCase):
     # Takes about ~ 1 minute to run
     @pytest.mark.slow
     def test_NAPSUMQ_model_without_IO(self):
-        column_feature_set = [
+        required_marginals = [
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
         rng = d3p.random.PRNGKey(54363731)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(column_feature_set=column_feature_set, use_laplace_approximation=False)
+        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=False)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         datasets = result.generate(
@@ -76,13 +76,13 @@ class TestNapsuMQ(unittest.TestCase):
     # Takes about ~ 1 minute to run
     @pytest.mark.slow
     def test_NAPSUMQ_model_with_IO(self):
-        column_feature_set = [
+        required_marginals = [
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
         rng = d3p.random.PRNGKey(69700241)
         inference_rng, sampling_rng = d3p.random.split(rng)
-        model = NapsuMQModel(column_feature_set=column_feature_set, use_laplace_approximation=False)
+        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=False)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         napsu_result_file = NamedTemporaryFile("wb")
@@ -123,13 +123,13 @@ class TestNapsuMQ(unittest.TestCase):
     @pytest.mark.slow
     def test_NAPSUMQ_model_for_storing_defects(self):
         # Expect model to generate the same results before storing the model and after storing and loading the model
-        column_feature_set = [
+        required_marginals = [
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
         rng = d3p.random.PRNGKey(74249069)
         inference_rng, sampling_rng = d3p.random.split(rng)
-        model = NapsuMQModel(column_feature_set=column_feature_set, use_laplace_approximation=False)
+        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=False)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         # Use the sampling rng with both generate calls to expect the same generation outcome
@@ -167,14 +167,14 @@ class TestNapsuMQ(unittest.TestCase):
     # Takes about ~ 1 minute to run
     @pytest.mark.slow
     def test_NAPSUMQ_model_with_laplace_approximation_without_IO(self):
-        column_feature_set = [
+        required_marginals = [
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
         rng = d3p.random.PRNGKey(85532350)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(column_feature_set=column_feature_set, use_laplace_approximation=True)
+        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=True)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         datasets = result.generate(
@@ -196,14 +196,14 @@ class TestNapsuMQ(unittest.TestCase):
     # Takes about ~ 1 minute to run
     @pytest.mark.slow
     def test_NAPSUMQ_model_without_IO_single_dataset(self):
-        column_feature_set = [
+        required_marginals = [
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
 
         rng = d3p.random.PRNGKey(85511235)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(column_feature_set=column_feature_set, use_laplace_approximation=True)
+        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=True)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         dataset = result.generate(
