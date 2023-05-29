@@ -176,7 +176,8 @@ class NapsuMQResult(InferenceResult):
         jax_rng = d3p.random.convert_to_jax_rng_key(rng)
         mnjax = MarkovNetwork(self._dataframe_domain, self._queries)
         posterior_values = jnp.array(self.posterior_values)
-        inds = jax.random.choice(key=jax_rng, a=posterior_values.shape[0], shape=[num_parameter_samples])
+        jax_rng, ind_rng = jax.random.split(jax_rng)
+        inds = jax.random.choice(key=ind_rng, a=posterior_values.shape[0], shape=[num_parameter_samples])
         posterior_sample = posterior_values[inds, :]
         rng, *data_keys = jax.random.split(jax_rng, num_parameter_samples + 1)
         syn_datasets = [mnjax.sample(syn_data_key, jnp.array(posterior_value), num_data_per_parameter_sample) for
