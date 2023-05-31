@@ -49,7 +49,8 @@ setuptools.setup(
         'examples': [
             'xlrd < 2.0',
             'scikit-learn',
-            'openpyxl'
+            'openpyxl',
+            'statsmodels',
         ],
         'dev': [
             'pytest',
