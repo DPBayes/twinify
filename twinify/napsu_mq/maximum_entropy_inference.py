@@ -20,6 +20,7 @@ import jax.numpy as jnp
 import numpyro
 import numpyro.infer.util as nummcmc_util
 from jax import random
+import jaxopt
 import twinify.napsu_mq.maximum_entropy_model as mem
 from twinify.napsu_mq.markov_network import MarkovNetwork
 
@@ -102,7 +103,7 @@ class ConvergenceException(Exception):
 
 def run_numpyro_laplace_approximation(
         rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetwork,
-        prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10, max_retries=5
+        prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10, max_iter=100,
 ) -> Tuple[numpyro.distributions.MultivariateNormal, bool]:
     """Run Laplace approximation on the maximum entropy distribution
 
@@ -114,37 +115,24 @@ def run_numpyro_laplace_approximation(
         max_ent_dist (MarkovNetwork): Markov network representation of maximum entropy distribution
         prior_mu (float or jax.numpy.ndarray): Mean prior for multivariate normal distribution
         prior_sigma (float): Standard deviation prior for multivariate normal distribution
-        max_retries (int): Times to retry the approximation
+        max_iter (int): Maximum number of iterations to run LBFGS
 
     Returns:
         laplace_approx: Laplace approximation for the maximum entropy distribution
         result.success: Boolean value if approximation was successful
     """
 
-    key, *subkeys = random.split(rng, max_retries + 1)
-    fail_count = 0
+    init_lambdas, potential_fn_, t, mt = nummcmc_util.initialize_model(
+        rng, mem.normal_prior_model_numpyro,
+        model_args=(suff_stat, n, sigma_DP, prior_mu, prior_sigma, max_ent_dist)
+    )
 
-    for i in range(0, max_retries + 1):
+    potential_fn = jax.jit(lambda l: potential_fn_({"lambdas": l}))
+    lambdas = init_lambdas.z["lambdas"]
 
-        rng = subkeys[i]
+    solver = jaxopt.LBFGS(fun=potential_fn, maxiter=max_iter)
+    solution, diagnostics = solver.run(lambdas)
 
-        init_lambdas, potential_fn, t, mt = nummcmc_util.initialize_model(
-            rng, mem.normal_prior_model_numpyro,
-            model_args=(suff_stat, n, sigma_DP, prior_mu, prior_sigma, max_ent_dist)
-        )
-
-        lambdas = init_lambdas[0]["lambdas"]
-
-        result = jax.scipy.optimize.minimize(lambda l: potential_fn({"lambdas": l}), lambdas, method="BFGS", tol=1e-2)
-        if not result.success:
-            fail_count += 1
-        else:
-            mean = result.x
-            break
-
-        if fail_count == max_retries:
-            raise ConvergenceException(f"Minimize function failed to converge with {max_retries} retries")
-
-    prec = jax.hessian(lambda l: potential_fn({"lambdas": l}))(mean)
-    laplace_approx = numpyro.distributions.MultivariateNormal(loc=mean, precision_matrix=prec)
-    return laplace_approx, result.success
+    prec = jax.hessian(potential_fn)(solution)
+    laplace_approx = numpyro.distributions.MultivariateNormal(loc=solution, precision_matrix=prec)
+    return laplace_approx, diagnostics

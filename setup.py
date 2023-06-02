@@ -43,7 +43,8 @@ setuptools.setup(
         'graphviz >= 0.20.1, < 1.0.0',
         'arviz >= 0.12.1, < 1.0.0',
         'networkx >= 2.6.0, < 3.0.0',
-        'disjoint-set >= 0.7.0, < 1.0.0'
+        'disjoint-set >= 0.7.0, < 1.0.0',
+        'jaxopt >= 0.7, < 1.0.0',
     ],
     extras_require = {
         'examples': [
