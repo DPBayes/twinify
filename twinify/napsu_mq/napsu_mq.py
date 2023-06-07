@@ -131,7 +131,7 @@ class NapsuMQModel(InferenceModel):
             inf_data = az.from_numpyro(mcmc, log_likelihood=False)
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
             posterior_values = posterior_values.lambdas.values.transpose()
-        elif inference_config.method in set("laplace", "laplace+mcmc"):
+        elif inference_config.method in ["laplace", "laplace+mcmc"]:
             # Do Laplace approximation
             approx_rng, mcmc_rng = jax.random.split(inference_rng, 2)
             laplace_approx, success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP,
@@ -139,9 +139,12 @@ class NapsuMQModel(InferenceModel):
             if inference_config.method == "laplace+mcmc":
                 if inference_config.mcmc_config is None:
                     raise ValueError("inference_config.mcmc_config is required when config.method is 'laplace+mcmc'")
+                mcmc_config = inference_config.mcmc_config
                 mcmc, backtransform = mei.run_numpyro_mcmc_normalised(
-                    mcmc_rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, num_samples=2000, num_warmup=800,
-                    num_chains=4
+                    mcmc_rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, 
+                    num_samples=mcmc_config.num_samples, 
+                    num_warmup=mcmc_config.num_warmup,
+                    num_chains=mcmc_config.num_chains
                 )
                 inf_data = az.from_numpyro(mcmc, log_likelihood=False)
                 posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
