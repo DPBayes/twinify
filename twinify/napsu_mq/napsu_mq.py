@@ -15,6 +15,7 @@
 
 from typing import Optional, Union, Iterable, BinaryIO, List, Dict, FrozenSet
 import os
+from dataclasses import dataclass, field
 import pandas as pd
 
 import numpy as np
@@ -34,6 +35,26 @@ from twinify.napsu_mq.private_pgm.domain import Domain
 from twinify.napsu_mq.private_pgm.dataset import Dataset
 import d3p.random
 
+
+@dataclass
+class NapsuMQLaplaceApproximationConfig:
+    max_iters: int = 100
+
+
+@dataclass 
+class NapsuMQMCMCConfig:
+    num_samples: int = 2000
+    num_warmup: int = 800
+    num_chains: int = 4
+
+
+@dataclass
+class NapsuMQInferenceConfig:
+    method: str = "mcmc"
+    laplace_approximation_config: Optional[NapsuMQLaplaceApproximationConfig] = field(default_factory=NapsuMQLaplaceApproximationConfig)
+    mcmc_config: Optional[NapsuMQMCMCConfig] = field(default_factory=NapsuMQMCMCConfig)
+
+
 class NapsuMQModel(InferenceModel):
     """Implementation for NAPSU-MQ algorithm, differentially private synthetic data generation method for discrete sensitive data.
 
@@ -41,27 +62,20 @@ class NapsuMQModel(InferenceModel):
     "Noise-Aware Statistical Inference with Differentially Private Synthetic Data", Ossi Räisä, Joonas Jälkö, Samuel Kaski & Antti Honkela
     """
 
-    def __init__(self,
-            required_marginals: Iterable[FrozenSet[str]] = tuple(),
-            use_laplace_approximation: bool = True) -> None:
+    def __init__(self, required_marginals: Iterable[FrozenSet[str]] = tuple()) -> None:
         """
         Args:
             required_marginals (iterable of sets of str): Sets of columns for each of which a combined marginal query must be included in the model.
-            use_laplace_approximation (bool): Use Laplace approximation in the model.
         """
 
         super().__init__()
         if required_marginals is None:
             raise ValueError("required_marginals may not be None")
         self._required_marginals = required_marginals
-        self._use_laplace_approximation = use_laplace_approximation
-
-    @property
-    def uses_laplace_approximation(self) -> bool:
-        return self._use_laplace_approximation
 
     def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
-            query_sets: Optional[Iterable] = None, **kwargs) -> 'NapsuMQResult':
+            query_sets: Optional[Iterable] = None, 
+            inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig()) -> 'NapsuMQResult':
         """Fit differentially private NAPSU-MQ model from data.
 
         Args:
@@ -69,12 +83,12 @@ class NapsuMQModel(InferenceModel):
             rng (d3p.random.PRNGState): d3p PRNG key
             epsilon (float): Epsilon for differential privacy mechanism
             delta (float): Delta for differential privacy mechanism
+            inference_config (NapsuMQInferenceConfig): Configuration for inference
 
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
         """
         required_marginals = self._required_marginals
-        use_laplace_approximation = self._use_laplace_approximation
 
         dataframe = DataFrameData(data, integers_handler=disallow_integers)
         n, d = dataframe.int_df.shape
@@ -102,26 +116,42 @@ class NapsuMQModel(InferenceModel):
 
         inference_rng = d3p.random.convert_to_jax_rng_key(inference_rng)
 
-        if use_laplace_approximation is True:
-            approx_rng, mcmc_rng = jax.random.split(inference_rng, 2)
-            laplace_approx, success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP,
-                                                                            mnjax)
-            mcmc, backtransform = mei.run_numpyro_mcmc_normalised(
-                mcmc_rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, num_samples=2000, num_warmup=800,
-                num_chains=4
-            )
-            inf_data = az.from_numpyro(mcmc, log_likelihood=False)
-            posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
-            posterior_values = backtransform(posterior_values.norm_lambdas.values.transpose())
+        #TODO move config validation to NapsuMQInferenceConfig
+        if inference_config.method == "mcmc":
+            if inference_config.mcmc_config is None:
+                raise ValueError("inference_config.mcmc_config is required when config.method is 'mcmc'")
 
-        else:
+            mcmc_config = inference_config.mcmc_config
             mcmc = mei.run_numpyro_mcmc(
-                inference_rng, dp_suff_stat, n, sigma_DP, mnjax, num_samples=2000, num_warmup=800, num_chains=4
+                inference_rng, dp_suff_stat, n, sigma_DP, mnjax, 
+                num_samples=mcmc_config.num_samples, 
+                num_warmup=mcmc_config.num_warmup, 
+                num_chains=mcmc_config.num_chains
             )
             inf_data = az.from_numpyro(mcmc, log_likelihood=False)
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
             posterior_values = posterior_values.lambdas.values.transpose()
-
+        elif inference_config.method in set("laplace", "laplace+mcmc"):
+            # Do Laplace approximation
+            approx_rng, mcmc_rng = jax.random.split(inference_rng, 2)
+            laplace_approx, success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP,
+                                                                            mnjax)
+            if inference_config.method == "laplace+mcmc":
+                if inference_config.mcmc_config is None:
+                    raise ValueError("inference_config.mcmc_config is required when config.method is 'laplace+mcmc'")
+                mcmc, backtransform = mei.run_numpyro_mcmc_normalised(
+                    mcmc_rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, num_samples=2000, num_warmup=800,
+                    num_chains=4
+                )
+                inf_data = az.from_numpyro(mcmc, log_likelihood=False)
+                posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
+                posterior_values = backtransform(posterior_values.norm_lambdas.values.transpose())
+            else:
+                #TODO implement this
+                raise NotImplementedError("inference_config.method 'laplace' is not implemented")
+        else:
+            raise ValueError("inference_config.method must be one of 'mcmc', 'laplace' or 'laplace+mcmc'")
+                
         return NapsuMQResult(dataframe.values_by_col, queries, posterior_values, dataframe.data_description)
 
 
