@@ -39,6 +39,7 @@ import d3p.random
 @dataclass
 class NapsuMQLaplaceApproximationConfig:
     max_iters: int = 100
+    num_samples: int = 10000
 
 
 @dataclass 
@@ -133,7 +134,8 @@ class NapsuMQModel(InferenceModel):
             posterior_values = posterior_values.lambdas.values.transpose()
         elif inference_config.method in ["laplace", "laplace+mcmc"]:
             # Do Laplace approximation
-            approx_rng, mcmc_rng = jax.random.split(inference_rng, 2)
+            approx_rng, approx_sample_rng, mcmc_rng = jax.random.split(inference_rng, 3)
+            laplace_approx_config = inference_config.laplace_approximation_config
             laplace_approx, success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP,
                                                                             mnjax)
             if inference_config.method == "laplace+mcmc":
@@ -150,8 +152,7 @@ class NapsuMQModel(InferenceModel):
                 posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
                 posterior_values = backtransform(posterior_values.norm_lambdas.values.transpose())
             else:
-                #TODO implement this
-                raise NotImplementedError("inference_config.method 'laplace' is not implemented")
+                posterior_values = laplace_approx.sample(approx_sample_rng, (laplace_approx_config.num_samples,))
         else:
             raise ValueError("inference_config.method must be one of 'mcmc', 'laplace' or 'laplace+mcmc'")
                 
