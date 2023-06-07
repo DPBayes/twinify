@@ -58,7 +58,7 @@ class TestNapsuMQ(unittest.TestCase):
         rng = d3p.random.PRNGKey(54363731)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=False)
+        model = NapsuMQModel(required_marginals=required_marginals)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         datasets = result.generate(
@@ -86,7 +86,7 @@ class TestNapsuMQ(unittest.TestCase):
 
         rng = d3p.random.PRNGKey(69700241)
         inference_rng, sampling_rng = d3p.random.split(rng)
-        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=False)
+        model = NapsuMQModel(required_marginals=required_marginals)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         napsu_result_file = NamedTemporaryFile("wb")
@@ -133,7 +133,7 @@ class TestNapsuMQ(unittest.TestCase):
 
         rng = d3p.random.PRNGKey(74249069)
         inference_rng, sampling_rng = d3p.random.split(rng)
-        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=False)
+        model = NapsuMQModel(required_marginals=required_marginals)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         # Use the sampling rng with both generate calls to expect the same generation outcome
@@ -178,7 +178,7 @@ class TestNapsuMQ(unittest.TestCase):
         rng = d3p.random.PRNGKey(85532350)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=True)
+        model = NapsuMQModel(required_marginals=required_marginals)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         datasets = result.generate(
@@ -207,7 +207,7 @@ class TestNapsuMQ(unittest.TestCase):
         rng = d3p.random.PRNGKey(85511235)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(required_marginals=required_marginals, use_laplace_approximation=True)
+        model = NapsuMQModel(required_marginals=required_marginals)
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         dataset = result.generate(
@@ -241,8 +241,7 @@ class TestNapsuMQ(unittest.TestCase):
 
         model = NapsuMQModel(required_marginals=[])
         with self.assertRaises(ValueError):
-            model.fit(data=data, rng=rng, epsilon=1, delta=(n ** (-2)),
-                            use_laplace_approximation=True)
+            model.fit(data=data, rng=rng, epsilon=1, delta=(n ** (-2)))
 
 
 class TestNapsuMQResult(unittest.TestCase):
