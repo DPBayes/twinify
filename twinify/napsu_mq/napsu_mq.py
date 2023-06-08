@@ -78,7 +78,8 @@ class NapsuMQModel(InferenceModel):
     def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
             query_sets: Optional[Iterable] = None, 
             inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig(),
-            show_progress: bool = True) -> 'NapsuMQResult':
+            show_progress: bool = True,
+            return_diagnostics: bool = False) -> 'NapsuMQResult':
         """Fit differentially private NAPSU-MQ model from data.
 
         Args:
@@ -88,6 +89,7 @@ class NapsuMQModel(InferenceModel):
             delta (float): Delta for differential privacy mechanism
             inference_config (NapsuMQInferenceConfig): Configuration for inference
             show_progress (bool): Show progressbar for MCMC
+            return_diagnostics (bool): Return diagnostics from inference
 
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
@@ -136,11 +138,12 @@ class NapsuMQModel(InferenceModel):
             inf_data = az.from_numpyro(mcmc, log_likelihood=False)
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
             posterior_values = posterior_values.lambdas.values.transpose()
+            diagnostics = inf_data
         elif inference_config.method in ["laplace", "laplace+mcmc"]:
             # Do Laplace approximation
             approx_rng, approx_sample_rng, mcmc_rng = jax.random.split(inference_rng, 3)
             laplace_approx_config = inference_config.laplace_approximation_config
-            laplace_approx, success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP,
+            laplace_approx, laplace_success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP,
                                                                             mnjax)
             if inference_config.method == "laplace+mcmc":
                 if inference_config.mcmc_config is None:
@@ -156,12 +159,18 @@ class NapsuMQModel(InferenceModel):
                 inf_data = az.from_numpyro(mcmc, log_likelihood=False)
                 posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
                 posterior_values = backtransform(posterior_values.norm_lambdas.values.transpose())
+                diagnostics = (laplace_success, inf_data)
             else:
                 posterior_values = laplace_approx.sample(approx_sample_rng, (laplace_approx_config.num_samples,))
+                diagnostics = laplace_success
         else:
             raise ValueError("inference_config.method must be one of 'mcmc', 'laplace' or 'laplace+mcmc'")
                 
-        return NapsuMQResult(dataframe.values_by_col, queries, posterior_values, dataframe.data_description)
+        result = NapsuMQResult(dataframe.values_by_col, queries, posterior_values, dataframe.data_description)
+        if return_diagnostics:
+            return result, diagnostics
+        else:
+            return result
 
 
 class NapsuMQResult(InferenceResult):
