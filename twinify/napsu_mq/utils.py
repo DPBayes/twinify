@@ -15,6 +15,7 @@
 
 from itertools import chain, combinations
 from typing import Iterable, List
+from tqdm import tqdm
 
 
 def powerset(iterable: Iterable) -> List:
@@ -30,3 +31,18 @@ def powerset(iterable: Iterable) -> List:
     """
     s = list(iterable)
     return [set(t) for t in chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))]
+
+def progressbar_choice(iterable: Iterable, show_progressbar: bool) -> Iterable:
+    """Choose whether to show progressbar while iterating.
+
+    Args:
+        iterable (Iterable): The iterable to iterate over
+        show_progressbar (bool): Whether to show the progressbar
+
+    Returns:
+        Iterable: The iterable optionally wrapped to show the progressbar
+    """
+    if show_progressbar: 
+        return tqdm(iterable)
+    else: 
+        return iterable

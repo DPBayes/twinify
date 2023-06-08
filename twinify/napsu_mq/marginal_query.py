@@ -18,8 +18,7 @@ from typing import Iterable, List, Optional, Tuple, Dict, Set
 import itertools
 import numpy as np
 
-from tqdm import tqdm
-
+from twinify.napsu_mq.utils import progressbar_choice
 from twinify.napsu_mq.utils import powerset
 
 
@@ -129,7 +128,7 @@ class FullMarginalQuerySet:
         """
         return QueryList(itertools.chain.from_iterable(query_list.queries for query_list in self.queries.values()))
 
-    def get_canonical_queries(self) -> 'FullMarginalQuerySet':
+    def get_canonical_queries(self, show_progressbar=False) -> 'FullMarginalQuerySet':
         """Find the canonical queries for the queries in self.
         Returns:
             FullMarginalQuerySet: The canonical queries as a FullMarginalQuerySet.
@@ -140,7 +139,7 @@ class FullMarginalQuerySet:
         clique_set = set([tuple(val) for val in clique_list])
         canonical_queries = {}
 
-        for clique in tqdm(clique_set):
+        for clique in progressbar_choice(clique_set, show_progressbar):
             clique = set(clique)
             clique_ordered = tuple(clique)
             if clique == set():
@@ -151,7 +150,7 @@ class FullMarginalQuerySet:
             conv_clique_indices = index_conversion[list(clique)]
 
             clique_product = itertools.product(*(np.arange(self.value_counts_by_int_feature[variable]) for variable in clique_ordered))
-            for val in tqdm(clique_product):
+            for val in progressbar_choice(clique_product, show_progressbar):
                 value = np.zeros(len(clique), dtype=int)
                 value[conv_clique_indices] = np.asarray(val, dtype=int)
                 counter = np.zeros(tuple([self.value_counts_by_int_feature[variable] for variable in clique_ordered]),
@@ -179,11 +178,11 @@ class FullMarginalQuerySet:
         original_clique_queries = {clique: queries for clique, queries in canonical_queries.items() if
                                    clique in self.feature_sets}
 
-        for clique in tqdm(self.feature_sets):
+        for clique in progressbar_choice(self.feature_sets, show_progressbar):
             if clique not in original_clique_queries.keys():
                 original_clique_queries[clique] = []
 
-        for query in tqdm(not_original_clique_queries):
+        for query in progressbar_choice(not_original_clique_queries, show_progressbar):
             original_clique = None
             for clique in self.feature_sets:
                 if set(query.features).issubset(set(clique)):
