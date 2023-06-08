@@ -23,7 +23,7 @@ import pandas as pd
 import pytest
 from tempfile import NamedTemporaryFile, TemporaryFile
 from binary_logistic_regression_generator import BinaryLogisticRegressionDataGenerator
-from twinify.napsu_mq.napsu_mq import NapsuMQResult, NapsuMQModel
+from twinify.napsu_mq.napsu_mq import NapsuMQResult, NapsuMQModel, NapsuMQInferenceConfig
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
 from twinify.dataframe_data import DataDescription
 
@@ -179,7 +179,8 @@ class TestNapsuMQ(unittest.TestCase):
         inference_rng, sampling_rng = d3p.random.split(rng)
 
         model = NapsuMQModel(required_marginals=required_marginals)
-        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
+        config = NapsuMQInferenceConfig(method="laplace+mcmc")
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)), inference_config=config)
 
         datasets = result.generate(
             rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=False
@@ -208,7 +209,8 @@ class TestNapsuMQ(unittest.TestCase):
         inference_rng, sampling_rng = d3p.random.split(rng)
 
         model = NapsuMQModel(required_marginals=required_marginals)
-        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
+        config = NapsuMQInferenceConfig(method="laplace+mcmc")
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)), inference_config=config)
 
         dataset = result.generate(
             rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=True
