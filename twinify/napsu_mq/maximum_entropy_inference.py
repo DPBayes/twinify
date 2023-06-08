@@ -27,7 +27,7 @@ from twinify.napsu_mq.markov_network import MarkovNetwork
 def run_numpyro_mcmc(
         rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetwork,
         prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10, num_samples: int = 1000,
-        num_warmup: int = 500, num_chains: int = 1, disable_progressbar: bool = False,
+        num_warmup: int = 500, num_chains: int = 1, show_progressbar: bool = True,
 ) -> numpyro.infer.MCMC:
     """Run MCMC inference (NUTS) with Numpyro on maximum entropy distribution with multivariate normal prior
 
@@ -50,7 +50,7 @@ def run_numpyro_mcmc(
     kernel = numpyro.infer.NUTS(model=mem.normal_prior_model_numpyro, max_tree_depth=12)
     mcmc = numpyro.infer.MCMC(
         kernel, num_warmup=num_warmup, num_samples=num_samples, num_chains=num_chains,
-        progress_bar=not disable_progressbar, jit_model_args=False, chain_method="sequential"
+        progress_bar=show_progressbar, jit_model_args=False, chain_method="sequential"
     )
     mcmc.run(rng, suff_stat, n, sigma_DP, prior_mu, prior_sigma, max_ent_dist)
     return mcmc
@@ -59,7 +59,7 @@ def run_numpyro_mcmc(
 def run_numpyro_mcmc_normalised(
         rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetwork,
         laplace_approx: numpyro.distributions.MultivariateNormal, prior_sigma: float = 10,
-        num_samples: int = 1000, num_warmup: int = 500, num_chains: int = 1, disable_progressbar: bool = False,
+        num_samples: int = 1000, num_warmup: int = 500, num_chains: int = 1, show_progressbar: bool = True,
 ) -> Tuple[numpyro.infer.MCMC, Callable]:
     """Run MCMC inference (NUTS) with Numpyro on maximum entropy distribution with normalized multivariate normal prior
 
@@ -83,7 +83,7 @@ def run_numpyro_mcmc_normalised(
     kernel = numpyro.infer.NUTS(model=mem.normal_prior_normalised_model_numpyro, max_tree_depth=12)
     mcmc = numpyro.infer.MCMC(
         kernel, num_warmup=num_warmup, num_samples=num_samples, num_chains=num_chains,
-        progress_bar=not disable_progressbar, jit_model_args=False, chain_method="sequential"
+        progress_bar=show_progressbar, jit_model_args=False, chain_method="sequential"
     )
 
     mean_guess = laplace_approx.mean

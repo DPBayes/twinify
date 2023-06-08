@@ -33,6 +33,7 @@ import twinify.napsu_mq.privacy_accounting as privacy_accounting
 import twinify.napsu_mq.maximum_entropy_inference as mei
 from twinify.napsu_mq.private_pgm.domain import Domain
 from twinify.napsu_mq.private_pgm.dataset import Dataset
+from twinify.napsu_mq.utils import progressbar_choice
 import d3p.random
 
 
@@ -76,7 +77,8 @@ class NapsuMQModel(InferenceModel):
 
     def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
             query_sets: Optional[Iterable] = None, 
-            inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig()) -> 'NapsuMQResult':
+            inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig(),
+            show_progress: bool = True) -> 'NapsuMQResult':
         """Fit differentially private NAPSU-MQ model from data.
 
         Args:
@@ -85,6 +87,7 @@ class NapsuMQModel(InferenceModel):
             epsilon (float): Epsilon for differential privacy mechanism
             delta (float): Delta for differential privacy mechanism
             inference_config (NapsuMQInferenceConfig): Configuration for inference
+            show_progress (bool): Show progressbar for MCMC
 
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
@@ -127,7 +130,8 @@ class NapsuMQModel(InferenceModel):
                 inference_rng, dp_suff_stat, n, sigma_DP, mnjax, 
                 num_samples=mcmc_config.num_samples, 
                 num_warmup=mcmc_config.num_warmup, 
-                num_chains=mcmc_config.num_chains
+                num_chains=mcmc_config.num_chains,
+                show_progressbar=show_progress,
             )
             inf_data = az.from_numpyro(mcmc, log_likelihood=False)
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
@@ -146,7 +150,8 @@ class NapsuMQModel(InferenceModel):
                     mcmc_rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, 
                     num_samples=mcmc_config.num_samples, 
                     num_warmup=mcmc_config.num_warmup,
-                    num_chains=mcmc_config.num_chains
+                    num_chains=mcmc_config.num_chains,
+                    show_progressbar=show_progress,
                 )
                 inf_data = az.from_numpyro(mcmc, log_likelihood=False)
                 posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
@@ -203,7 +208,8 @@ class NapsuMQResult(InferenceResult):
             rng: d3p.random.PRNGState,
             num_parameter_samples: int,
             num_data_per_parameter_sample: int = 1,
-            single_dataframe: bool = True) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
+            single_dataframe: bool = True,
+            show_progress: bool = False) -> Union[Iterable[pd.DataFrame], pd.DataFrame]:
         jax_rng = d3p.random.convert_to_jax_rng_key(rng)
         mnjax = MarkovNetwork(self._dataframe_domain, self._queries)
         posterior_values = jnp.array(self.posterior_values)
@@ -213,7 +219,7 @@ class NapsuMQResult(InferenceResult):
         rng, *data_keys = jax.random.split(jax_rng, num_parameter_samples + 1)
         syn_datasets = [mnjax.sample(syn_data_key, jnp.array(posterior_value), num_data_per_parameter_sample) for
                         syn_data_key, posterior_value
-                        in list(zip(data_keys, posterior_sample))]
+                        in progressbar_choice(list(zip(data_keys, posterior_sample)), show_progress)]
 
         dataframes = [self.data_description.map_to_categorical(syn_data) for syn_data in syn_datasets]
 
