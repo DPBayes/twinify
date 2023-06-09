@@ -55,6 +55,13 @@ class NapsuMQLaplaceApproximationConfig:
 
 @dataclass 
 class NapsuMQMCMCConfig:
+    """Configuration for MCMC.
+
+    Args:
+        num_samples (int): Number of kept samples from MCMC. Default 2000.
+        num_warmup (int): Number of warmup samples that are dropped. Default 800.
+        num_chains (int): Number of MCMC chains to run. Default 4.
+    """
     num_samples: int = 2000
     num_warmup: int = 800
     num_chains: int = 4
@@ -62,6 +69,13 @@ class NapsuMQMCMCConfig:
 
 @dataclass
 class NapsuMQInferenceConfig:
+    """Configuration for NAPSU-MQ posterior inference.
+
+    Args:
+        method (str): Inference method, one of 'mcmc', 'laplace' 'laplace+mcmc'. Default 'mcmc'.
+        laplace_approximation_config (NapsuMQLaplaceApproximationConfig): Configuration for Laplace approximation. Only used for methods 'laplace' and 'laplace+mcmc'.
+        mcmc_config (NapsuMQMCMCConfig): Configuration for MCMC. Only used for methods 'mcmc' and 'laplace+mcmc'.
+    """
     method: str = "mcmc"
     laplace_approximation_config: Optional[NapsuMQLaplaceApproximationConfig] = field(default_factory=NapsuMQLaplaceApproximationConfig)
     mcmc_config: Optional[NapsuMQMCMCConfig] = field(default_factory=NapsuMQMCMCConfig)
