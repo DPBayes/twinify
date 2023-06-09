@@ -102,7 +102,8 @@ class ConvergenceException(Exception):
 
 def run_numpyro_laplace_approximation(
         rng: random.PRNGKey, suff_stat: jnp.ndarray, n: int, sigma_DP: float, max_ent_dist: MarkovNetwork,
-        prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10, max_retries=5
+        prior_mu: Union[float, jnp.ndarray] = 0, prior_sigma: float = 10, 
+        max_retries=5, tol=1e-2, max_iters=100
 ) -> Tuple[numpyro.distributions.MultivariateNormal, bool]:
     """Run Laplace approximation on the maximum entropy distribution
 
@@ -135,7 +136,7 @@ def run_numpyro_laplace_approximation(
 
         lambdas = init_lambdas[0]["lambdas"]
 
-        result = jax.scipy.optimize.minimize(lambda l: potential_fn({"lambdas": l}), lambdas, method="BFGS", tol=1e-2)
+        result = jax.scipy.optimize.minimize(lambda l: potential_fn({"lambdas": l}), lambdas, method="BFGS", tol=tol, options={"maxiter": max_iters})
         if not result.success:
             fail_count += 1
         else:

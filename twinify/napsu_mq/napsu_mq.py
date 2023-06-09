@@ -39,8 +39,18 @@ import d3p.random
 
 @dataclass
 class NapsuMQLaplaceApproximationConfig:
+    """Configuration for the Laplace approximation.
+
+    Args:
+        max_iters (int): Maximum number of optimisation iterations. Default 100.
+        num_samples (int): Number of posterior samples after inference. Default 10 000.
+        tol (float): Optimiser error tolerance. Default 1e-2.
+        max_retries (int): Maximum number of retries in case optimiser fails. Default 5.
+    """
     max_iters: int = 100
     num_samples: int = 10000
+    tol: float = 1e-2
+    max_retries: int = 5
 
 
 @dataclass 
@@ -143,8 +153,12 @@ class NapsuMQModel(InferenceModel):
             # Do Laplace approximation
             approx_rng, approx_sample_rng, mcmc_rng = jax.random.split(inference_rng, 3)
             laplace_approx_config = inference_config.laplace_approximation_config
-            laplace_approx, laplace_success = mei.run_numpyro_laplace_approximation(approx_rng, dp_suff_stat, n, sigma_DP,
-                                                                            mnjax)
+            laplace_approx, laplace_success = mei.run_numpyro_laplace_approximation(
+                approx_rng, dp_suff_stat, n, sigma_DP, mnjax, 
+                max_retries=laplace_approx_config.max_retries,
+                tol=laplace_approx_config.tol,
+                max_iters=laplace_approx_config.max_iters
+            )
             if inference_config.method == "laplace+mcmc":
                 if inference_config.mcmc_config is None:
                     raise ValueError("inference_config.mcmc_config is required when config.method is 'laplace+mcmc'")
