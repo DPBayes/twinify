@@ -170,7 +170,7 @@ class TestNapsuMQ(unittest.TestCase):
 
     # Takes about ~ 1 minute to run
     @pytest.mark.slow
-    def test_NAPSUMQ_model_with_laplace_approximation_without_IO(self):
+    def test_NAPSUMQ_model_with_laplace_plus_mcmc_without_IO(self):
         required_marginals = [
             ('A', 'B'), ('B', 'C'), ('A', 'C')
         ]
@@ -180,6 +180,36 @@ class TestNapsuMQ(unittest.TestCase):
 
         model = NapsuMQModel(required_marginals=required_marginals)
         config = NapsuMQInferenceConfig(method="laplace+mcmc")
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)), inference_config=config)
+
+        datasets = result.generate(
+            rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=False
+        )
+
+        self.assertEqual(len(datasets), 5)
+        self.assertEqual(datasets[0].shape, (500, 3))
+
+        original_means = self.dataframe.mean()
+        original_stds = self.dataframe.std()
+
+        for i, df in enumerate(datasets):
+            means = df.mean()
+            stds = df.std()
+            pd.testing.assert_series_equal(means, original_means, check_exact=False, rtol=0.3)
+            pd.testing.assert_series_equal(stds, original_stds, check_exact=False, rtol=0.3)
+
+    # Takes about ~ 1 minute to run
+    @pytest.mark.slow
+    def test_NAPSUMQ_model_with_laplace_approximation_without_IO(self):
+        required_marginals = [
+            ('A', 'B'), ('B', 'C'), ('A', 'C')
+        ]
+
+        rng = d3p.random.PRNGKey(897236)
+        inference_rng, sampling_rng = d3p.random.split(rng)
+
+        model = NapsuMQModel(required_marginals=required_marginals)
+        config = NapsuMQInferenceConfig(method="laplace")
         result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)), inference_config=config)
 
         datasets = result.generate(
