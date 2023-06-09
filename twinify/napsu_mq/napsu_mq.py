@@ -80,6 +80,25 @@ class NapsuMQInferenceConfig:
     laplace_approximation_config: Optional[NapsuMQLaplaceApproximationConfig] = field(default_factory=NapsuMQLaplaceApproximationConfig)
     mcmc_config: Optional[NapsuMQMCMCConfig] = field(default_factory=NapsuMQMCMCConfig)
 
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self):
+        if self.method not in ["mcmc", "laplace", "laplace+mcmc"]:
+            raise ValueError("method must be one of 'mcmc', 'laplace' or 'laplace+mcmc'. Received {}".format(self.method))
+
+        if self.method == "mcmc" and self.mcmc_config is None:
+            raise ValueError("mcmc_config is required when method is 'mcmc'")
+
+        if self.method == "laplace" and self.laplace_approximation_config is None:
+            raise ValueError("laplace_approximation_config is required when method is 'laplace'")
+
+        if self.method == "laplace+mcmc":
+            if self.laplace_approximation_config is None:
+                raise ValueError("laplace_approximation_config is required when method is 'laplace+mcmc'")
+            if self.mcmc_config is None:
+                raise ValueError("mcmc_config is required when method is 'laplace+mcmc'")
+
 
 class NapsuMQModel(InferenceModel):
     """Implementation for NAPSU-MQ algorithm, differentially private synthetic data generation method for discrete sensitive data.
@@ -119,6 +138,7 @@ class NapsuMQModel(InferenceModel):
             NapsuMQResult: Class containing learned probabilistic model with posterior values
         """
         required_marginals = self._required_marginals
+        inference_config.validate()
 
         dataframe = DataFrameData(data, integers_handler=disallow_integers)
         n, d = dataframe.int_df.shape
@@ -146,11 +166,7 @@ class NapsuMQModel(InferenceModel):
 
         inference_rng = d3p.random.convert_to_jax_rng_key(inference_rng)
 
-        #TODO move config validation to NapsuMQInferenceConfig
         if inference_config.method == "mcmc":
-            if inference_config.mcmc_config is None:
-                raise ValueError("inference_config.mcmc_config is required when config.method is 'mcmc'")
-
             mcmc_config = inference_config.mcmc_config
             mcmc = mei.run_numpyro_mcmc(
                 inference_rng, dp_suff_stat, n, sigma_DP, mnjax, 
@@ -174,8 +190,6 @@ class NapsuMQModel(InferenceModel):
                 max_iters=laplace_approx_config.max_iters
             )
             if inference_config.method == "laplace+mcmc":
-                if inference_config.mcmc_config is None:
-                    raise ValueError("inference_config.mcmc_config is required when config.method is 'laplace+mcmc'")
                 mcmc_config = inference_config.mcmc_config
                 mcmc, backtransform = mei.run_numpyro_mcmc_normalised(
                     mcmc_rng, dp_suff_stat, n, sigma_DP, mnjax, laplace_approx, 
