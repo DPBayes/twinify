@@ -118,6 +118,21 @@ class CombinedConstraintTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             constraint.feasible_like([1., 2., 3.])
 
+    def test_tree_flatten_unflatten(self) -> None:
+        base_constraints = [dists.constraints.positive, dists.constraints.positive_integer, dists.constraints.real_vector]
+        sizes = [1, 2, 3]
+        constraint = combined_constraint(base_constraints, sizes)
+
+        params, aux_data = constraint.tree_flatten()
+        unflattened_constraint = type(constraint).tree_unflatten(aux_data, params)
+
+        self.assertEqual(unflattened_constraint.size, constraint.size)
+        self.assertEqual(unflattened_constraint.offsets, constraint.offsets)
+
+        prototype = np.array([[1., 2., 3., 4., 5., 6.], [3., 4., 5., 10., 11., 12.]])
+        unflattened_feasible = unflattened_constraint.feasible_like(prototype)
+        feasible = constraint.feasible_like(prototype)
+        self.assertTrue(np.allclose(unflattened_feasible, feasible))
 
 class MixtureModelTest(unittest.TestCase):
 

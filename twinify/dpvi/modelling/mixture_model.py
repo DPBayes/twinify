@@ -111,7 +111,17 @@ class _CombinedConstraint(Constraint):
     @property
     def offsets(self) -> typing.Iterable[int]:
         return self._dim_offsets[:-1]
-
+    
+    def tree_flatten(self) -> typing.Tuple[typing.Iterable[Constraint], typing.Dict[str, typing.Any]]:
+        return self._base_constraints, {'sizes': np.diff(self._dim_offsets)}
+    
+    @classmethod
+    def tree_unflatten(cls, aux_data: typing.Dict[str, typing.Any], params: typing.Iterable[Constraint]) -> "_CombinedConstraint":
+        sizes = aux_data['sizes']
+        return _CombinedConstraint(
+            params, sizes
+        )
+    
 
 combined_constraint = _CombinedConstraint
 # TODO: need to implement a transform for this

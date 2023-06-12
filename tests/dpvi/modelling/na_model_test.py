@@ -57,7 +57,34 @@ class NAConstraintTest(unittest.TestCase):
         base_result = base_constraint.feasible_like(prototype)
         result = constraint.feasible_like(prototype)
         self.assertTrue(np.allclose(base_result, result))
+    
+    def test_tree_flatten_unflatten(self) -> None:
+        base_constraint = dists.constraints.positive
+        constraint = na_constraint(base_constraint)
 
+        params, aux_data = constraint.tree_flatten()
+        unflattened_constraint = type(constraint).tree_unflatten(aux_data, params)
+
+        self.assertEqual(unflattened_constraint.is_discrete, constraint.is_discrete)
+
+        prototype = np.array([[1., 2., 3.], [3., 4., 5.]])
+        unflattened_feasible = unflattened_constraint.feasible_like(prototype)
+        feasible = constraint.feasible_like(prototype)
+        self.assertTrue(np.allclose(unflattened_feasible, feasible))
+
+    def test_tree_flatten_unflatten_discrete(self) -> None:
+        base_constraint = dists.constraints.positive_integer
+        constraint = na_constraint(base_constraint)
+
+        params, aux_data = constraint.tree_flatten()
+        unflattened_constraint = type(constraint).tree_unflatten(aux_data, params)
+
+        self.assertEqual(unflattened_constraint.is_discrete, constraint.is_discrete)
+
+        prototype = np.array([[1, 2, 3], [3, 4, 5]])
+        unflattened_feasible = unflattened_constraint.feasible_like(prototype)
+        feasible = constraint.feasible_like(prototype)
+        self.assertTrue(np.allclose(unflattened_feasible, feasible))
 
 class NAModelTest(unittest.TestCase):
 
