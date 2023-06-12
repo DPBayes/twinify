@@ -47,6 +47,13 @@ class _NAConstraint(dists.constraints.Constraint):
     @property
     def event_dim(self) -> int:
         return self.base_constraint.event_dim
+    
+    def tree_flatten(self) -> typing.Tuple[dists.constraints.Constraint, typing.Tuple]:
+        return self.base_constraint, ()
+    
+    @classmethod
+    def tree_unflatten(cls, aux_data: typing.Any, params: dists.constraints.Constraint):
+        return _NAConstraint(params)
 
 
 na_constraint = _NAConstraint
