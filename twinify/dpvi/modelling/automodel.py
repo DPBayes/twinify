@@ -35,10 +35,8 @@ from .na_model import NAModel
 import numpy as np
 
 from typing import Type, Dict, Optional, Union, Tuple, List, Callable, Sequence
-from abc import ABCMeta, abstractmethod
 
 import pandas as pd
-
 
 constraint_dtype_lookup = {
     dists.constraints._Boolean: 'int',
@@ -49,6 +47,13 @@ constraint_dtype_lookup = {
     dists.constraints._IntegerInterval: 'int',
     dists.constraints._Multinomial: 'int',
 }
+
+if hasattr(dists.constraints, "_Positive"):
+    constraint_dtype_lookup[dists.constraints._Positive] = 'float'
+
+if hasattr(dists.constraints, "_IntegerNonnegative"):
+    constraint_dtype_lookup[dists.constraints._IntegerNonnegative] = 'int'
+
 
 class Distribution:
     """ Wraps a numpyro distribution and exposes relevant properties for
@@ -131,8 +136,8 @@ class Distribution:
         try:
             return canonicalize_dtype(constraint_dtype_lookup[support_constraint])
         except KeyError:
-            return ValueError("A distribution with support {} is currently \
-                not supported".format(support_constraint))
+            raise ValueError("A distribution with support {} is currently "\
+                "not supported".format(support_constraint))
 
     @property
     def support_dtype(self) -> str:

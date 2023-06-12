@@ -221,7 +221,7 @@ class MixtureModelTest(unittest.TestCase):
         mixture_model = MixtureModel(base_dists, pis)
 
         expected = combined_constraint(
-            [dists.constraints.independent(dists.constraints.real, 1), dists.constraints.positive_integer],
+            [dists.constraints.independent(dists.constraints.real, 1), dists.constraints.nonnegative_integer],
             [2, 1]
         )
 
