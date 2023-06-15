@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import jax
+from jax.tree_util import register_pytree_node_class
 import jax.numpy as jnp
 import numpy as np
 from jax.numpy import ndarray
@@ -21,6 +22,7 @@ from numpy.typing import ArrayLike
 from typing import List, Optional, Tuple, Union, Sequence, Iterable
 
 
+@register_pytree_node_class
 class LogFactor:
     """Jax implementation of log factors of Markov networks."""
 
@@ -35,6 +37,16 @@ class LogFactor:
         self.variable_inds = {var: i for i, var in enumerate(scope)}
         self.values = values
         self.debug_checks = debug_checks
+
+    def tree_flatten(self):
+        aux_data = (self.scope, self.variable_inds, self.debug_checks)
+        children = self.values
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        scope, variable_inds, debug_checks = aux_data
+        return cls(scope, children, debug_checks)
 
     def get_variable_range(self, variable: Union[str, int]) -> Tuple[int, ...]:
         return self.values.shape[self.variable_inds[variable]]
@@ -108,10 +120,20 @@ class LogFactor:
             LogFactor: The product of the factors as a new LogFactor object.
         """
         factors = list(factors)
-        product = factors[0]
-        for i in range(1, len(factors)):
-            product = product.product(factors[i])
-        return product
+        length = len(factors)
+        return jax.lax.fori_loop(
+            1, length, lambda i, prod: prod.product(factors[i]), factors[0]
+        )
+        # return jax.lax.scan(
+        #     lambda prod, factor: (prod.product(factor), None),
+        #     factors[0],
+        #     factors[1:]
+        # )[0]
+
+        # product = factors[0]
+        # for i in range(1, len(factors)):
+        #     product = product.product(factors[i])
+        # return product
 
     def project(self, variables: List) -> 'LogFactor':
         """Marginalise all variables except the given variables.
@@ -125,11 +147,14 @@ class LogFactor:
         if self.debug_checks and not set(variables).issubset(set(self.scope)):
             raise ValueError("Variables {} are not a subset of scope {}".format(variables, self.scope))
 
-        to_eliminate = set(self.scope).difference(set(variables + ["batch"]))
-        factor = self
-        for var in to_eliminate:
-            factor = factor.marginalise(var)
-        return factor
+        to_eliminate = list(set(self.scope).difference(set(variables + ["batch"])))
+        return jax.lax.fori_loop(
+            0, len(to_eliminate), lambda i, factor: factor.marginalise(to_eliminate[i])
+        )
+        # factor = self
+        # for var in to_eliminate:
+        #     factor = factor.marginalise(var)
+        # return factor
 
     def condition(self, variable: int, value: int) -> 'LogFactor':
         """Condition the factor on a given value for a given variable.
