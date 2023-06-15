@@ -67,7 +67,6 @@ class NapsuMQMCMCConfig:
     num_chains: int = 4
 
 
-@dataclass
 class NapsuMQInferenceConfig:
     """Configuration for NAPSU-MQ posterior inference.
 
@@ -76,28 +75,64 @@ class NapsuMQInferenceConfig:
         laplace_approximation_config (NapsuMQLaplaceApproximationConfig): Configuration for Laplace approximation. Only used for methods 'laplace' and 'laplace+mcmc'.
         mcmc_config (NapsuMQMCMCConfig): Configuration for MCMC. Only used for methods 'mcmc' and 'laplace+mcmc'.
     """
-    method: str = "mcmc"
-    laplace_approximation_config: Optional[NapsuMQLaplaceApproximationConfig] = field(default_factory=NapsuMQLaplaceApproximationConfig)
-    mcmc_config: Optional[NapsuMQMCMCConfig] = field(default_factory=NapsuMQMCMCConfig)
+    def __init__(
+        self, method: str = "mcmc", 
+        laplace_approximation_config: Optional[NapsuMQLaplaceApproximationConfig] = None, 
+        mcmc_config: Optional[NapsuMQMCMCConfig] = None
+    ) -> None:
+        self._method = method
+        self._check_method()
 
-    def __post_init__(self):
-        self.validate()
+        if laplace_approximation_config is None:
+            self._laplace_approximation_config = NapsuMQLaplaceApproximationConfig()
+        else:
+            self._laplace_approximation_config = laplace_approximation_config
 
-    def validate(self):
+        if mcmc_config is None:
+            self._mcmc_config = NapsuMQMCMCConfig()
+        else:
+            self._mcmc_config = mcmc_config
+
+    @property
+    def method(self) -> str:
+        return self._method
+    
+    @method.setter
+    def method(self, new_method: str) -> None:
+        self._method = new_method
+        self._check_method()
+        self._check_la_config()
+        self._check_mcmc_config()
+
+    @property 
+    def laplace_approximation_config(self) -> NapsuMQLaplaceApproximationConfig:
+        return self._laplace_approximation_config
+
+    @laplace_approximation_config.setter 
+    def laplace_approximation_config(self, new_config:Optional[NapsuMQLaplaceApproximationConfig]) -> None:
+        self._laplace_approximation_config = new_config
+        self._check_la_config()
+
+    @property
+    def mcmc_config(self) -> NapsuMQMCMCConfig:
+        return self._mcmc_config
+
+    @mcmc_config.setter
+    def mcmc_config(self, new_config) -> None:
+        self._mcmc_config = new_config
+        self._check_mcmc_config()
+
+    def _check_method(self) -> None:
         if self.method not in ["mcmc", "laplace", "laplace+mcmc"]:
             raise ValueError("method must be one of 'mcmc', 'laplace' or 'laplace+mcmc'. Received {}".format(self.method))
 
-        if self.method == "mcmc" and self.mcmc_config is None:
-            raise ValueError("mcmc_config is required when method is 'mcmc'")
+    def _check_la_config(self) -> None:
+        if (self.method == "laplace" or self.method == "laplace+mcmc") and self.laplace_approximation_config is None:
+            raise ValueError("laplace_approximation_config is required when method is '{}'".format(self.method))
 
-        if self.method == "laplace" and self.laplace_approximation_config is None:
-            raise ValueError("laplace_approximation_config is required when method is 'laplace'")
-
-        if self.method == "laplace+mcmc":
-            if self.laplace_approximation_config is None:
-                raise ValueError("laplace_approximation_config is required when method is 'laplace+mcmc'")
-            if self.mcmc_config is None:
-                raise ValueError("mcmc_config is required when method is 'laplace+mcmc'")
+    def _check_mcmc_config(self) -> None:
+        if (self.method == "mcmc" or self.method == "laplace+mcmc") and self.mcmc_config is None:
+            raise ValueError("mcmc_config is required when method is '{}'".format(self.method))
 
 
 class NapsuMQModel(InferenceModel):
@@ -138,7 +173,6 @@ class NapsuMQModel(InferenceModel):
             NapsuMQResult: Class containing learned probabilistic model with posterior values
         """
         required_marginals = self._required_marginals
-        inference_config.validate()
 
         dataframe = DataFrameData(data, integers_handler=disallow_integers)
         n, d = dataframe.int_df.shape
