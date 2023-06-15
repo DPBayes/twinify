@@ -333,3 +333,58 @@ class TestNapsuMQResult(unittest.TestCase):
         loaded_samples = loaded_result.generate(d3p.random.PRNGKey(15412), 100)
 
         self.assertTrue(np.all(samples.values == loaded_samples.values))
+
+
+class TestNapsuMQInferenceConfig(unittest.TestCase):
+
+    def test_correct_methods(self):
+        config = NapsuMQInferenceConfig()
+        config.method = "mcmc"
+        config.method = "laplace"
+        config.method = "laplace+mcmc"
+
+    def test_incorrect_methods(self):
+        config = NapsuMQInferenceConfig()
+        with pytest.raises(ValueError):
+            config.method = "hfjsdhfk"
+
+    def test_correct_no_laplace_config(self):
+        config = NapsuMQInferenceConfig()
+        config.method = "mcmc"
+        config.laplace_approximation_config = None
+
+    def test_incorrect_no_laplace_config(self):
+        config = NapsuMQInferenceConfig()
+        config.method = "laplace"
+        with pytest.raises(ValueError):
+            config.laplace_approximation_config = None
+
+        config = NapsuMQInferenceConfig()
+        config.method = "laplace+mcmc"
+        with pytest.raises(ValueError):
+            config.laplace_approximation_config = None
+
+    def test_correct_no_mcmc_config(self):
+        config = NapsuMQInferenceConfig()
+        config.method = "laplace"
+        config.mcmc_config = None
+
+    def test_incorrect_no_mcmc_config(self):
+        config = NapsuMQInferenceConfig()
+        config.method = "mcmc"
+        with pytest.raises(ValueError):
+            config.mcmc_config = None
+
+        config = NapsuMQInferenceConfig()
+        config.method = "laplace+mcmc"
+        with pytest.raises(ValueError):
+            config.mcmc_config = None
+
+    def test_remove_config_then_change_method(self):
+        config = NapsuMQInferenceConfig()
+        config.method = "mcmc"
+        config.laplace_approximation_config = None
+        with pytest.raises(ValueError):
+            config.method = "laplace"
+        with pytest.raises(ValueError):
+            config.method = "laplace+mcmc"
