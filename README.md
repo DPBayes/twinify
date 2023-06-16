@@ -19,7 +19,7 @@ As the learning of the model is performed under differential privacy, the sample
 
 ## Using twinify
 
-twinify can be used as a software library from your own application or as a stand-alone command line tool operating on data sets provided as a [CSV file](https://en.wikipedia.org/wiki/Comma-separated_values). Either way, the high-level steps are the same and we outline them in the following for the command line tool. You can find a brief overview of twinify's API for library use further below.
+twinify can be used as a software library from your own application or as a stand-alone command line tool operating on data sets provided as a [CSV file](https://en.wikipedia.org/wiki/Comma-separated_values). Either way, the high-level steps are the same and we outline them in the following for the command line tool. You can find a brief overview of twinify's API for library use further below. Please also check the [software documentation](https://dpbayes.github.io/twinify/) for more detailed information.
 
 ### Choosing the Method
 The first thing you need to do is decide whether you want to use the NAPSU-MQ approach or learn a probabilistic model using DPVI.
@@ -285,11 +285,13 @@ When using twinify, please cite
 For the NAPSU-MQ method, cite
 
 ```
-@article{raisa22,
+@inproceedings{raisa23,
     title={Noise-Aware Statistical Inference with Differentially Private Synthetic Data},
-    author={Ossi Räisä and Joonas Jälkö and Samuel Kaski and Antti Honkela},
-    year={2022},
-    publisher = {arXiv},
-    url = {https://arxiv.org/abs/2205.14485}
+    author={Räisä, Ossi and Jälkö, Joonas and Kaski, Samuel and Honkela, Antti},
+    booktitle={Proceedings of the 26th International Conference on Artificial Intelligence and Statististics},
+    year={2023},
+    pages={3620--3643},
+    volume={206},
+    series={Proceedings of Machine Learning Research}
 }
 ```
