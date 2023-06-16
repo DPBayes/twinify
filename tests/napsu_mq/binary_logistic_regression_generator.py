@@ -39,6 +39,10 @@ class BinaryLogisticRegressionDataGenerator:
         self.x_values = self.compute_x_values()
         self.values_by_feature = {i: [0, 1] for i in range(self.d)}
 
+    @property
+    def value_counts_by_feature(self):
+        return {i: 2 for i in range(self.d)}
+
     def generate_data(self, n: int, rng_key: jax.random.PRNGKey = None, probability=0.5) -> jnp.ndarray:
         """Generate the output d-dimensional binary output.
         Args:

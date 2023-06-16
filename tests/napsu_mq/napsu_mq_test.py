@@ -225,12 +225,13 @@ class TestNapsuMQ(unittest.TestCase):
 class TestNapsuMQResult(unittest.TestCase):
 
     def test_generate_single_df(self) -> None:
-        domain = {'A': np.arange(4), 'B': np.arange(3)}
         categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        domain_sizes = { k: len(cdtype.categories) for k, cdtype in categories.items() }
+        domain = { k: np.arange(s) for k, s in domain_sizes.items() }
         data_description = DataDescription(categories)
 
         posterior_values = np.zeros((1000, 2), dtype=int)
-        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain), posterior_values, data_description)
+        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain_sizes), posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100)
 
@@ -241,13 +242,14 @@ class TestNapsuMQResult(unittest.TestCase):
         self.assertEqual(samples['B'].dtype, categories['B'])
 
     def test_generate_multi_df(self) -> None:
-        domain = {'A': np.arange(4), 'B': np.arange(3)}
+        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        domain_sizes = { k: len(cdtype.categories) for k, cdtype in categories.items() }
+        domain = { k: np.arange(s) for k, s in domain_sizes.items() }
 
         posterior_values = np.zeros((1000, 2), dtype=int)
-        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
         data_description = DataDescription(categories)
 
-        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain), posterior_values, data_description)
+        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain_sizes), posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100, num_data_per_parameter_sample=20,
                                   single_dataframe=False)
@@ -257,13 +259,14 @@ class TestNapsuMQResult(unittest.TestCase):
         self.assertEqual(tuple(samples[0].columns), ('A', 'B'))
 
     def test_store_and_load(self) -> None:
-        domain = {'A': np.arange(4), 'B': np.arange(3)}
+        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        domain_sizes = { k: len(cdtype.categories) for k, cdtype in categories.items() }
+        domain = { k: np.arange(s) for k, s in domain_sizes.items() }
 
         posterior_values = np.zeros((1000, 2), dtype=int)
-        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
         data_description = DataDescription(categories)
 
-        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain), posterior_values, data_description)
+        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain_sizes), posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100)
 

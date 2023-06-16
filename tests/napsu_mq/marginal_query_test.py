@@ -88,6 +88,10 @@ class Domain:
         self.d = len(values_by_col.keys())
         self.size = reduce(mul, [len(col_values) for col_values in self.values_by_col.values()])
 
+    @property
+    def value_counts_by_col(self):
+        return {k: len(np.unique(vs)) for k, vs in self.values_by_col.items()}
+
     def get_x_values(self):
         x_values = np.zeros((self.size, self.d))
         for i, val in enumerate(itertools.product(*self.values_by_col.values())):
@@ -104,8 +108,8 @@ class CanonicalQueriesTest(unittest.TestCase):
 
     def test_canonical_queries_rank_binary_domain(self):
         binary_domain = Domain({0: range(2), 1: range(2), 2: range(2)})
-        full_binary_queries = FullMarginalQuerySet([(0, 1, 2)], binary_domain.values_by_col)
-        two_way_marginal_queries = FullMarginalQuerySet([(0, 2), (1, 2)], binary_domain.values_by_col)
+        full_binary_queries = FullMarginalQuerySet([(0, 1, 2)], binary_domain.value_counts_by_col)
+        two_way_marginal_queries = FullMarginalQuerySet([(0, 2), (1, 2)], binary_domain.value_counts_by_col)
 
         canon_queries = full_binary_queries.get_canonical_queries().flatten()
         n_canon_queries = len(canon_queries.queries)
@@ -121,10 +125,10 @@ class CanonicalQueriesTest(unittest.TestCase):
 
     def test_canonical_queries_nonbinary_domain(self):
         domain = Domain({"0": range(2), "1": range(2), "2": range(3), "3": range(4)})
-        full_queries = FullMarginalQuerySet([("0", "1", "2", "3")], domain.values_by_col)
-        naive_bayes_queries = FullMarginalQuerySet([("0", "1"), ("0", "2"), ("0", "3")], domain.values_by_col)
+        full_queries = FullMarginalQuerySet([("0", "1", "2", "3")], domain.value_counts_by_col)
+        naive_bayes_queries = FullMarginalQuerySet([("0", "1"), ("0", "2"), ("0", "3")], domain.value_counts_by_col)
         naive_bayes_cross_queries = FullMarginalQuerySet([("0", "1"), ("0", "2"), ("0", "3"), ("1", "2"), ("2", "3")],
-                                                         domain.values_by_col)
+                                                         domain.value_counts_by_col)
 
         canon_queries = full_queries.get_canonical_queries().flatten()
         n_canon_queries = len(canon_queries.queries)
@@ -144,13 +148,13 @@ class CanonicalQueriesTest(unittest.TestCase):
 
     def test_canonical_queries_large_nonbinary_domain(self):
         domain = Domain({0: range(2), 1: range(2), 2: range(3), 3: range(4), 4: range(5), 5: range(6)})
-        naive_bayes_cross_queries = FullMarginalQuerySet([(0, 1), (0, 2), (0, 3), (1, 4), (2, 5)], domain.values_by_col)
+        naive_bayes_cross_queries = FullMarginalQuerySet([(0, 1), (0, 2), (0, 3), (1, 4), (2, 5)], domain.value_counts_by_col)
         naive_bayes_3_way_cross_queries = FullMarginalQuerySet([(0, 1), (0, 2), (0, 3), (1, 4, 5), (2, 5)],
-                                                               domain.values_by_col)
+                                                               domain.value_counts_by_col)
         naive_bayes_3_way_cross_queries_missing = FullMarginalQuerySet([(0, 1), (0, 2), (0, 3), (1, 4, 3)],
-                                                                       domain.values_by_col)
-        one_way_marginals = FullMarginalQuerySet([(0,), (1,), (2,), (3,), (4,), (5,)], domain.values_by_col)
-        one_way_marginals_missing = FullMarginalQuerySet([(0,), (1,), (2,), (3,), (4,)], domain.values_by_col)
+                                                                       domain.value_counts_by_col)
+        one_way_marginals = FullMarginalQuerySet([(0,), (1,), (2,), (3,), (4,), (5,)], domain.value_counts_by_col)
+        one_way_marginals_missing = FullMarginalQuerySet([(0,), (1,), (2,), (3,), (4,)], domain.value_counts_by_col)
 
         canon_queries = naive_bayes_3_way_cross_queries.get_canonical_queries().flatten()
         n_canon_queries = len(canon_queries.queries)

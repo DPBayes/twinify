@@ -35,7 +35,7 @@ class MaximumEntropyDistributionTest(unittest.TestCase):
         ])
         self.med = MaximumEntropyDistribution(data_gen.values_by_feature, queries)
 
-        queries_canon = FullMarginalQuerySet([(0, 1, 2)], data_gen.values_by_feature)
+        queries_canon = FullMarginalQuerySet([(0, 1, 2)], data_gen.value_counts_by_feature)
         queries_canon = queries_canon.get_canonical_queries().flatten()
         self.med_canon = MaximumEntropyDistribution(data_gen.values_by_feature, queries_canon)
 

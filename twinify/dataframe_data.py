@@ -147,11 +147,6 @@ class DataFrameData:
             for col in self.int_df.columns
             if (is_categorical_dtype(self.int_df[col]) or is_integer_dtype(self.int_df[col]))
         }
-        # self.values_by_int_feature = { #TODO: rename to values_by_feature_idx if used anywhere?
-        #     i: list(self._values_by_col[col])
-        #     for i, col in enumerate(self.int_df.columns)
-        #     if (is_categorical_dtype(self.int_df[col]) or is_integer_dtype(self.int_df[col]))
-        # }
 
     @property
     def values_by_col(self) -> Dict[str, List[int]]:
@@ -164,6 +159,10 @@ class DataFrameData:
     @property
     def data_description(self) -> DataDescription:
         return self._data_description
+    
+    @property
+    def column_domain_sizes(self) -> Dict[str, int]:
+        return {c: len(vs) for c, vs in self._values_by_col.items()}
 
     def get_x_values(self) -> np.ndarray:
         """Enumerate all possible datapoints for the categories of the dataset.

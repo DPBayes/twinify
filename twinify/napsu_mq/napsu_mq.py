@@ -86,7 +86,7 @@ class NapsuMQModel(InferenceModel):
             query_sets = MST_selection(Dataset(dataframe.int_df, domain), epsilon, delta,
                                        cliques_to_include=required_marginals)
 
-        queries = FullMarginalQuerySet(query_sets, dataframe.values_by_col)
+        queries = FullMarginalQuerySet(query_sets, dataframe.column_domain_sizes)
         queries = queries.get_canonical_queries()
         mnjax = MarkovNetwork(dataframe.values_by_col, queries)
         suff_stat = np.sum(queries.flatten()(dataframe.int_df.to_numpy()), axis=0)
