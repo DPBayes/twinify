@@ -26,7 +26,7 @@ References
 -----------
 
 1. J. Jälkö, E. Lagerspetz, J. Haukka, S. Tarkoma, A. Honkela, and S. Kaski. "Privacy-preserving data sharing via probabilistic modelling". In *Patterns (2021)*, p. 100271.
-2. O. Räisä, J. Jälkö, S. Kaski, and A. Honkela. "Noise-Aware Statistical Inference with Differentially Private Synthetic Data". arXiv: 2205.14485. 2022.
+2. O. Räisä, J. Jälkö, S. Kaski, and A. Honkela. "Noise-Aware Statistical Inference with Differentially Private Synthetic Data". In *Proceedings of the 26th International Conference on Artificial Intelligence and Statististics*. 2023. pp. 3620-3643.
 
 BibTeX
 ------
@@ -42,13 +42,14 @@ BibTeX
        publisher={Elsevier}
    }
 
-
-   @article{raisa22,
-       title={Noise-Aware Statistical Inference with Differentially Private Synthetic Data},
-       author={Ossi Räisä and Joonas Jälkö and Samuel Kaski and Antti Honkela},
-       year={2022},
-       publisher = {arXiv},
-       url = {https://arxiv.org/abs/2205.14485}
+   @inproceedings{raisa23,
+      title={Noise-Aware Statistical Inference with Differentially Private Synthetic Data},
+      author={Räisä, Ossi and Jälkö, Joonas and Kaski, Samuel and Honkela, Antti},
+      booktitle={Proceedings of the 26th International Conference on Artificial Intelligence and Statististics},
+      year={2023},
+      pages={3620--3643},
+      volume={206},
+      series={Proceedings of Machine Learning Research},
    }
 
 
