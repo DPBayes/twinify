@@ -156,7 +156,7 @@ class NapsuMQModel(InferenceModel):
     def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
             query_sets: Optional[Iterable] = None, 
             inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig(),
-            silent: bool = False,
+            show_progress: bool = True,
             return_diagnostics: bool = False) -> 'NapsuMQResult':
         """Fit differentially private NAPSU-MQ model from data.
 
@@ -166,7 +166,7 @@ class NapsuMQModel(InferenceModel):
             epsilon (float): Epsilon for differential privacy mechanism
             delta (float): Delta for differential privacy mechanism
             inference_config (NapsuMQInferenceConfig): Configuration for inference
-            silent (bool): Hide progressbar for MCMC
+            show_progress (bool): Show progressbar for MCMC
             return_diagnostics (bool): Return diagnostics from inference
 
         Returns:
@@ -207,7 +207,7 @@ class NapsuMQModel(InferenceModel):
                 num_samples=mcmc_config.num_samples, 
                 num_warmup=mcmc_config.num_warmup, 
                 num_chains=mcmc_config.num_chains,
-                show_progressbar=not silent,
+                show_progressbar=show_progress,
             )
             inf_data = az.from_numpyro(mcmc, log_likelihood=False)
             posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))
@@ -230,7 +230,7 @@ class NapsuMQModel(InferenceModel):
                     num_samples=mcmc_config.num_samples, 
                     num_warmup=mcmc_config.num_warmup,
                     num_chains=mcmc_config.num_chains,
-                    show_progressbar=not silent,
+                    show_progressbar=show_progress,
                 )
                 inf_data = az.from_numpyro(mcmc, log_likelihood=False)
                 posterior_values = inf_data.posterior.stack(draws=("chain", "draw"))

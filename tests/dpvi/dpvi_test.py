@@ -80,7 +80,7 @@ class DPVITests(unittest.TestCase):
 
         rng = d3p.random.PRNGKey(96392153)
         dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=300, subsample_ratio=0.01)
-        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, silent=True)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, show_progress=False)
 
         self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
@@ -120,7 +120,7 @@ class DPVITests(unittest.TestCase):
         rng = d3p.random.PRNGKey(96392153)
         dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=1, subsample_ratio=0.1)
         with self.assertRaises(InferenceException):
-            dpvi_model.fit(xs_df, rng, epsilon, delta, silent=True)
+            dpvi_model.fit(xs_df, rng, epsilon, delta, show_progress=False)
 
     def test_fit_works(self) -> None:
         xs_df = self.xs_df
@@ -129,7 +129,7 @@ class DPVITests(unittest.TestCase):
 
         rng = d3p.random.PRNGKey(96392153)
         dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=1, subsample_ratio=0.1)
-        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, silent=False)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, show_progress=True)
 
         self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
@@ -150,7 +150,7 @@ class DPVITests(unittest.TestCase):
 
         rng = d3p.random.PRNGKey(96392153)
         dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=1, subsample_ratio=0.1)
-        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, silent=True)
+        dpvi_fit = dpvi_model.fit(xs_df, rng, epsilon, delta, show_progress=False)
 
         self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
         self.assertEqual(delta, dpvi_fit.privacy_level.delta)
