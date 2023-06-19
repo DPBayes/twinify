@@ -221,6 +221,25 @@ class TestNapsuMQ(unittest.TestCase):
         pd.testing.assert_series_equal(means, original_means, check_exact=False, rtol=0.3)
         pd.testing.assert_series_equal(stds, original_stds, check_exact=False, rtol=0.3)
 
+    def test_NAPSUMQ_model_fit_rejects_pure_integer_data(self) -> None:
+        # adapted from issue 50
+        n = 4
+
+        data = pd.DataFrame({
+            'A': np.random.randint(500, 1000, size=n),
+            'B': np.random.randint(500, 1000, size=n),
+            'C': np.random.randint(500, 1000, size=n)
+        }, dtype='category')
+
+        data['A'] = data['A'].astype(int)
+
+        rng = d3p.random.PRNGKey(42)
+
+        model = NapsuMQModel(required_marginals=[])
+        with self.assertRaises(ValueError):
+            model.fit(data=data, rng=rng, epsilon=1, delta=(n ** (-2)),
+                            use_laplace_approximation=True)
+
 
 class TestNapsuMQResult(unittest.TestCase):
 

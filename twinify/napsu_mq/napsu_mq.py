@@ -27,7 +27,7 @@ from twinify.mst import MST_selection
 from twinify.base import InferenceModel, InferenceResult, InvalidFileFormatException
 from twinify.napsu_mq.markov_network import MarkovNetwork
 from twinify.napsu_mq.marginal_query import FullMarginalQuerySet
-from twinify.dataframe_data import DataFrameData, DataDescription
+from twinify.dataframe_data import DataFrameData, DataDescription, disallow_integers
 import twinify.napsu_mq.privacy_accounting as privacy_accounting
 import twinify.napsu_mq.maximum_entropy_inference as mei
 from twinify.napsu_mq.private_pgm.domain import Domain
@@ -76,7 +76,7 @@ class NapsuMQModel(InferenceModel):
         required_marginals = self._required_marginals
         use_laplace_approximation = self._use_laplace_approximation
 
-        dataframe = DataFrameData(data)
+        dataframe = DataFrameData(data, integers_handler=disallow_integers)
         n, d = dataframe.int_df.shape
 
         if query_sets is None:

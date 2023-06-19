@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Tuple, List, Union, Mapping, Iterable, Any, Dict, TypeVar
+from typing import Tuple, List, Union, Mapping, Iterable, Any, Dict, TypeVar, Callable
 from pandas.api.types import is_integer_dtype, is_categorical_dtype, is_float_dtype, is_string_dtype, is_bool_dtype
 import pandas as pd
 import itertools
@@ -27,13 +27,37 @@ logger = logging.getLogger(__name__)
 Dtype = TypeVar("Dtype")
 
 
+def integers_to_categories_handler(col: pd.Series) -> Dtype:
+    assert is_integer_dtype(col.dtype)
+    return pd.CategoricalDtype(np.unique(col))
+
+
+def integers_to_range_handler(col: pd.Series) -> Dtype:
+    assert is_integer_dtype(col.dtype)
+    return pd.CategoricalDtype(np.arange(col.min(), col.max() + 1))
+
+
+def keep_integers_handler(col: pd.Series) -> Dtype:
+    assert is_integer_dtype(col.dtype)
+    return col.dtype
+
+
+def disallow_integers(col: pd.Series) -> Dtype:
+    assert is_integer_dtype(col.dtype)
+    raise ValueError(f"Columns with pure integers are not allowed (but {col.name} was); make sure all columns are of type categorical.")
+
+
 class DataDescription:
 
     def __init__(self, dtypes: Mapping[str, Dtype]) -> None:
         self._dtypes = dict(dtypes)
 
     @staticmethod
-    def from_dataframe(df: pd.DataFrame, strings_to_categories: bool = True) -> "DataDescription":
+    def from_dataframe(
+            df: pd.DataFrame, 
+            strings_to_categories: bool = True, 
+            integers_handler: Callable[[pd.Series], Dtype] = keep_integers_handler,
+            ) -> "DataDescription":
         dtypes = dict()
         for col in df.columns:
             dtype = df[col].dtype
@@ -46,6 +70,9 @@ class DataDescription:
                     dtype = pd.CategoricalDtype(df[col].dropna().unique())
                 except ValueError as e:
                     raise Exception(f"Cannot interpet type of column {col}", e)
+            elif is_integer_dtype(dtype):
+                dtype = integers_handler(df[col])
+
             if not (is_categorical_dtype(dtype) or is_integer_dtype(dtype) or is_float_dtype(dtype) or is_bool_dtype(dtype)):
                 raise ValueError(f"Only float, integer or categorical dtypes are currently supported, but column {col} has dtype {dtype}.")
 
@@ -129,12 +156,18 @@ class DataDescription:
 class DataFrameData:
     """Converter between categorical and integer formatted dataframes."""
 
-    def __init__(self, base_df: pd.DataFrame):
+    def __init__(self,
+                base_df: pd.DataFrame,
+                strings_to_categories: bool = True, 
+                integers_handler: Callable[[pd.Series], Dtype] = keep_integers_handler
+                ) -> None:
         """Initialise.
         Args:
             base_df (DataFrame): Base categorical dataframe.
         """
-        self._data_description = DataDescription.from_dataframe(base_df)
+        self._data_description = DataDescription.from_dataframe(
+            base_df, strings_to_categories=strings_to_categories, integers_handler=integers_handler
+        )
         if not self._data_description.all_columns_discrete:
             raise ValueError(
                 "Data has columns which are not discrete, i.e., neither of type bool, integer, or categorical.")

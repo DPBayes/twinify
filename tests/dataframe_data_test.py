@@ -17,7 +17,7 @@ import unittest
 import itertools
 import pandas as pd
 import numpy as np
-from twinify.dataframe_data import DataFrameData, DataDescription
+from twinify.dataframe_data import DataFrameData, DataDescription, disallow_integers, integers_to_categories_handler, integers_to_range_handler
 
 class DataDescriptionTest(unittest.TestCase):
 
@@ -30,7 +30,7 @@ class DataDescriptionTest(unittest.TestCase):
             'cats!': pd.CategoricalDtype(['first_cat', 'second_cat', 'third_cat']),
         }
 
-        ints = np.arange(4, dtype=np.int32)
+        ints = np.array([7, 3, 2, -1], dtype=np.int32)
         low_prec_floats = np.arange(4, dtype=np.float32)
         high_prec_floats = np.linspace(-2, 3.3, num=4, dtype=np.float64)
         strings = np.array([0, 0, 0, 1], dtype=np.int8)
@@ -120,6 +120,32 @@ class DataDescriptionTest(unittest.TestCase):
         data_description = DataDescription.from_dataframe(self.cat_and_string_df)
 
         expected = DataDescription(self.dtypes)
+
+        self.assertEqual(expected, data_description)
+
+    def test_from_dataframe_reject_integers(self) -> None:
+        with self.assertRaises(ValueError):
+            DataDescription.from_dataframe(self.cat_and_string_df, integers_handler=disallow_integers)
+
+    def test_from_dataframe_integers_to_categories(self) -> None:
+        data_description = DataDescription.from_dataframe(
+            self.cat_and_string_df, integers_handler=integers_to_categories_handler
+        )
+
+        expected_dtypes = dict(self.dtypes)
+        expected_dtypes['int'] = pd.CategoricalDtype(np.unique(self.cat_and_string_df['int']))
+        expected = DataDescription(expected_dtypes)
+
+        self.assertEqual(expected, data_description)
+
+    def test_from_dataframe_integers_to_range(self) -> None:
+        data_description = DataDescription.from_dataframe(
+            self.cat_and_string_df, integers_handler=integers_to_range_handler
+        )
+
+        expected_dtypes = dict(self.dtypes)
+        expected_dtypes['int'] = pd.CategoricalDtype(np.arange(-1, 8))
+        expected = DataDescription(expected_dtypes)
 
         self.assertEqual(expected, data_description)
 
