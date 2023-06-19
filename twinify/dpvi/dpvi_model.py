@@ -60,8 +60,8 @@ class InferenceException(Exception):
 
 class SilenceableProgressBar:
 
-    def __init__(self, total: int, silent: bool) -> None:
-        self._silent = silent
+    def __init__(self, total: int, display: bool) -> None:
+        self._silent = not display
         if not self._silent:
             self._tqdm = tqdm(total=total, desc="epochs")
 
@@ -137,8 +137,9 @@ class DPVIModel(InferenceModel):
             rng: d3p.random.PRNGState,
             epsilon: float,
             delta: float,
-            silent: bool = False,
-            verbose: bool = False) -> DPVIResult:
+            show_progress: bool = True) -> DPVIResult: #, verbose: bool = False
+        # TODO: introduce a way for logging at different verbosity levels
+        verbose = False
 
         q = self._subsample_ratio
         num_epochs = self._num_epochs
@@ -177,7 +178,7 @@ class DPVIModel(InferenceModel):
         batch = get_batch(0, batchify_state)
         svi_state = svi.init(svi_rng, *batch)
 
-        bar = SilenceableProgressBar(num_epochs, silent)
+        bar = SilenceableProgressBar(num_epochs, display=show_progress)
 
         def is_nan_in_state(svi_state) -> bool:
             params = svi.get_params(svi_state)

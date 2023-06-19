@@ -22,14 +22,15 @@ class InferenceModel(metaclass=abc.ABCMeta):
     """ A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. """
 
     @abc.abstractmethod
-    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, **kwargs) -> 'InferenceResult':
+    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, show_progress: bool, **kwargs) -> 'InferenceResult':
         """ Compute the parameter posterior (approximation) for a given data set, hyperparameters and privacy bounds.
 
         Args:
-            data: A `pandas.DataFrame` containing (sensitive) data.
-            rng: A seeded state for the d3p.random secure random number generator.
-            epsilon: Privacy bound ε.
-            delta: Privacy bound δ.
+            data (pd.DataFrame): A `pandas.DataFrame` containing (sensitive) data.
+            rng (d3p.random.PRNGState): A seeded state for the d3p.random secure random number generator.
+            epsilon (float): Privacy bound ε.
+            delta (float): Privacy bound δ.
+            show_progress (bool): Show progress bars.
             kwargs: Optional (model specific) hyperparameters.
         """
         pass
