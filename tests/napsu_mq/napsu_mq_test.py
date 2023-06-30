@@ -35,7 +35,11 @@ class TestNapsuMQ(unittest.TestCase):
         data_gen = BinaryLogisticRegressionDataGenerator(np.array([1.0, 0.0]))
         jax_rng = jax.random.PRNGKey(22325127)
         cls.data = data_gen.generate_data(n=2000, rng_key=jax_rng)
-        cls.dataframe = pd.DataFrame(cls.data, columns=['A', 'B', 'C'], dtype=int)
+        binary_cat_dtype = pd.CategoricalDtype([0, 1], ordered=True)
+        cls.dataframe = pd.DataFrame(cls.data, columns=['A', 'B', 'C'])
+        for c in cls.dataframe.columns:
+            cls.dataframe[c] = cls.dataframe[c].astype(binary_cat_dtype)
+
         cls.n, cls.d = cls.data.shape
 
     def setUp(self):
