@@ -142,19 +142,24 @@ class NapsuMQModel(InferenceModel):
     "Noise-Aware Statistical Inference with Differentially Private Synthetic Data", Ossi Räisä, Joonas Jälkö, Samuel Kaski & Antti Honkela
     """
 
-    def __init__(self, required_marginals: Iterable[FrozenSet[str]] = tuple()) -> None:
+    def __init__(
+        self, queries: Optional[Iterable[FrozenSet[str]]] = None, 
+        forced_queries_in_automatic_selection: Optional[Iterable[FrozenSet[str]]] = tuple()
+    # required_marginals: Iterable[FrozenSet[str]] = tuple()
+    ) -> None:
         """
         Args:
-            required_marginals (iterable of sets of str): Sets of columns for each of which a combined marginal query must be included in the model.
+            queries (iterable of sets of str or None): Queries that NAPSU-MQ attempts to preserve. None selects automatically. Default None.
+            forced_queries_in_automatic_selection (iterable of sets of str): Force queries to be included with automatic selection.
         """
 
         super().__init__()
-        if required_marginals is None:
-            raise ValueError("required_marginals may not be None")
-        self._required_marginals = required_marginals
+        if forced_queries_in_automatic_selection is None:
+            raise ValueError("forced_queries_in_automatic_selection may not be None")
+        self._forced_queries_in_automatic_selection = forced_queries_in_automatic_selection
+        self._queries = queries
 
     def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
-            query_sets: Optional[Iterable] = None, 
             inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig(),
             show_progress: bool = True,
             return_diagnostics: bool = False) -> 'NapsuMQResult':
@@ -172,25 +177,25 @@ class NapsuMQModel(InferenceModel):
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
         """
-        required_marginals = self._required_marginals
-
         dataframe = DataFrameData(data, integers_handler=disallow_integers)
         n, d = dataframe.int_df.shape
 
-        if query_sets is None:
+        if self._queries is None:
             domain_key_list = list(dataframe.columns)
             domain_value_count_list = [len(dataframe.values_by_col[key]) for key in domain_key_list]
             domain = Domain(domain_key_list, domain_value_count_list)
-            query_sets = MST_selection(Dataset(dataframe.int_df, domain), epsilon, delta,
-                                       cliques_to_include=required_marginals)
+            self._queries = MST_selection(
+                Dataset(dataframe.int_df, domain), epsilon, delta,
+                cliques_to_include=self._forced_queries_in_automatic_selection
+            )
 
-        queries = FullMarginalQuerySet(query_sets, dataframe.column_domain_sizes)
+        queries = FullMarginalQuerySet(self._queries, dataframe.column_domain_sizes)
         queries = queries.get_canonical_queries()
         mnjax = MarkovNetwork(dataframe.values_by_col, queries)
         suff_stat = np.sum(queries.flatten()(dataframe.int_df.to_numpy()), axis=0)
 
         # determine Gaussian mech DP noise level for given privacy level
-        sensitivity = np.sqrt(2 * len(query_sets))
+        sensitivity = np.sqrt(2 * len(self._queries))
         sigma_DP = privacy_accounting.sigma(epsilon, delta, sensitivity)
 
         # add DP noise (according to Gaussian mechanism)
