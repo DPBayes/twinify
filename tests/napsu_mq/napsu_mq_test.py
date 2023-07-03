@@ -178,9 +178,9 @@ class TestNapsuMQ(unittest.TestCase):
         rng = d3p.random.PRNGKey(85532350)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(forced_queries_in_automatic_selection=required_marginals)
         config = NapsuMQInferenceConfig(method="laplace+mcmc")
-        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)), inference_config=config)
+        model = NapsuMQModel(forced_queries_in_automatic_selection=required_marginals, inference_config=config)
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         datasets = result.generate(
             rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=False
@@ -208,9 +208,9 @@ class TestNapsuMQ(unittest.TestCase):
         rng = d3p.random.PRNGKey(897236)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(forced_queries_in_automatic_selection=required_marginals)
         config = NapsuMQInferenceConfig(method="laplace")
-        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)), inference_config=config)
+        model = NapsuMQModel(forced_queries_in_automatic_selection=required_marginals, inference_config=config)
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         datasets = result.generate(
             rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=False
@@ -238,9 +238,9 @@ class TestNapsuMQ(unittest.TestCase):
         rng = d3p.random.PRNGKey(85511235)
         inference_rng, sampling_rng = d3p.random.split(rng)
 
-        model = NapsuMQModel(forced_queries_in_automatic_selection=required_marginals)
         config = NapsuMQInferenceConfig(method="laplace+mcmc")
-        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)), inference_config=config)
+        model = NapsuMQModel(forced_queries_in_automatic_selection=required_marginals, inference_config=config)
+        result = model.fit(data=self.dataframe, rng=inference_rng, epsilon=1, delta=(self.n ** (-2)))
 
         dataset = result.generate(
             rng=sampling_rng, num_data_per_parameter_sample=500, num_parameter_samples=5, single_dataframe=True

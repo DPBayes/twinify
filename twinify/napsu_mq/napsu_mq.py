@@ -144,13 +144,15 @@ class NapsuMQModel(InferenceModel):
 
     def __init__(
         self, queries: Optional[Iterable[FrozenSet[str]]] = None, 
-        forced_queries_in_automatic_selection: Optional[Iterable[FrozenSet[str]]] = tuple()
+        forced_queries_in_automatic_selection: Optional[Iterable[FrozenSet[str]]] = tuple(),
+        inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig(),
     # required_marginals: Iterable[FrozenSet[str]] = tuple()
     ) -> None:
         """
         Args:
             queries (iterable of sets of str or None): Queries that NAPSU-MQ attempts to preserve. None selects automatically. Default None.
             forced_queries_in_automatic_selection (iterable of sets of str): Force queries to be included with automatic selection.
+            inference_config (NapsuMQInferenceConfig): Configuration for inference
         """
 
         super().__init__()
@@ -158,9 +160,9 @@ class NapsuMQModel(InferenceModel):
             raise ValueError("forced_queries_in_automatic_selection may not be None")
         self._forced_queries_in_automatic_selection = forced_queries_in_automatic_selection
         self._queries = queries
+        self._inference_config = inference_config
 
     def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float,
-            inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig(),
             show_progress: bool = True,
             return_diagnostics: bool = False) -> 'NapsuMQResult':
         """Fit differentially private NAPSU-MQ model from data.
@@ -170,13 +172,14 @@ class NapsuMQModel(InferenceModel):
             rng (d3p.random.PRNGState): d3p PRNG key
             epsilon (float): Epsilon for differential privacy mechanism
             delta (float): Delta for differential privacy mechanism
-            inference_config (NapsuMQInferenceConfig): Configuration for inference
             show_progress (bool): Show progressbar for MCMC
             return_diagnostics (bool): Return diagnostics from inference
 
         Returns:
             NapsuMQResult: Class containing learned probabilistic model with posterior values
         """
+        inference_config = self._inference_config
+
         dataframe = DataFrameData(data, integers_handler=disallow_integers)
         n, d = dataframe.int_df.shape
 
