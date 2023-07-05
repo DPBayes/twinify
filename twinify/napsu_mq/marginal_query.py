@@ -59,27 +59,28 @@ class MarginalQuery:
 class FullMarginalQuerySet:
     """A full marginal query set."""
 
-    def __init__(self, feature_sets: Iterable[Tuple], values_by_feature: Dict):
+    def __init__(self, feature_sets: Iterable[Tuple], value_counts_by_feature: Dict[str, int]):
         """Create the full marginal query set.
         Args:
             feature_sets (list(tuple)): The tuples of variables that are used as indices.
-            values_by_feature (dict): A dict containing a list of possible values for each variable.
+            value_counts_by_feature (dict): A dict containing the number of values per variable/feature.
         """
         self.feature_sets = list(feature_sets)
-        self.values_by_feature = values_by_feature
+        self.value_counts_by_feature = value_counts_by_feature
 
-        self.feature_by_index = list(self.values_by_feature.keys())
+        self.feature_by_index = list(self.value_counts_by_feature.keys())
 
         self.int_feature_sets = [
             tuple(self.feature_by_index.index(feature) for feature in feature_set)
             for feature_set in self.feature_sets
         ]
 
-        self.values_by_int_feature = {
+        self.value_counts_by_int_feature = {
             self.feature_by_index.index(feature): values
-            for feature, values in self.values_by_feature.items()
+            for feature, values in self.value_counts_by_feature.items()
         }
 
+        values_by_feature = {k: np.arange(v) for k, v in value_counts_by_feature.items()}
         self.queries = {feature_set: QueryList(all_marginals_for_feature_set(feature_set, values_by_feature)) for
                         feature_set in feature_sets}
 
@@ -133,7 +134,7 @@ class FullMarginalQuerySet:
         Returns:
             FullMarginalQuerySet: The canonical queries as a FullMarginalQuerySet.
         """
-        d = len(self.values_by_feature.keys())
+        d = len(self.value_counts_by_feature.keys())
         base_value = np.zeros(d, dtype=int)
         clique_list = list(itertools.chain.from_iterable(powerset(features) for features in self.int_feature_sets))
         clique_set = set([tuple(val) for val in clique_list])
@@ -149,11 +150,11 @@ class FullMarginalQuerySet:
                 index_conversion[variable] = i
             conv_clique_indices = index_conversion[list(clique)]
 
-            clique_product = itertools.product(*(self.values_by_int_feature[variable] for variable in clique_ordered))
+            clique_product = itertools.product(*(np.arange(self.value_counts_by_int_feature[variable]) for variable in clique_ordered))
             for val in tqdm(clique_product):
                 value = np.zeros(len(clique), dtype=int)
                 value[conv_clique_indices] = np.asarray(val, dtype=int)
-                counter = np.zeros(tuple([len(self.values_by_int_feature[variable]) for variable in clique_ordered]),
+                counter = np.zeros(tuple([self.value_counts_by_int_feature[variable] for variable in clique_ordered]),
                                       dtype=int)
                 subsets = powerset(clique)
                 for subset in subsets:
@@ -189,7 +190,7 @@ class FullMarginalQuerySet:
                     original_clique = clique
                     break
             features_to_sum = set(clique).difference(set(query.features))
-            values_to_sum = itertools.product(*(self.values_by_feature[feature] if feature in features_to_sum else (
+            values_to_sum = itertools.product(*(np.arange(self.value_counts_by_feature[feature]) if feature in features_to_sum else (
                 query.value[query.features.index(feature)],) for feature in original_clique))
             new_queries = [
                 MarginalQuery(tuple(self.feature_by_index.index(feature) for feature in original_clique), value,
@@ -202,7 +203,7 @@ class FullMarginalQuerySet:
                     original_clique_queries[original_clique].append(new_query)
 
         canonical_queries = {key: QueryList(queries) for key, queries in original_clique_queries.items()}
-        new_fmqs = FullMarginalQuerySet([], self.values_by_feature)
+        new_fmqs = FullMarginalQuerySet([], self.value_counts_by_feature)
         new_fmqs.queries = canonical_queries
         new_fmqs.feature_sets = list(canonical_queries.keys())
         return new_fmqs

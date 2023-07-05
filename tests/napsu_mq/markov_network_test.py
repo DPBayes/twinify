@@ -28,7 +28,7 @@ from twinify.napsu_mq.markov_network import MarkovNetwork
 class MarkovNetworkTest(unittest.TestCase):
     def setUp(self):
         self.data_gen = BinaryLogisticRegressionDataGenerator(jnp.arange(4).astype(jnp.double))
-        self.queries = FullMarginalQuerySet([(0, 3), (1, 3), (2, 3), (4, 3), (0, 1)], self.data_gen.values_by_feature)
+        self.queries = FullMarginalQuerySet([(0, 3), (1, 3), (2, 3), (4, 3), (0, 1)], self.data_gen.value_counts_by_feature)
         self.full_queries = all_marginals([(0, 1, 2, 3, 4)], self.data_gen.values_by_feature)
         self.mn = MarkovNetwork(self.data_gen.values_by_feature, self.queries)
         self.med = MaximumEntropyDistribution(self.data_gen.values_by_feature, self.queries.flatten())

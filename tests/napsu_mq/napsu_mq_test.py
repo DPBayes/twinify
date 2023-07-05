@@ -34,8 +34,12 @@ class TestNapsuMQ(unittest.TestCase):
     def setUpClass(cls):
         data_gen = BinaryLogisticRegressionDataGenerator(np.array([1.0, 0.0]))
         jax_rng = jax.random.PRNGKey(22325127)
-        cls.data = data_gen.generate_data(n=2000, rng_key=jax_rng)
-        cls.dataframe = pd.DataFrame(cls.data, columns=['A', 'B', 'C'], dtype=int)
+        cls.data = np.array(data_gen.generate_data(n=2000, rng_key=jax_rng))
+        binary_cat_dtype = pd.CategoricalDtype([0, 1], ordered=True)
+        cls.dataframe = pd.DataFrame(cls.data, columns=['A', 'B', 'C'])
+        for c in cls.dataframe.columns:
+            cls.dataframe[c] = cls.dataframe[c].astype(binary_cat_dtype)
+
         cls.n, cls.d = cls.data.shape
 
     def setUp(self):
@@ -221,16 +225,36 @@ class TestNapsuMQ(unittest.TestCase):
         pd.testing.assert_series_equal(means, original_means, check_exact=False, rtol=0.3)
         pd.testing.assert_series_equal(stds, original_stds, check_exact=False, rtol=0.3)
 
+    def test_NAPSUMQ_model_fit_rejects_pure_integer_data(self) -> None:
+        # adapted from issue 50
+        n = 4
+
+        data = pd.DataFrame({
+            'A': np.random.randint(500, 1000, size=n),
+            'B': np.random.randint(500, 1000, size=n),
+            'C': np.random.randint(500, 1000, size=n)
+        }, dtype='category')
+
+        data['A'] = data['A'].astype(int)
+
+        rng = d3p.random.PRNGKey(42)
+
+        model = NapsuMQModel(required_marginals=[])
+        with self.assertRaises(ValueError):
+            model.fit(data=data, rng=rng, epsilon=1, delta=(n ** (-2)),
+                            use_laplace_approximation=True)
+
 
 class TestNapsuMQResult(unittest.TestCase):
 
     def test_generate_single_df(self) -> None:
-        domain = {'A': np.arange(4), 'B': np.arange(3)}
         categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        domain_sizes = { k: len(cdtype.categories) for k, cdtype in categories.items() }
+        domain = { k: np.arange(s) for k, s in domain_sizes.items() }
         data_description = DataDescription(categories)
 
         posterior_values = np.zeros((1000, 2), dtype=int)
-        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain), posterior_values, data_description)
+        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain_sizes), posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100)
 
@@ -241,13 +265,14 @@ class TestNapsuMQResult(unittest.TestCase):
         self.assertEqual(samples['B'].dtype, categories['B'])
 
     def test_generate_multi_df(self) -> None:
-        domain = {'A': np.arange(4), 'B': np.arange(3)}
+        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        domain_sizes = { k: len(cdtype.categories) for k, cdtype in categories.items() }
+        domain = { k: np.arange(s) for k, s in domain_sizes.items() }
 
         posterior_values = np.zeros((1000, 2), dtype=int)
-        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
         data_description = DataDescription(categories)
 
-        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain), posterior_values, data_description)
+        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain_sizes), posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100, num_data_per_parameter_sample=20,
                                   single_dataframe=False)
@@ -257,13 +282,14 @@ class TestNapsuMQResult(unittest.TestCase):
         self.assertEqual(tuple(samples[0].columns), ('A', 'B'))
 
     def test_store_and_load(self) -> None:
-        domain = {'A': np.arange(4), 'B': np.arange(3)}
+        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
+        domain_sizes = { k: len(cdtype.categories) for k, cdtype in categories.items() }
+        domain = { k: np.arange(s) for k, s in domain_sizes.items() }
 
         posterior_values = np.zeros((1000, 2), dtype=int)
-        categories = {'A': pd.CategoricalDtype(('A', 'B', 'C', 'D')), 'B': pd.CategoricalDtype(('x', 'y', 'z'))}
         data_description = DataDescription(categories)
 
-        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain), posterior_values, data_description)
+        result = NapsuMQResult(domain, FullMarginalQuerySet([('A', 'B')], domain_sizes), posterior_values, data_description)
 
         samples = result.generate(d3p.random.PRNGKey(15412), 100)
 
