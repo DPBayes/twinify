@@ -332,7 +332,7 @@ title="Open an issue"
 <span class="kn">from</span> <span class="nn">twinify.base</span> <span class="kn">import</span> <span class="n">InferenceModel</span><span class="p">,</span> <span class="n">InferenceResult</span><span class="p">,</span> <span class="n">InvalidFileFormatException</span>
 <span class="kn">from</span> <span class="nn">twinify.napsu_mq.markov_network</span> <span class="kn">import</span> <span class="n">MarkovNetwork</span>
 <span class="kn">from</span> <span class="nn">twinify.napsu_mq.marginal_query</span> <span class="kn">import</span> <span class="n">FullMarginalQuerySet</span>
-<span class="kn">from</span> <span class="nn">twinify.dataframe_data</span> <span class="kn">import</span> <span class="n">DataFrameData</span><span class="p">,</span> <span class="n">DataDescription</span>
+<span class="kn">from</span> <span class="nn">twinify.dataframe_data</span> <span class="kn">import</span> <span class="n">DataFrameData</span><span class="p">,</span> <span class="n">DataDescription</span><span class="p">,</span> <span class="n">disallow_integers</span>
 <span class="kn">import</span> <span class="nn">twinify.napsu_mq.privacy_accounting</span> <span class="k">as</span> <span class="nn">privacy_accounting</span>
 <span class="kn">import</span> <span class="nn">twinify.napsu_mq.maximum_entropy_inference</span> <span class="k">as</span> <span class="nn">mei</span>
 <span class="kn">from</span> <span class="nn">twinify.napsu_mq.private_pgm.domain</span> <span class="kn">import</span> <span class="n">Domain</span>
@@ -381,7 +381,7 @@ title="Open an issue"
         <span class="n">required_marginals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_marginals</span>
         <span class="n">use_laplace_approximation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_laplace_approximation</span>
 
-        <span class="n">dataframe</span> <span class="o">=</span> <span class="n">DataFrameData</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">dataframe</span> <span class="o">=</span> <span class="n">DataFrameData</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">integers_handler</span><span class="o">=</span><span class="n">disallow_integers</span><span class="p">)</span>
         <span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">int_df</span><span class="o">.</span><span class="n">shape</span>
 
         <span class="k">if</span> <span class="n">query_sets</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -391,7 +391,7 @@ title="Open an issue"
             <span class="n">query_sets</span> <span class="o">=</span> <span class="n">MST_selection</span><span class="p">(</span><span class="n">Dataset</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">int_df</span><span class="p">,</span> <span class="n">domain</span><span class="p">),</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span>
                                        <span class="n">cliques_to_include</span><span class="o">=</span><span class="n">required_marginals</span><span class="p">)</span>
 
-        <span class="n">queries</span> <span class="o">=</span> <span class="n">FullMarginalQuerySet</span><span class="p">(</span><span class="n">query_sets</span><span class="p">,</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">values_by_col</span><span class="p">)</span>
+        <span class="n">queries</span> <span class="o">=</span> <span class="n">FullMarginalQuerySet</span><span class="p">(</span><span class="n">query_sets</span><span class="p">,</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">column_domain_sizes</span><span class="p">)</span>
         <span class="n">queries</span> <span class="o">=</span> <span class="n">queries</span><span class="o">.</span><span class="n">get_canonical_queries</span><span class="p">()</span>
         <span class="n">mnjax</span> <span class="o">=</span> <span class="n">MarkovNetwork</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">values_by_col</span><span class="p">,</span> <span class="n">queries</span><span class="p">)</span>
         <span class="n">suff_stat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">queries</span><span class="o">.</span><span class="n">flatten</span><span class="p">()(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">int_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>

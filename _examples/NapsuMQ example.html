@@ -460,7 +460,7 @@ title="Print to PDF"
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">orig_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int&quot;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">orig_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;category&quot;</span><span class="p">)</span>
 <span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">orig_df</span><span class="o">.</span><span class="n">shape</span>
 </pre></div>
 </div>
@@ -502,48 +502,48 @@ title="Print to PDF"
   <tbody>
     <tr>
       <th>0</th>
-      <td>1</td>
-      <td>0</td>
-      <td>1</td>
-      <td>1</td>
-      <td>1</td>
-      <td>1</td>
+      <td>True</td>
+      <td>False</td>
+      <td>True</td>
+      <td>True</td>
+      <td>True</td>
+      <td>True</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>1</td>
-      <td>0</td>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>0</td>
+      <td>True</td>
+      <td>False</td>
+      <td>True</td>
+      <td>False</td>
+      <td>False</td>
+      <td>False</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>1</td>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>1</td>
-      <td>1</td>
+      <td>True</td>
+      <td>True</td>
+      <td>False</td>
+      <td>False</td>
+      <td>True</td>
+      <td>True</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>1</td>
-      <td>1</td>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>0</td>
+      <td>True</td>
+      <td>True</td>
+      <td>True</td>
+      <td>False</td>
+      <td>False</td>
+      <td>False</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>1</td>
-      <td>0</td>
-      <td>1</td>
+      <td>True</td>
+      <td>False</td>
+      <td>False</td>
+      <td>True</td>
+      <td>False</td>
+      <td>True</td>
     </tr>
     <tr>
       <th>...</th>
@@ -556,48 +556,48 @@ title="Print to PDF"
     </tr>
     <tr>
       <th>9995</th>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>1</td>
-      <td>0</td>
-      <td>1</td>
+      <td>True</td>
+      <td>False</td>
+      <td>False</td>
+      <td>True</td>
+      <td>False</td>
+      <td>True</td>
     </tr>
     <tr>
       <th>9996</th>
-      <td>1</td>
-      <td>1</td>
-      <td>1</td>
-      <td>0</td>
-      <td>1</td>
-      <td>0</td>
+      <td>True</td>
+      <td>True</td>
+      <td>True</td>
+      <td>False</td>
+      <td>True</td>
+      <td>False</td>
     </tr>
     <tr>
       <th>9997</th>
-      <td>1</td>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>1</td>
+      <td>True</td>
+      <td>True</td>
+      <td>False</td>
+      <td>False</td>
+      <td>False</td>
+      <td>True</td>
     </tr>
     <tr>
       <th>9998</th>
-      <td>1</td>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>1</td>
-      <td>1</td>
+      <td>True</td>
+      <td>True</td>
+      <td>False</td>
+      <td>False</td>
+      <td>True</td>
+      <td>True</td>
     </tr>
     <tr>
       <th>9999</th>
-      <td>1</td>
-      <td>1</td>
-      <td>0</td>
-      <td>1</td>
-      <td>1</td>
-      <td>1</td>
+      <td>True</td>
+      <td>True</td>
+      <td>False</td>
+      <td>True</td>
+      <td>True</td>
+      <td>True</td>
     </tr>
   </tbody>
 </table>
@@ -628,24 +628,35 @@ title="Print to PDF"
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>4it [00:00, 6223.00it/s]0:00&lt;?, ?it/s]
-2it [00:00, 10230.01it/s]
-2it [00:00, 12905.55it/s]
-2it [00:00, 13774.40it/s]
-2it [00:00, 7084.97it/s]
-4it [00:00, 5417.25it/s]
-4it [00:00, 8000.58it/s]
-4it [00:00, 8512.03it/s]
-2it [00:00, 7752.87it/s]
-2it [00:00, 6136.51it/s]
-4it [00:00, 3941.09it/s]
-100%|██████████| 12/12 [00:00&lt;00:00, 282.68it/s]
-100%|██████████| 5/5 [00:00&lt;00:00, 62230.03it/s]
-100%|██████████| 6/6 [00:00&lt;00:00, 15060.34it/s]
-sample: 100%|██████████| 2800/2800 [00:27&lt;00:00, 101.81it/s, 31 steps of size 1.95e-01. acc. prob=0.90] 
-sample: 100%|██████████| 2800/2800 [00:02&lt;00:00, 1339.43it/s, 31 steps of size 1.56e-01. acc. prob=0.94]
-sample: 100%|██████████| 2800/2800 [00:02&lt;00:00, 1373.09it/s, 31 steps of size 1.72e-01. acc. prob=0.92]
-sample: 100%|██████████| 2800/2800 [00:01&lt;00:00, 1406.52it/s, 15 steps of size 1.89e-01. acc. prob=0.90]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                                                                                                                                           | 0/12 [00:00&lt;?, ?it/s]
+4it [00:00, 9576.04it/s]
+
+2it [00:00, 27413.75it/s]
+
+2it [00:00, 35098.78it/s]
+
+2it [00:00, 36314.32it/s]
+
+2it [00:00, 40721.40it/s]
+
+4it [00:00, 37786.52it/s]
+
+4it [00:00, 35098.78it/s]
+
+4it [00:00, 42366.71it/s]
+
+2it [00:00, 35696.20it/s]
+
+2it [00:00, 35696.20it/s]
+
+4it [00:00, 39568.91it/s]
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 12/12 [00:00&lt;00:00, 1017.38it/s]
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5/5 [00:00&lt;00:00, 216201.24it/s]
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6/6 [00:00&lt;00:00, 55067.45it/s]
+sample: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:05&lt;00:00, 543.44it/s, 15 steps of size 1.77e-01. acc. prob=0.92]
+sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:00&lt;00:00, 4026.80it/s, 31 steps of size 1.61e-01. acc. prob=0.93]
+sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:00&lt;00:00, 4299.39it/s, 31 steps of size 1.92e-01. acc. prob=0.91]
+sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:00&lt;00:00, 4068.99it/s, 31 steps of size 1.72e-01. acc. prob=0.92]
 </pre></div>
 </div>
 </div>
@@ -700,7 +711,7 @@ sample: 100%|██████████| 2800/2800 [00:01&lt;00:00, 1406.52i
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/645161b6ad30388f4286b4ae249c89bfed71b418d6eac5d4db86e54431b629be.png" src="../_images/645161b6ad30388f4286b4ae249c89bfed71b418d6eac5d4db86e54431b629be.png" />
+<img alt="../_images/32cc348581549a79d094ca5d6c832e772fc48e5dc151f08f38e0181eacd9115c.png" src="../_images/32cc348581549a79d094ca5d6c832e772fc48e5dc151f08f38e0181eacd9115c.png" />
 </div>
 </div>
 </section>
