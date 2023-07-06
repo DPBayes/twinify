@@ -1,8 +1,13 @@
 - master:
+    - changed InferenceModel.fit: added show_progress and return_diagnostics arguments, removed model specific kwargs (breaking)
+        NapsuMQModel.fit and DPVIModel.fit changed accordingly
+    - DPVIResult no longer contains the final ELBO from model fitting (breaking)
+        this is now returned as diagnostic information from DPVIModel.fit if return_diagnostics=True
     - fixed: reused RNG key in NAPSU-MQ data sampling
     - added integers_handler to DataDescription.from_dataframe
         to determine how integer typed columns are handled
     - changed NapsuMqModel.fit to reject integer typed columns (all values must be categorical)
+    - added NapsuMQInferenceConfig to better encapsulate configuration of the NapsuMQ algorithm (breaking)
 
 - 1.0.0:
     - introducing new API centered around twinify.InferenceModel, twinify.InferenceResult
