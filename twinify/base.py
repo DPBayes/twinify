@@ -15,14 +15,20 @@
 
 import abc
 import pandas as pd
-from typing import Union, Optional, Iterable, BinaryIO
+from typing import Union, Optional, Iterable, BinaryIO, Tuple, Any
 import d3p.random
 
 class InferenceModel(metaclass=abc.ABCMeta):
     """ A statistical model to generate privacy-preserving synthetic twins data sets from sensitive data. """
 
     @abc.abstractmethod
-    def fit(self, data: pd.DataFrame, rng: d3p.random.PRNGState, epsilon: float, delta: float, show_progress: bool, **kwargs) -> 'InferenceResult':
+    def fit(self, 
+            data: pd.DataFrame, 
+            rng: d3p.random.PRNGState, 
+            epsilon: float, 
+            delta: float, 
+            show_progress: bool, 
+            return_diagnostics: bool) -> Union['InferenceResult',Tuple['InferenceResult', Any]]:
         """ Compute the parameter posterior (approximation) for a given data set, hyperparameters and privacy bounds.
 
         Args:
@@ -30,8 +36,8 @@ class InferenceModel(metaclass=abc.ABCMeta):
             rng (d3p.random.PRNGState): A seeded state for the d3p.random secure random number generator.
             epsilon (float): Privacy bound ε.
             delta (float): Privacy bound δ.
-            show_progress (bool): Show progress bars.
-            kwargs: Optional (model specific) hyperparameters.
+            show_progress (bool): Display progress bars.
+            return_diagnostics (bool): Return diagnostics from inference.
         """
         pass
 

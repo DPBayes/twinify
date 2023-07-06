@@ -137,7 +137,8 @@ class DPVIModel(InferenceModel):
             rng: d3p.random.PRNGState,
             epsilon: float,
             delta: float,
-            show_progress: bool = True) -> DPVIResult: #, verbose: bool = False
+            show_progress: bool = True,
+            return_diagnostics: bool = False) -> DPVIResult: #, verbose: bool = False
         # TODO: introduce a way for logging at different verbosity levels
         verbose = False
 
@@ -230,13 +231,20 @@ class DPVIModel(InferenceModel):
         bar.close()
 
         params = svi.get_params(svi_state)
-        return DPVIResult(
+        result = DPVIResult(
             self._model, self._guide,
             params,
             PrivacyLevel(epsilon, delta, dp_scale),
-            loss,
             data_description
         )
+
+        if return_diagnostics:
+            diagnostics = {
+                'final_elbo': loss
+            }
+            return result, diagnostics
+        else:
+            return result
 
     @staticmethod
     def num_iterations_for_epochs(num_epochs: int, subsample_ratio: float) -> int:

@@ -46,7 +46,6 @@ class DPVIResult(InferenceResult):
             guide: GuideFunction,
             parameters: Dict[str, ArrayLike],
             privacy_parameters: PrivacyLevel,
-            final_elbo: float,
             data_description: DataDescription,
         ) -> None:
 
@@ -54,7 +53,6 @@ class DPVIResult(InferenceResult):
         self._guide = guide
         self._params = parameters
         self._privacy_level = privacy_parameters
-        self._final_elbo = final_elbo
         self._data_description = data_description
 
     _twinify_model_output_site = '_twinify_output'
@@ -114,7 +112,7 @@ class DPVIResult(InferenceResult):
         ) -> 'InferenceResult':
 
 
-        parameters, privacy_parameters, final_elbo, data_description, observation_sites =\
+        parameters, privacy_parameters, data_description, observation_sites =\
             DPVIResultIO.load_params_from_io(read_io)
 
         if guide is None:
@@ -123,7 +121,7 @@ class DPVIResult(InferenceResult):
                 DPVIModel.DefaultAutoGuideType, observation_sites
             )(model)
 
-        return DPVIResult(model, guide, parameters, privacy_parameters, final_elbo, data_description)
+        return DPVIResult(model, guide, parameters, privacy_parameters, data_description)
 
     @classmethod
     def _is_file_stored_result_from_io(cls, read_io: BinaryIO) -> bool:
@@ -135,7 +133,7 @@ class DPVIResult(InferenceResult):
             observation_sites = self._guide.observation_sites
 
         return DPVIResultIO.store_params_to_io(
-            write_io, self._params, self._privacy_level, self._final_elbo, self._data_description, observation_sites
+            write_io, self._params, self._privacy_level, self._data_description, observation_sites
         )
 
     @property
@@ -156,19 +154,24 @@ class DPVIResult(InferenceResult):
         return self._privacy_level
 
     @property
-    def final_elbo(self) -> float:
-        """ The final ELBO achieved by the inference (on the training data). """
-        return self._final_elbo
-
-    @property
     def data_description(self) -> DataDescription:
         return self._data_description
 
 
 class DPVIResultIO:
+    """
+    Class implementing details for reading/writing the DPVIResult file format.
+
+    CURRENT_IO_VERSION changelog:
+    2:
+        - Removes final_elbo field from stored files (was removed in DPVIResult class)
+        - Compatibility: v2 reads v1 ; v1 cannot read v2.
+    1:
+        - Initial
+    """
 
     IDENTIFIER = "DPVI".encode("utf8")
-    CURRENT_IO_VERSION = 1
+    CURRENT_IO_VERSION = 2
     CURRENT_IO_VERSION_BYTES = CURRENT_IO_VERSION.to_bytes(1, twinify.serialization.ENDIANESS)
 
     @staticmethod
@@ -180,7 +183,7 @@ class DPVIResultIO:
             raise InvalidFileFormatException(DPVIResult, "Stored data does not have correct type identifier.")
 
         current_version = int.from_bytes(read_io.read(1), twinify.serialization.ENDIANESS)
-        if current_version != DPVIResultIO.CURRENT_IO_VERSION:
+        if current_version > DPVIResultIO.CURRENT_IO_VERSION or current_version <= 0:
             raise InvalidFileFormatException(DPVIResult, "Stored data uses an unknown storage format version.")
 
         # parameters = twinify.serialization.read_params(read_io, treedef)
@@ -188,7 +191,6 @@ class DPVIResultIO:
         return (
             stored_data['params'],
             stored_data['privacy_level'],
-            stored_data['final_elbo'],
             stored_data['data_description'],
             stored_data['observation_sites']
         )
@@ -212,7 +214,6 @@ class DPVIResultIO:
             write_io: BinaryIO,
             params: Dict[str, ArrayLike],
             privacy_level: PrivacyLevel,
-            final_elbo: float,
             data_description: DataDescription,
             observation_sites: Optional[Iterable[str]]
         ) -> None:
@@ -222,7 +223,6 @@ class DPVIResultIO:
         data = {
             'params': params,
             'privacy_level': privacy_level,
-            'final_elbo': final_elbo,
             'data_description': data_description,
             'observation_sites': observation_sites,
         }
