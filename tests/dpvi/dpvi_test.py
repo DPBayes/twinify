@@ -142,6 +142,28 @@ class DPVITests(unittest.TestCase):
         self.assertIn('auto_scale', dpvi_fit.parameters)
         self.assertEqual((6,), dpvi_fit.parameters['auto_scale'].shape)
 
+    def test_fit_with_diagnostics(self) -> None:
+        xs_df = self.xs_df
+        epsilon = 4.
+        delta = 1e-6
+
+        rng = d3p.random.PRNGKey(96392153)
+        dpvi_model = DPVIModel(model, clipping_threshold=10., num_epochs=1, subsample_ratio=0.1)
+        dpvi_fit, diagnostics = dpvi_model.fit(xs_df, rng, epsilon, delta, show_progress=True, return_diagnostics=True)
+
+        self.assertEqual(epsilon, dpvi_fit.privacy_level.epsilon)
+        self.assertEqual(delta, dpvi_fit.privacy_level.delta)
+        self.assertTrue(dpvi_fit.privacy_level.dp_noise > 0)
+        self.assertIsNotNone(dpvi_fit.parameters)
+        self.assertEqual(self.data_description, dpvi_fit.data_description)
+
+        self.assertIn('auto_loc', dpvi_fit.parameters)
+        self.assertEqual((6,), dpvi_fit.parameters['auto_loc'].shape)
+        self.assertIn('auto_scale', dpvi_fit.parameters)
+        self.assertEqual((6,), dpvi_fit.parameters['auto_scale'].shape)
+
+        self.assertIsInstance(diagnostics, dict)
+        self.assertIn("final_elbo", diagnostics)
 
     def test_fit_works_silent(self) -> None:
         xs_df = self.xs_df
@@ -224,7 +246,6 @@ class DPVIResultTests(unittest.TestCase):
         }
 
         self.privacy_params = PrivacyLevel(1., 1e-4, 2.1)
-        self.final_elbo = 1.67
 
         self.data_description = DataDescription({
             'first': np.dtype(np.float64),
@@ -235,7 +256,7 @@ class DPVIResultTests(unittest.TestCase):
 
     def test_init(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
+            self.model, self.guide, self.params, self.privacy_params, self.data_description
         )
 
         self.assertTrue(
@@ -244,11 +265,10 @@ class DPVIResultTests(unittest.TestCase):
             )
         )
         self.assertEqual(self.privacy_params, result.privacy_level)
-        self.assertEqual(self.final_elbo, result.final_elbo)
 
     def test_generate(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
+            self.model, self.guide, self.params, self.privacy_params, self.data_description
         )
 
         num_data_per_parameter = 100
@@ -267,7 +287,7 @@ class DPVIResultTests(unittest.TestCase):
 
     def test_generate_single_dataset(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
+            self.model, self.guide, self.params, self.privacy_params, self.data_description
         )
 
         num_data_per_parameter = 100
@@ -284,7 +304,7 @@ class DPVIResultTests(unittest.TestCase):
 
     def test_store_and_load(self) -> None:
         result = DPVIResult(
-            self.model, self.guide, self.params, self.privacy_params, self.final_elbo, self.data_description
+            self.model, self.guide, self.params, self.privacy_params, self.data_description
         )
 
         with tempfile.TemporaryFile("w+b") as f:
@@ -299,7 +319,6 @@ class DPVIResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(self.privacy_params, loaded_result.privacy_level)
-            self.assertEqual(self.final_elbo, loaded_result.final_elbo)
             self.assertEqual(self.data_description, loaded_result.data_description)
 
             result_samples = result.generate(d3p.random.PRNGKey(567), 10, 1)
@@ -314,7 +333,7 @@ class DPVIResultTests(unittest.TestCase):
         guide = LoadableAutoGuide(model, ["ys", "xs", "cats"], AutoDiagonalNormal)
 
         result = DPVIResult(
-            self.model, guide, self.params, self.privacy_params, self.final_elbo, self.data_description
+            self.model, guide, self.params, self.privacy_params, self.data_description
         )
 
         with tempfile.TemporaryFile("w+b") as f:
@@ -329,7 +348,6 @@ class DPVIResultTests(unittest.TestCase):
                 )
             )
             self.assertEqual(self.privacy_params, loaded_result.privacy_level)
-            self.assertEqual(self.final_elbo, loaded_result.final_elbo)
             self.assertEqual(self.data_description, loaded_result.data_description)
 
             result_samples = result.generate(d3p.random.PRNGKey(567), 10, 1)
