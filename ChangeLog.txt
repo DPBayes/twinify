@@ -1,3 +1,9 @@
+- master:
+    - fixed: reused RNG key in NAPSU-MQ data sampling
+    - added integers_handler to DataDescription.from_dataframe
+        to determine how integer typed columns are handled
+    - changed NapsuMqModel.fit to reject integer typed columns (all values must be categorical)
+
 - 1.0.0:
     - introducing new API centered around twinify.InferenceModel, twinify.InferenceResult
     - added NAPSU-MQ noise aware data generation approach
