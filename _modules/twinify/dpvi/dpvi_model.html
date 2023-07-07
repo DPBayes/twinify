@@ -365,8 +365,8 @@ title="Open an issue"
 
 <span class="k">class</span> <span class="nc">SilenceableProgressBar</span><span class="p">:</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">silent</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_silent</span> <span class="o">=</span> <span class="n">silent</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">display</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_silent</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">display</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_silent</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_tqdm</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">total</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;epochs&quot;</span><span class="p">)</span>
 
@@ -442,8 +442,10 @@ title="Open an issue"
             <span class="n">rng</span><span class="p">:</span> <span class="n">d3p</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGState</span><span class="p">,</span>
             <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
             <span class="n">delta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-            <span class="n">silent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-            <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DPVIResult</span><span class="p">:</span>
+            <span class="n">show_progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">return_diagnostics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DPVIResult</span><span class="p">:</span> <span class="c1">#, verbose: bool = False</span>
+        <span class="c1"># TODO: introduce a way for logging at different verbosity levels</span>
+        <span class="n">verbose</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subsample_ratio</span>
         <span class="n">num_epochs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_epochs</span>
@@ -482,7 +484,7 @@ title="Open an issue"
         <span class="n">batch</span> <span class="o">=</span> <span class="n">get_batch</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">batchify_state</span><span class="p">)</span>
         <span class="n">svi_state</span> <span class="o">=</span> <span class="n">svi</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">svi_rng</span><span class="p">,</span> <span class="o">*</span><span class="n">batch</span><span class="p">)</span>
 
-        <span class="n">bar</span> <span class="o">=</span> <span class="n">SilenceableProgressBar</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">,</span> <span class="n">silent</span><span class="p">)</span>
+        <span class="n">bar</span> <span class="o">=</span> <span class="n">SilenceableProgressBar</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">,</span> <span class="n">display</span><span class="o">=</span><span class="n">show_progress</span><span class="p">)</span>
 
         <span class="k">def</span> <span class="nf">is_nan_in_state</span><span class="p">(</span><span class="n">svi_state</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
             <span class="n">params</span> <span class="o">=</span> <span class="n">svi</span><span class="o">.</span><span class="n">get_params</span><span class="p">(</span><span class="n">svi_state</span><span class="p">)</span>
@@ -534,13 +536,20 @@ title="Open an issue"
         <span class="n">bar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
         <span class="n">params</span> <span class="o">=</span> <span class="n">svi</span><span class="o">.</span><span class="n">get_params</span><span class="p">(</span><span class="n">svi_state</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">DPVIResult</span><span class="p">(</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">DPVIResult</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_guide</span><span class="p">,</span>
             <span class="n">params</span><span class="p">,</span>
             <span class="n">PrivacyLevel</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">dp_scale</span><span class="p">),</span>
-            <span class="n">loss</span><span class="p">,</span>
             <span class="n">data_description</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">return_diagnostics</span><span class="p">:</span>
+            <span class="n">diagnostics</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;final_elbo&#39;</span><span class="p">:</span> <span class="n">loss</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="n">diagnostics</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span></div>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">num_iterations_for_epochs</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">subsample_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>

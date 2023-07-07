@@ -351,7 +351,6 @@ title="Open an issue"
             <span class="n">guide</span><span class="p">:</span> <span class="n">GuideFunction</span><span class="p">,</span>
             <span class="n">parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">],</span>
             <span class="n">privacy_parameters</span><span class="p">:</span> <span class="n">PrivacyLevel</span><span class="p">,</span>
-            <span class="n">final_elbo</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
             <span class="n">data_description</span><span class="p">:</span> <span class="n">DataDescription</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 
@@ -359,7 +358,6 @@ title="Open an issue"
         <span class="bp">self</span><span class="o">.</span><span class="n">_guide</span> <span class="o">=</span> <span class="n">guide</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_params</span> <span class="o">=</span> <span class="n">parameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_level</span> <span class="o">=</span> <span class="n">privacy_parameters</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_final_elbo</span> <span class="o">=</span> <span class="n">final_elbo</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_description</span> <span class="o">=</span> <span class="n">data_description</span>
 
     <span class="n">_twinify_model_output_site</span> <span class="o">=</span> <span class="s1">&#39;_twinify_output&#39;</span>
@@ -419,7 +417,7 @@ title="Open an issue"
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;InferenceResult&#39;</span><span class="p">:</span>
 
 
-        <span class="n">parameters</span><span class="p">,</span> <span class="n">privacy_parameters</span><span class="p">,</span> <span class="n">final_elbo</span><span class="p">,</span> <span class="n">data_description</span><span class="p">,</span> <span class="n">observation_sites</span> <span class="o">=</span>\
+        <span class="n">parameters</span><span class="p">,</span> <span class="n">privacy_parameters</span><span class="p">,</span> <span class="n">data_description</span><span class="p">,</span> <span class="n">observation_sites</span> <span class="o">=</span>\
             <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">load_params_from_io</span><span class="p">(</span><span class="n">read_io</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">guide</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -428,7 +426,7 @@ title="Open an issue"
                 <span class="n">DPVIModel</span><span class="o">.</span><span class="n">DefaultAutoGuideType</span><span class="p">,</span> <span class="n">observation_sites</span>
             <span class="p">)(</span><span class="n">model</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">DPVIResult</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">guide</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">privacy_parameters</span><span class="p">,</span> <span class="n">final_elbo</span><span class="p">,</span> <span class="n">data_description</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">DPVIResult</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">guide</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">privacy_parameters</span><span class="p">,</span> <span class="n">data_description</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_is_file_stored_result_from_io</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">read_io</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -440,7 +438,7 @@ title="Open an issue"
             <span class="n">observation_sites</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_guide</span><span class="o">.</span><span class="n">observation_sites</span>
 
         <span class="k">return</span> <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">store_params_to_io</span><span class="p">(</span>
-            <span class="n">write_io</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_final_elbo</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_description</span><span class="p">,</span> <span class="n">observation_sites</span>
+            <span class="n">write_io</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_description</span><span class="p">,</span> <span class="n">observation_sites</span>
         <span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -461,19 +459,24 @@ title="Open an issue"
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_privacy_level</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">final_elbo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot; The final ELBO achieved by the inference (on the training data). &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_final_elbo</span>
-
-    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">data_description</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataDescription</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_description</span></div>
 
 
 <span class="k">class</span> <span class="nc">DPVIResultIO</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class implementing details for reading/writing the DPVIResult file format.</span>
+
+<span class="sd">    CURRENT_IO_VERSION changelog:</span>
+<span class="sd">    2:</span>
+<span class="sd">        - Removes final_elbo field from stored files (was removed in DPVIResult class)</span>
+<span class="sd">        - Compatibility: v2 reads v1 ; v1 cannot read v2.</span>
+<span class="sd">    1:</span>
+<span class="sd">        - Initial</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">IDENTIFIER</span> <span class="o">=</span> <span class="s2">&quot;DPVI&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
-    <span class="n">CURRENT_IO_VERSION</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">CURRENT_IO_VERSION</span> <span class="o">=</span> <span class="mi">2</span>
     <span class="n">CURRENT_IO_VERSION_BYTES</span> <span class="o">=</span> <span class="n">CURRENT_IO_VERSION</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">twinify</span><span class="o">.</span><span class="n">serialization</span><span class="o">.</span><span class="n">ENDIANESS</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
@@ -485,7 +488,7 @@ title="Open an issue"
             <span class="k">raise</span> <span class="n">InvalidFileFormatException</span><span class="p">(</span><span class="n">DPVIResult</span><span class="p">,</span> <span class="s2">&quot;Stored data does not have correct type identifier.&quot;</span><span class="p">)</span>
 
         <span class="n">current_version</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">read_io</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">twinify</span><span class="o">.</span><span class="n">serialization</span><span class="o">.</span><span class="n">ENDIANESS</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">current_version</span> <span class="o">!=</span> <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">CURRENT_IO_VERSION</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">current_version</span> <span class="o">&gt;</span> <span class="n">DPVIResultIO</span><span class="o">.</span><span class="n">CURRENT_IO_VERSION</span> <span class="ow">or</span> <span class="n">current_version</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InvalidFileFormatException</span><span class="p">(</span><span class="n">DPVIResult</span><span class="p">,</span> <span class="s2">&quot;Stored data uses an unknown storage format version.&quot;</span><span class="p">)</span>
 
         <span class="c1"># parameters = twinify.serialization.read_params(read_io, treedef)</span>
@@ -493,7 +496,6 @@ title="Open an issue"
         <span class="k">return</span> <span class="p">(</span>
             <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;params&#39;</span><span class="p">],</span>
             <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;privacy_level&#39;</span><span class="p">],</span>
-            <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;final_elbo&#39;</span><span class="p">],</span>
             <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;data_description&#39;</span><span class="p">],</span>
             <span class="n">stored_data</span><span class="p">[</span><span class="s1">&#39;observation_sites&#39;</span><span class="p">]</span>
         <span class="p">)</span>
@@ -517,7 +519,6 @@ title="Open an issue"
             <span class="n">write_io</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span>
             <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">],</span>
             <span class="n">privacy_level</span><span class="p">:</span> <span class="n">PrivacyLevel</span><span class="p">,</span>
-            <span class="n">final_elbo</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
             <span class="n">data_description</span><span class="p">:</span> <span class="n">DataDescription</span><span class="p">,</span>
             <span class="n">observation_sites</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -527,7 +528,6 @@ title="Open an issue"
         <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="n">params</span><span class="p">,</span>
             <span class="s1">&#39;privacy_level&#39;</span><span class="p">:</span> <span class="n">privacy_level</span><span class="p">,</span>
-            <span class="s1">&#39;final_elbo&#39;</span><span class="p">:</span> <span class="n">final_elbo</span><span class="p">,</span>
             <span class="s1">&#39;data_description&#39;</span><span class="p">:</span> <span class="n">data_description</span><span class="p">,</span>
             <span class="s1">&#39;observation_sites&#39;</span><span class="p">:</span> <span class="n">observation_sites</span><span class="p">,</span>
         <span class="p">}</span>

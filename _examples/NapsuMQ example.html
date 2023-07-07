@@ -428,7 +428,7 @@ title="Print to PDF"
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">d3p</span>
-<span class="kn">from</span> <span class="nn">twinify.napsu_mq.napsu_mq</span> <span class="kn">import</span> <span class="n">NapsuMQModel</span>
+<span class="kn">from</span> <span class="nn">twinify.napsu_mq.napsu_mq</span> <span class="kn">import</span> <span class="n">NapsuMQModel</span><span class="p">,</span> <span class="n">NapsuMQInferenceConfig</span><span class="p">,</span> <span class="n">NapsuMQMCMCConfig</span>
 <span class="kn">from</span> <span class="nn">twinify.napsu_mq</span> <span class="kn">import</span> <span class="n">rubins_rules</span>
 <span class="kn">from</span> <span class="nn">tests.napsu_mq.binary_logistic_regression_generator</span> <span class="kn">import</span> <span class="n">BinaryLogisticRegressionDataGenerator</span>
 <span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
@@ -617,46 +617,30 @@ title="Print to PDF"
 <span class="c1"># We can define column marginal relationships that we want to preserve</span>
 <span class="n">required_marginals</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)]</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">NapsuMQModel</span><span class="p">(</span><span class="n">required_marginals</span><span class="o">=</span><span class="n">required_marginals</span><span class="p">,</span> <span class="n">use_laplace_approximation</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">inference_config</span> <span class="o">=</span> <span class="n">NapsuMQInferenceConfig</span><span class="p">(</span>
+    <span class="n">mcmc_config</span><span class="o">=</span><span class="n">NapsuMQMCMCConfig</span><span class="p">(</span>
+        <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">NapsuMQModel</span><span class="p">(</span>
+    <span class="n">forced_queries_in_automatic_selection</span><span class="o">=</span><span class="n">required_marginals</span><span class="p">,</span>
+    <span class="n">inference_config</span><span class="o">=</span><span class="n">inference_config</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
     <span class="n">data</span><span class="o">=</span><span class="n">orig_df</span><span class="p">,</span>
     <span class="n">rng</span><span class="o">=</span><span class="n">inference_rng</span><span class="p">,</span>
     <span class="n">epsilon</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">delta</span><span class="o">=</span><span class="p">(</span><span class="n">n</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">delta</span><span class="o">=</span><span class="p">(</span><span class="n">n</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)),</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                                                                                                                                           | 0/12 [00:00&lt;?, ?it/s]
-4it [00:00, 9576.04it/s]
-
-2it [00:00, 27413.75it/s]
-
-2it [00:00, 35098.78it/s]
-
-2it [00:00, 36314.32it/s]
-
-2it [00:00, 40721.40it/s]
-
-4it [00:00, 37786.52it/s]
-
-4it [00:00, 35098.78it/s]
-
-4it [00:00, 42366.71it/s]
-
-2it [00:00, 35696.20it/s]
-
-2it [00:00, 35696.20it/s]
-
-4it [00:00, 39568.91it/s]
-100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 12/12 [00:00&lt;00:00, 1017.38it/s]
-100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5/5 [00:00&lt;00:00, 216201.24it/s]
-100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6/6 [00:00&lt;00:00, 55067.45it/s]
-sample: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:05&lt;00:00, 543.44it/s, 15 steps of size 1.77e-01. acc. prob=0.92]
-sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:00&lt;00:00, 4026.80it/s, 31 steps of size 1.61e-01. acc. prob=0.93]
-sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:00&lt;00:00, 4299.39it/s, 31 steps of size 1.92e-01. acc. prob=0.91]
-sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 2800/2800 [00:00&lt;00:00, 4068.99it/s, 31 steps of size 1.72e-01. acc. prob=0.92]
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>sample: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 1800/1800 [00:04&lt;00:00, 366.46it/s, 15 steps of size 1.77e-01. acc. prob=0.92]
+sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1800/1800 [00:00&lt;00:00, 4188.22it/s, 31 steps of size 1.61e-01. acc. prob=0.93]
+sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1800/1800 [00:00&lt;00:00, 4394.20it/s, 15 steps of size 1.92e-01. acc. prob=0.91]
+sample: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 1800/1800 [00:00&lt;00:00, 4159.91it/s, 31 steps of size 1.72e-01. acc. prob=0.92]
 </pre></div>
 </div>
 </div>
@@ -711,7 +695,7 @@ sample: 100%|██████████████████████�
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/32cc348581549a79d094ca5d6c832e772fc48e5dc151f08f38e0181eacd9115c.png" src="../_images/32cc348581549a79d094ca5d6c832e772fc48e5dc151f08f38e0181eacd9115c.png" />
+<img alt="../_images/eb2f3217c6b8c92a49ee319c01301e92a86959d12b8494b152f80ef4cb61d9ea.png" src="../_images/eb2f3217c6b8c92a49ee319c01301e92a86959d12b8494b152f80ef4cb61d9ea.png" />
 </div>
 </div>
 </section>
