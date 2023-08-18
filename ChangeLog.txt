@@ -1,4 +1,6 @@
 - master:
+    - changed FullMarginalQuerySet to raise ValueErrors if features in provided query feature sets do not match features present in data
+    - changed NapsuMQModel to no longer raise an error if forced_queries_in_automatic_selection is None instead of an empty iterable
     - changed InferenceModel.fit: added show_progress and return_diagnostics arguments, removed model specific kwargs (breaking)
         NapsuMQModel.fit and DPVIModel.fit changed accordingly
     - DPVIResult no longer contains the final ELBO from model fitting (breaking)

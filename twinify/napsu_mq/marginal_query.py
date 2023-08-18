@@ -69,6 +69,16 @@ class FullMarginalQuerySet:
 
         self.feature_by_index = list(self.value_counts_by_feature.keys())
 
+        all_features_set = set(self.value_counts_by_feature.keys())
+        covered_features = set.union(*(set(fs) for fs in feature_sets)) if len(feature_sets) > 0 else set()
+        if covered_features != all_features_set:
+            not_covered = all_features_set - covered_features
+            if not_covered:
+                raise ValueError(f"The provided query feature sets (feature_sets) must cover all features in the data. Features not covered: {not_covered}")
+            else:
+                not_exists = covered_features - all_features_set
+                raise ValueError(f"The provided query feature sets (feature_sets) cover features that are not present in the data: {not_exists}.")
+
         self.int_feature_sets = [
             tuple(self.feature_by_index.index(feature) for feature in feature_set)
             for feature_set in self.feature_sets
@@ -202,9 +212,8 @@ class FullMarginalQuerySet:
                     original_clique_queries[original_clique].append(new_query)
 
         canonical_queries = {key: QueryList(queries) for key, queries in original_clique_queries.items()}
-        new_fmqs = FullMarginalQuerySet([], self.value_counts_by_feature)
-        new_fmqs.queries = canonical_queries
-        new_fmqs.feature_sets = list(canonical_queries.keys())
+        new_fmqs = FullMarginalQuerySet(canonical_queries.keys(), self.value_counts_by_feature)
+        new_fmqs.queries = canonical_queries  # TODO: this seems quite hacky here; being able to create FullMarginalQuerySet with pre-made Query objects would be a better way
         return new_fmqs
 
 

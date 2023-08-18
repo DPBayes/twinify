@@ -151,17 +151,9 @@ class CanonicalQueriesTest(unittest.TestCase):
         naive_bayes_cross_queries = FullMarginalQuerySet([(0, 1), (0, 2), (0, 3), (1, 4), (2, 5)], domain.value_counts_by_col)
         naive_bayes_3_way_cross_queries = FullMarginalQuerySet([(0, 1), (0, 2), (0, 3), (1, 4, 5), (2, 5)],
                                                                domain.value_counts_by_col)
-        naive_bayes_3_way_cross_queries_missing = FullMarginalQuerySet([(0, 1), (0, 2), (0, 3), (1, 4, 3)],
-                                                                       domain.value_counts_by_col)
         one_way_marginals = FullMarginalQuerySet([(0,), (1,), (2,), (3,), (4,), (5,)], domain.value_counts_by_col)
-        one_way_marginals_missing = FullMarginalQuerySet([(0,), (1,), (2,), (3,), (4,)], domain.value_counts_by_col)
 
         canon_queries = naive_bayes_3_way_cross_queries.get_canonical_queries().flatten()
-        n_canon_queries = len(canon_queries.queries)
-        rank = self.query_matrix_rank(domain, canon_queries)
-        self.assertEqual(rank, n_canon_queries + 1)
-
-        canon_queries = naive_bayes_3_way_cross_queries_missing.get_canonical_queries().flatten()
         n_canon_queries = len(canon_queries.queries)
         rank = self.query_matrix_rank(domain, canon_queries)
         self.assertEqual(rank, n_canon_queries + 1)
@@ -177,11 +169,38 @@ class CanonicalQueriesTest(unittest.TestCase):
         self.assertEqual(n_canon_queries, 1 + 1 + 2 + 3 + 4 + 5)
         self.assertEqual(rank, n_canon_queries + 1)
 
-        canon_queries = one_way_marginals_missing.get_canonical_queries().flatten()
-        n_canon_queries = len(canon_queries.queries)
-        rank = self.query_matrix_rank(domain, canon_queries)
-        self.assertEqual(n_canon_queries, 1 + 1 + 2 + 3 + 4)
-        self.assertEqual(rank, n_canon_queries + 1)
+
+class FullMarginalQuerySetTests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.value_counts_by_feature = {
+            'A': 3,
+            'B': 3,
+            'C': 2,
+        }
+
+    def test_single_query(self) -> None:
+        feature_sets = [('A', 'B', 'C')]
+        query_set = FullMarginalQuerySet(
+            feature_sets=feature_sets,
+            value_counts_by_feature=self.value_counts_by_feature
+        )
+        self.assertEqual(set(feature_sets), query_set.queries.keys())
+        self.assertEqual(self.value_counts_by_feature, query_set.value_counts_by_feature)
+    
+    def test_incomplete_queries(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"not covered.*C.*"):
+            FullMarginalQuerySet(
+                feature_sets=[('A', 'B'), ('A',), ('D',)],
+                value_counts_by_feature=self.value_counts_by_feature
+            )
+
+    def test_nonexistent_features(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"not present.*D.*"):
+            FullMarginalQuerySet(
+                feature_sets=[('A', 'B'), ('B', 'C'), ('D',)],
+                value_counts_by_feature=self.value_counts_by_feature
+            )
 
 
 if __name__ == "__main__":
