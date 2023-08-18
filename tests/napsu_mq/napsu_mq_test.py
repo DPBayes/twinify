@@ -275,6 +275,36 @@ class TestNapsuMQ(unittest.TestCase):
         with self.assertRaises(ValueError):
             model.fit(data=data, rng=rng, epsilon=1, delta=(n ** (-2)))
 
+    def test_NAPSUMQ_incomplete_queries(self) -> None:
+        n = 4
+
+        data = pd.DataFrame({
+            'A': np.random.randint(500, 1000, size=n),
+            'B': np.random.randint(500, 1000, size=n),
+            'C': np.random.randint(500, 1000, size=n)
+        }, dtype='category')
+
+        rng = d3p.random.PRNGKey(42)
+
+        model = NapsuMQModel(queries=[('A', 'B'), ('A',), ('D',)])
+        with self.assertRaisesRegex(ValueError, r"not covered.*C.*"):
+            model.fit(data=data, rng=rng, epsilon=1, delta=(n ** (-2)))
+
+    def test_NAPSUMQ_nonexistent_features(self) -> None:
+        n = 4
+
+        data = pd.DataFrame({
+            'A': np.random.randint(500, 1000, size=n),
+            'B': np.random.randint(500, 1000, size=n),
+            'C': np.random.randint(500, 1000, size=n)
+        }, dtype='category')
+
+        rng = d3p.random.PRNGKey(42)
+
+        model = NapsuMQModel(queries=[('A', 'B'), ('B', 'C'), ('D',)])
+        with self.assertRaisesRegex(ValueError, r"not present.*D.*"):
+            model.fit(data=data, rng=rng, epsilon=1, delta=(n ** (-2)))
+
 
 class TestNapsuMQResult(unittest.TestCase):
 

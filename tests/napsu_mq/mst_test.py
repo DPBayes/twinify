@@ -15,11 +15,12 @@
 
 import unittest
 
-
 # TODO: write tests
 
+
 class MSTTest(unittest.TestCase):
-    def setUp(self):
+
+    def setUp(self) -> None:
         pass
 
     def test_MST_selection(self):

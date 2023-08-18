@@ -144,7 +144,7 @@ class NapsuMQModel(InferenceModel):
 
     def __init__(
         self, queries: Optional[Iterable[FrozenSet[str]]] = None, 
-        forced_queries_in_automatic_selection: Optional[Iterable[FrozenSet[str]]] = tuple(),
+        forced_queries_in_automatic_selection: Optional[Iterable[FrozenSet[str]]] = None,
         inference_config: NapsuMQInferenceConfig = NapsuMQInferenceConfig(),
     # required_marginals: Iterable[FrozenSet[str]] = tuple()
     ) -> None:
@@ -157,7 +157,7 @@ class NapsuMQModel(InferenceModel):
 
         super().__init__()
         if forced_queries_in_automatic_selection is None:
-            raise ValueError("forced_queries_in_automatic_selection may not be None")
+            forced_queries_in_automatic_selection = tuple()
         self._forced_queries_in_automatic_selection = forced_queries_in_automatic_selection
         self._queries = queries
         self._inference_config = inference_config
